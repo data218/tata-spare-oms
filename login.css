@@ -1,0 +1,163 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body, html {
+  height: 100%;
+  font-family: 'Roboto', sans-serif;
+}
+
+body {
+  background-image: url('public/bg_spares.png');
+  background-size: cover;
+  background-position: center bottom;
+  background-repeat: no-repeat;
+  color: #000;
+  position: relative;
+}
+
+.background-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(to right, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.4) 100%);
+  z-index: 1;
+}
+
+.main-wrapper {
+  position: relative;
+  z-index: 2;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.top-header {
+  display: flex;
+  justify-content: space-between;
+  padding: 30px 40px;
+}
+
+.logo-left {
+  flex: 1;
+}
+
+.tata-motors {
+  font-size: 28px;
+  font-weight: 400;
+  letter-spacing: 1px;
+}
+
+.tata-motors strong {
+  font-weight: 700;
+}
+
+.tagline {
+  font-size: 16px;
+  font-weight: 400;
+  margin-top: 4px;
+}
+
+.welcome-center {
+  flex: 2;
+  text-align: left;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.welcome-center h1 {
+  font-size: 24px;
+  font-weight: 500;
+  margin-bottom: 12px;
+}
+
+.disclaimer {
+  font-size: 11px;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+.logo-right {
+  flex: 1;
+  text-align: right;
+}
+
+.tata-right {
+  font-size: 28px;
+  font-weight: 400;
+}
+
+.tata-right strong {
+  font-weight: 700;
+}
+
+.login-content {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  padding-right: 10%;
+  padding-top: 40px;
+}
+
+.login-box {
+  width: 320px;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  color: #333;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 10px;
+  font-size: 14px;
+  border: 1px solid #ccc;
+  border-radius: 0px;
+  background-color: #fff;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+  outline: none;
+}
+
+.form-group input:focus {
+  border-color: #5b9dd9;
+  box-shadow: 0 0 5px rgba(91, 157, 217, 0.5);
+}
+
+.reset-link {
+  display: block;
+  font-size: 12px;
+  color: #0000EE;
+  text-decoration: underline;
+  margin-bottom: 25px;
+}
+
+.btn-container {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.login-btn {
+  background-color: #4a5c2f;
+  color: #fff;
+  border: none;
+  padding: 10px 25px;
+  font-size: 16px;
+  font-weight: 500;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.login-btn:hover {
+  background-color: #3e4d27;
+}

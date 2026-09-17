@@ -1,0 +1,626 @@
+<!DOCTYPE html><html dir="ltr" lang="en" style="visibility: visible;"><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><meta http-equiv="Content-Language" content="en"><title>Oracle Analytics Interactive Dashboards - PCBU Spares</title><noscript>To use Oracle Analytics, please enable javascript in your browser.</noscript><script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/browserdom.js"></script><script type="text/javascript">try{saw.doFrameBust(0);function sawC2U(s){return "saw.dll?__xyz__".replace("__xyz__",s);}function sawP2U(s){return "saw.dll/__xyz__".replace("__xyz__",s);}function isThisTheBayBridgeOrGolden() { return false;}var sawEmptyHtm="/analytics/res/v-V8L8Skv6BJ8/empty.htm";var obips_fmapId="2z9YtA";var obips_scid="w1NEb73Gzj8wGWNmJJFX";var obips_maxStylesheets=100;var g_LocaleInfo={sDateSeparator:"/",sTimeSeparator:":",sDecimalPoint:".",sThousandsSeparator:",",sAM:"AM",sPM:"PM",b24:false,sDateOrder:"mdy",nFDOW:6,aMonthAbbreviations:["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],aNominitiveMonthNames:["January","February","March","April","May","June","July","August","September","October","November","December"],aDayAbbreviations:["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],aDayNames:["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],nYearPadding:4,nMonthPadding:2,nDayPadding:2,nHourPadding:2,sListSeparator:",",sNegativeNumberTemplate:"-#",sCurrencySymbol:"$"};var obips_seeded_res = [{p:"master/styleproperties.res",v:{exprs:{"activeDataColor":"Dark","dialogHelpPosition":"header","dialogRoundCornerImgsRequired":"false","shuttleButtonSpace":"true","shuttleButtonLabel":"false","shuttleTableCellSpace":"6","shuttleDropdownWidth":"7px","shuttleDropdownHeight":"4px","renderPageTitleAsTab":"false","menubarSeparator":"false","pageShadowBackground":"false","headerRightBorder":"true","headerHelpDropDownImgSrc":"masterDropDownButtonDarkThemeEnabled","headerHelpDropDownLightThemeImgSrc":"masterDropDownButtonDown","headerBrandingGradientImgIsRequired":"false","supportsModernOAC":"true","pageBorderBottomRequired":"false","pageContentOuterDivHeightOffset":"12","tabBarStartCellWidth":"5px","tabBarStartImgRequired":"false","tabBarTabStartImgRequired":"false","tabBarTabEndImgRequired":"false","tabBarBottomBorderBlockerRequired":"true","bihRoundCorner":"false","adminBannerBackground":"false","breadCrumbHeight":"15","accordionRoundCornerImgsRequired":"false","tableSupportsNonOverlappingHorizontalScrollbar":"true"}}}];}catch(e){if (window.console && console.error) console.error('Header script error:' + e.message);}</script><link href="saw.dll/skins/18439484747113799/TML/s_TML/master/custom.css" type="text/css" rel="stylesheet"><link href="/analytics/res/v-V8L8Skv6BJ8/sk_blafp/b_mozilla_4/htmlglobals.css" type="text/css" rel="stylesheet"><noscript><link href="/analytics/res/v-V8L8Skv6BJ8/sk_blafp/b_mozilla_4/noscript.css" type="text/css" rel="stylesheet"></noscript><link href="/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/master.css" type="text/css" rel="stylesheet"><link href="/analytics/res/v-V8L8Skv6BJ8/s_Alta/b_mozilla_4/views.css" type="text/css" rel="stylesheet"><link href="/analytics/res/v-V8L8Skv6BJ8/s_blafp/b_mozilla_4/custom.css" type="text/css" rel="stylesheet"><script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/common.js"></script><script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/viewhelper.js"></script><script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/common/obips.ImportMeFirst.js"></script><script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/common/obips.JavaScriptExtensions.js"></script><script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/common/obips.Global.js"></script><script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/common/ajax.js"></script><script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/views/viewcontroller.js"></script><script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/menu.js"></script><script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/common/obips.Observable.js"></script><script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/common/obips.XMLDOM.js"></script><script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/common/obips.ClientState.js"></script>
+
+<link href="/analytics/res/v-V8L8Skv6BJ8/s_Alta/b_mozilla_4/common.css" type="text/css" rel="stylesheet">
+<link href="saw.dll/skins/18439484747113799/TML/sk_TML/master/customskin.css" type="text/css" rel="stylesheet">
+<link href="/analytics/res/v-V8L8Skv6BJ8/sk_Alta/b_mozilla_4/font_style.css" type="text/css" rel="stylesheet">
+<link href="/analytics/res/v-V8L8Skv6BJ8/s_Alta/generated/commonuicomponents_1.css" type="text/css" rel="stylesheet">
+<link href="/analytics/res/v-V8L8Skv6BJ8/s_blafp/uicomponents/obips.FloatingWindow/obips.FloatingWindow.css" type="text/css" rel="stylesheet">
+
+
+
+
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/common/storage.js"></script>
+
+
+
+
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/common/obips.HTMLDOM.js"></script>
+
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/common/obips.XMLHTTP.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/common/obips.ResourceManager.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/common/obips.BrowserEventFramework.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/common/obips.TabStop.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/common/obips.CSS.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/uicomponents/obips.ScrollablePanel/obips.ScrollablePanel.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/uicomponents/obips.FloatingWindow/obips.FloatingWindow.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/uicomponents/obips.ContextMenu/obips.ContextMenu.js"></script>
+
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/common/ondemandload.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/catalog/catalogbase.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/common/sessioninfos.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/common/launcher.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/header.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/home/customlinks.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/views/eventing/obips.view.touchTapAndLongPressHandler.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/tp/jq/jquery-3.5.1.js"></script>   
+<script type="text/javascript" src="saw.dll/common/saw.header.xml?fmapId=2z9YtA" id="common/saw.header.xml"></script>
+<script>obips.ResourceManager.seedResource({p:"answers/obips.devfeatures.xml",v:{exprs:{"devFeatureSortDialog":false,"devFeatureVHIndent":false,"devFeatureLoadDataSet":false,"devFeatureDeliversLite":false,"devFeatureLiftAndShiftContentDowngrade":false}}});</script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/common/dragdropframework.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/uicomponents/obips.Dialog/obips.Dialog.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/uicomponents/common/obips.TextDialog.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/uicomponents/common/obips.MessageDialog.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/uicomponents/common/obips.BusyDialog.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/downloadguard.js"></script>
+
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/catalog/catalogaction.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/catalog/actionhandlerimpl.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/webserviceproxies/catalogmanager.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/answers/answerscommon.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/uicomponents/obips.BreadCrumbs/obips.BreadCrumbs.js"></script><script type="text/javascript" src="saw.dll/uicomponents/obips.BreadCrumbs/breadcrumb.xml?fmapId=2z9YtA" id="uicomponents/obips.BreadCrumbs/breadcrumb.xml"></script>
+<script>obips.ResourceManager.seedResource({p:"common/saw.sessioninfos.xml",v:{exprs:{"noLogoffUI":false,"syndicate":"","canAccessDashboards":true,"hdrLinkCatalog":true,"hdrLinkOpen":true,"hdrLinkAdvanced":true,"hdrLinkHelp":true,"hdrLinkHome":true,"hdrLinkGSearch":true,"hdrLinkNew":true,"hdrLinkDashboards":true,"hdrLinkSettings":true,"bipKeepAlive":false,"bipWebUrl":"/xmlpserver","biComposerContext":"/bicomposer","matchCase":"on","hasGlobalShared":true,"hasCompanyShared":false,"cloudHomeEnabled":false}}});</script>
+<script type="text/javascript">var tSessionInfos = saw.getSessionInfos();
+tSessionInfos.hasCreatableItem = true;
+tSessionInfos.setUserInfo("JS_3008420", "JS_3008420", "JS_3008420", "/users/js_3008420",
+"JS_3008420", "JS_3008420", false);
+tSessionInfos.privileges.isAdmin = false;
+tSessionInfos.privileges.canActAs = false;
+tSessionInfos.privileges.personalStorage = true;
+saw.catalog.buildTypeCategoryInfos([{"id":"system","name":"System File", "notSearchType":true},{"id":"queryitem1","name":"Analysis"},{"id":"project","name":"Project"},{"id":"customgroup1","name":"Group"},{"id":"calcitem1","name":"Calculated Item"},{"id":"cosavedcolumn1","name":"Column"},{"id":"bipReport","name":"Report"},{"id":"coibot1","name":"Agent"},{"id":"frobject","name":"Financial Reporting"},{"id":"dashboard","name":"Dashboard"},{"id":"bsc","name":"Scorecard", "notSearchType":true},{"id":"cobriefingbook1","name":"Briefing Book"},{"id":"action","name":"Action"},{"id":"globalfilteritem1","name":"Dashboard Prompt"},{"id":"filteritem1","name":"Filter"},{"id":"kpi1","name":"KPI", "notSearchType":true},{"id":"scorecardkpiwatchlist1","name":"KPI Watchlist", "notSearchType":true},{"id":"condition1","name":"Condition"},{"id":".xdm","name":"Data Model"},{"id":".xss","name":"Style Template"},{"id":".xsb","name":"Sub Template"},{"id":"comktgsegment1","name":"Segment", "notSearchType":true},{"id":"comktgsegmenttree1","name":"Segment Tree", "notSearchType":true},{"id":"exportFormat","name":"List Format", "notSearchType":true}]);
+tSessionInfos.user.prefs.userPrefsMap['enableSection508'] = false;
+tSessionInfos.user.prefs.userPrefsMap['defaultAnalysisMode'] = "answers";
+tSessionInfos.user.prefs.userPrefsMap['subjectAreaSortOrder'] = "";
+saw.customlink.setCustomLinks();
+var s_tCloudResources = {
+cloudHelpBaseURL:"http://www.oracle.com/pls/topic/lookup?ctx=reportingcs&id=${mappedid}"};</script><script>obips.ResourceManager.seedResource({p:"common/privileges.xml",v:{exprs:{"canAccessCatalogUI":true,"canAccessCatalogSearchUI":true,"canAccessHomePage":true,"canAccessSimpleSearchField":undefined,"canAccessAdvancedSearchLink":undefined,"canAccessOpenMenu":true,"canAccessNewMenu":true,"canAccessHelpMenu":true,"canAccessDashboardsMenu":true,"canAccessFavoritesMenu":true,"canAccessMyAccountLink":true,"canAccessCustomLinks":true,"canAccessAdministrationMenu":false,"canAccessUserRoleAdmin":false,"canAccessModeler":false,"canManageSessions":false,"canIssueRawSQL":false,"canManageThemes":false,"canToggleMaintenanceMode":true,"canManageUsers":true,"canManagePrivileges":false,"canManageSpatialMetaData":false,"enableClientStorage":true,"enableSessionStorage":true,"enableLocalStorage":true,"enableCloudRepositoryHelp":false,"enableProductTour":false,"enableCloudBieeHome":false,"canReloadMetadata":false,"canLoadDataSet":undefined,"canOpenMetadataDict":false,"canAccessVisualAnalyzer":false,"canInteractInVisualAnalyzer":true}}});</script><script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/common/numeric.js"></script><script type="text/javascript">obips.BreadCrumbs.Manager.getSingleton().addToBreadCrumb('PCBU Spares: PCBU Spares Synopsis', '/shared/PCBU Dealer/_portal/PCBU Spares', false, {"ViewState":"","page":"PCBU Spares Synopsis"});obips.BreadCrumbs.Manager.getSingleton().addPageUnloadHandler();</script><script type="text/javascript">var tabArray = [{name:"PCBU Spares Synopsis", caption:"PCBU Spares Synopsis", descript:""}, {name:"Business Snapshot", caption:"Business Snapshot", descript:""}, {name:"Business Health", caption:"Business Health", descript:""}, {name:"Sales", caption:"Sales", descript:""}, {name:"Procurement", caption:"Procurement", descript:""}, {name:"Inventory Management", caption:"Inventory Management", descript:""}, {name:"Payments", caption:"Payments", descript:""}, {name:"Transactional Reports", caption:"Transactional Reports", descript:""}, {name:"GST", caption:"GST", descript:""}, {name:"Dealer Monitoring", caption:"Dealer Monitoring", descript:""}, {name:"Channel Partner Ordering", caption:"Channel Partner Ordering", descript:""}, {name:"FFR", caption:"FFR", descript:""}, {name:"Servigistics", caption:"Servigistics", descript:""}, {name:"pg_a7e5f92b75165636", caption:"Parts Query", descript:"Parts Query"}];</script>
+<link rel="stylesheet" href="/analytics/res/v-V8L8Skv6BJ8/s_Alta/b_mozilla_4/portalcontent.css" type="text/css">
+
+
+<link rel="stylesheet" href="/analytics/res/v-V8L8Skv6BJ8/s_Alta/b_mozilla_4/menus.css" type="text/css">
+
+<link href="/analytics/res/v-V8L8Skv6BJ8/s_Alta/uicomponents/obips.Toolbar/obips.Toolbar.css" type="text/css" rel="stylesheet">
+<link href="/analytics/res/v-V8L8Skv6BJ8/s_Alta/uicomponents/obips.Accordion/obips.Accordion.css" type="text/css" rel="stylesheet">
+
+<link href="/analytics/res/v-V8L8Skv6BJ8/s_Alta/uicomponents/obips.Container/obips.Container.css" type="text/css" rel="stylesheet">
+
+
+
+
+
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/common/layout.js"></script>
+
+
+
+
+<link href="Missing_views/clipboard_xml.swf" type="application/x-shockwave-flash">
+<script>saw_clipboard_SWF_file_ = 'Missing_views/clipboard_xml.swf';</script>
+<script type="text/javascript">var obibsc = function(){};</script>
+
+
+
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/xmluiframework.js"></script>
+
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/common/AC_OETags.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/common/flashcommon.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/common/clipboard.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/scorecard/obibsc.ImportMeFirst.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/scorecard/model/obibsc.AssessmentEngine.js"></script>
+
+
+
+
+
+
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/common/obips.Clipboard.js"></script>
+
+
+
+
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/common/obips.DataType.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/common/obips.Cookie.js"></script>
+
+
+
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/dashboards/banner.js"></script>
+
+
+
+
+
+
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/uicomponents/common/obips.ExceptionDialog.js"></script>
+
+
+
+
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/webserviceproxies/obips.ConditionService.js"></script>
+
+
+ 
+
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/uicomponents/obips.Tree/obips.Tree.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/catalog/catalogtree.js"></script>
+
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/uicomponents/obips.Toolbar/obips.Toolbar.js"></script> 
+
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/uicomponents/obips.TabBar/obips.TabBar.js"></script><script type="text/javascript" src="saw.dll/uicomponents/obips.TabBar/obips.TabBar.xml?fmapId=2z9YtA" id="uicomponents/obips.TabBar/obips.TabBar.xml"></script>
+
+
+
+
+
+
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/answers/analysis/obips.ColumnInfo.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/answers/analysis/obips.Criteria.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/answers/analysis/obips.ReportMetadata.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/answers/analysis/obips.MetadataUtil.js"></script>
+
+
+
+
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/uicomponents/common/obips.ConfirmDialog.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/uicomponents/common/obips.SoapExceptionDialog.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/deliversShared/obids.namespaceMap.js"></script>
+<script>obips.ResourceManager.seedResource({p:"dashboards/obidash.seed.xml",v:{strings:{"kmsgDashboardPageOptionsMenu":"Page Options","kmsgDashboardPageHelpButton":"Help","kmsgPortalError":"Error","kmsgPortalErrorOKToRetry":"Click OK to retry."},urls:{"popupmenu_ena":"/analytics/res/v-V8L8Skv6BJ8/sk_Alta/dashboard/popupmenu_ena.png","popupmenu_dis":"/analytics/res/v-V8L8Skv6BJ8/sk_Alta/dashboard/popupmenu_dis.png","popupmenu_ovr":"/analytics/res/v-V8L8Skv6BJ8/sk_Alta/dashboard/popupmenu_ovr.png","popupmenu_dwn":"/analytics/res/v-V8L8Skv6BJ8/sk_Alta/dashboard/popupmenu_dwn.png","helpUrlDashboardPage":"http://docs.oracle.com/pls/topic/lookup?ctx=oas_en&id=OASVD-GUID-EC96A9A6-ADC3-4279-882A-497C41887A77","helptopics_dis":"/analytics/res/v-V8L8Skv6BJ8/sk_Alta/common/helptopics_dis.png","helptopics_ena":"/analytics/res/v-V8L8Skv6BJ8/sk_Alta/common/helptopics_ena.png","helptopics_ovr":"/analytics/res/v-V8L8Skv6BJ8/sk_Alta/common/helptopics_ovr.png","helptopics_dwn":"/analytics/res/v-V8L8Skv6BJ8/sk_Alta/common/helptopics_dwn.png"}}});</script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/dashboards/obidash.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/dashboards/action.js"></script>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/dashboards/portalscript.js"></script>
+
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/common/obips.history.js"></script>
+
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/dashboards/personalize.js"></script><script type="text/javascript">function obips_owlsaw_50202_1(){saw.dashboard.initialize();}</script><script type="text/javascript">function obips_owlsaw_50202_2(){obips.views.ViewController.getController('d:dashboard').getClientStateManager()._loadClientStateXml()}</script><script type="text/javascript">function obips_owlsaw_50202_3(){if(saw.header) saw.header.registerSkipToContentEltFinder(saw.dashboard.skipToContentEltFinder);}</script><script type="text/javascript">function obips_owlsaw_50202_4(){obips.history.initialize(null, null);saw.dashboard.reload();}</script><script type="text/javascript">function NQOnLoadEvent(){obips_owlsaw_50202_1();obips_owlsaw_50202_2();obips_owlsaw_50202_3();obips_owlsaw_50202_4();};window.onload=NQOnLoadEvent;</script></head><body class="masterOBIEE PortalBody HTMLBody" lang="EN-IN"><div class="HeaderContainer"><a id="idSkipContentLink" class="HeaderSkipLink" tabindex="-1" href="javascript:saw.header.skipToContent()">Skip to content</a><table cellspacing="0" cellpadding="0" border="0"></table><div class="HeaderBarSeparator"></div><table cellspacing="0" cellpadding="0" border="0" class="masterBrandingArea HeaderTopBar HeaderSecondBarPadding" role="presentation"><tbody><tr><td class="OACHeaderTitleBarCell"><span class="OACHeaderTitleBarLeft"><img src="/analytics/res/v-V8L8Skv6BJ8/s_Alta/common/dashboard_48.png" class="pageLogo"></span><span class="HeaderBrandingCustomCell"><img border="0" src="saw.dll/skins/18439484747113799/TML/sk_TML/master/images/tata-insight-logo.png" alt="Oracle Logo"></span><span class="masterH1 HeaderTitleBarCaption" id="idHeaderTitleCell" tabindex="0" title="PCBU Spares" aria-label="PCBU Spares" role="label">PCBU Spares</span><span class="HeaderTitleBarIcons" style="display: none;"></span><span class="HeaderTitleBarRight"></span></td><td class="HeaderNavBarCell"><div align="right"><table cellspacing="0" cellpadding="0" border="0" role="presentation"><tbody><tr><td class="HeaderAlerts"><span></span></td><td class="HeaderNavMenubarCell"><div class="HeaderMenubar"><table cellspacing="0" cellpadding="0" border="0" role="presentation"><tbody><tr><td><span class="MenuSpacingCell"></span></td><td title="Home"><span id="home" class="masterMenuButton masterMenuButtonGlobal OACMasterMenuButtonText uberBarTextMenuButtonSpan" role="button" aria-label="Home" tabindex="0"><span class="HeaderMenuBarText HeaderMenuNavBarText" role="presentation"><span role="presentation">Home</span></span></span></td><td><span class="MenuSpacingCell"></span></td><td title="Catalog"><span id="catalog" class="masterMenuButton masterMenuButtonGlobal OACMasterMenuButtonText uberBarTextMenuButtonSpan" role="button" aria-label="Catalog" tabindex="0"><span class="HeaderMenuBarText HeaderMenuNavBarText" role="presentation"><span role="presentation">Catalog</span></span></span></td><td><span class="MenuSpacingCell"></span></td><td title="Favorites"><span id="favorites" class="masterMenuButton masterMenuButtonGlobal OACMasterMenuButtonText uberBarTextMenuButtonSpan" aria-haspopup="true" role="button" aria-label="Favorites drop down menu" tabindex="0" style="padding-right: 0px;"><span class="HeaderMenuBarText HeaderMenuNavBarText" role="presentation"><span role="presentation">Favorites</span></span><span class="HeaderMenuBarDropdown" role="presentation"><img src="/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/dropdown_dwn.png" alt="Dropdown menu" role="presentation"></span></span></td><td><span class="MenuSpacingCell"></span></td><td title="Dashboards"><span id="dashboard" class="masterMenuButton masterMenuButtonGlobal OACMasterMenuButtonText uberBarTextMenuButtonSpan" aria-haspopup="true" role="button" aria-label="Dashboard drop down menu" tabindex="0" style="padding-right: 0px;"><span class="HeaderMenuBarText HeaderMenuNavBarText" role="presentation"><span role="presentation">Dashboards</span></span><span class="HeaderMenuBarDropdown" role="presentation"><img src="/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/dropdown_dwn.png" alt="Dropdown menu" role="presentation"></span></span></td><td><span class="MenuSpacingCell"></span></td><td title="Create"><span id="new" class="masterMenuButton masterMenuButtonGlobal OACMasterMenuButtonText uberBarTextMenuButtonSpan" aria-haspopup="true" role="button" aria-label="New drop down menu" tabindex="0" style="padding-right: 0px;"><span class="HeaderMenuBarText HeaderMenuNavBarText" role="presentation"><span role="presentation">Create</span></span><span class="HeaderMenuBarDropdown" role="presentation"><img src="/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/dropdown_dwn.png" alt="Dropdown menu" role="presentation"></span></span></td><td><span class="MenuSpacingCell"></span></td><td title="Open"><span id="open" class="masterMenuButton masterMenuButtonGlobal OACMasterMenuButtonText uberBarTextMenuButtonSpan" aria-haspopup="true" role="button" aria-label="Open drop down menu" tabindex="0" style="padding-right: 0px;"><span class="HeaderMenuBarText HeaderMenuNavBarText" role="presentation"><span role="presentation">Open</span></span><span class="HeaderMenuBarDropdown" role="presentation"><img src="/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/dropdown_dwn.png" alt="Dropdown menu" role="presentation"></span></span></td></tr></tbody></table></div></td><td class="HeaderPageStatus" title="My Profile"><img alt="" src="/analytics/res/v-V8L8Skv6BJ8/s_Alta/common/avatar_lighttheme.png"></td></tr></tbody></table></div></td><td class="PageOuterBodyTopRightTd"><span class="PageOuterBodyTopRight"></span></td></tr></tbody></table></div><script type="text/javascript">obips.history.create();</script><form style="position: absolute; top: -1000px; display:none;"><textarea id="saw_historystorage_textArea_id" tabindex="-1" style="position: absolute; top: -1000px; display:none;"></textarea></form><script>var dashboardCurrentStyle = "TML" </script><div id="idEmbedFrameDiv" src="saw.dll?ReloadDashboard&amp;Page=PCBU%20Spares%20Synopsis&amp;AppliedNewState=false&amp;PageIdentifier=r66r8r8q23risji6&amp;DMSMetricsDashboardPageName=%2fshared%2fPCBU%20Dealer%2f_portal%2fPCBU%20Spares%20%3a%20PCBU%20Spares%20Synopsis&amp;InFrameset=false&amp;PageDelayedState=NotDelayed&amp;Style=TML&amp;Caller=Dashboard&amp;Done=Dashboard&amp;PortalPath=%2fshared%2fPCBU%20Dealer%2f_portal%2fPCBU%20Spares&amp;ContainerID=d%3adashboard%7ep%3ar66r8r8q23risji6&amp;Embed=true&amp;ViewState=he409khv7u9schlbf9s64ncese" style=""></div><script>obips.ResourceManager.seedResource({p:"master/master.xml",v:{urls:{"masterBusyDark":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/busy_dark.gif","masterBusyLight":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/busy_light.gif","masterConnectedDark":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/connected_dark.png","masterConnectedLight":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/connected_light.png","masterConnectingDark":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/connecting_dark.gif","masterConnectingLight":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/connecting_light.gif","masterDisconnectedDark":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/disconnected_dark.gif","masterDisconnectedStaticDark":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/disconnected_dark_static.gif","masterDisconnectedLight":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/disconnected_light.gif","masterDisconnectedStaticLight":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/disconnected_light_static.gif","masterReconnectingDark":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/reconnecting_dark.gif","masterReconnectingLight":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/reconnecting_light.gif","masterClockPositive":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/clock_positive.gif","masterCloseButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/close_ena.png","masterCloseButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/close_ovr.png","masterCloseButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/close_dwn.png","masterCloseButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/close_dis.png","masterColorPickerButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/colorpicker_ena.png","masterColorPickerTextButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/colorpickertxt_ena.png","masterChangedFieldIndicator":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/updatedvalue_status.png","masterDialogResizeImage":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/dialog-resize.png","masterDisclosureCollapsedButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/disclosecollapsed_ena.png","masterDisclosureCollapsedButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/disclosecollapsed_ovr.png","masterDisclosureCollapsedButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/disclosecollapsed_dwn.png","masterDisclosureExpandedButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/discloseexpanded_ena.png","masterDisclosureExpandedButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/discloseexpanded_ovr.png","masterDisclosureExpandedButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/discloseexpanded_dwn.png","masterDisclosureExpandedSmall":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/disclosure_expanded.png","masterDisclosureCollapsedSmall":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/disclosure_collapsed.png","masterDisclosureDashboardCollapsedButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/uicomponents/dashboard/disclosecollapsed_ena.png","masterDisclosureDashboardExpandedButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/uicomponents/dashboard/discloseexpanded_ena.png","masterDropDownButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/dropdown_ena.png","masterDropDownButtonDarkThemeEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/dropdowndarktheme_ena.png","masterDropDownButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/dropdown_dis.png","masterDropDownButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/dropdown_dwn.png","masterDropDownButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/dropdown_dwn.png","masterDropDownButtonCompactEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/compactBS_symbol_ena.png","masterDropDownButtonCompactDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/compactBS_symbol_dis.png","masterDropDownButtonCompactHover":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/compactBS_symbol_ovr.png","masterDropDownButtonCompactDown":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/compactBS_symbol_dwn.png","masterHelpSmallButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/helptopics_sm_ena.png","masterHelpSmallButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/helptopics_sm_ovr.png","masterHelpSmallButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/helptopics_sm_dwn.png","masterHelpHeader":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/help_16.png","masterHelpHeaderLightTheme":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/help_16_lighttheme.png","masterHelpHeaderDarkTheme":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/help_16_darktheme.png","masterLOVSearchButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/lov_ena.png","masterLOVSearchButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/lov_dis.png","masterLOVSearchButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/lov_ovr.png","masterLOVSearchButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/lov_dwn.png","masterNewObjectButtonEnabled":"Missing_master/new_ena.png","masterNextButtonEnabled":"Missing_master/next_n.png","masterNextButtonHover":"Missing_master/next_mo.png","masterNextButtonDown":"Missing_master/next_md.png","masterPreviousButtonEnabled":"Missing_master/previous_n.png","masterPreviousButtonHover":"Missing_master/previous_mo.png","masterPreviousButtonDown":"Missing_master/previous_md.png","masterOverflowLeftButtonEnabled":"Missing_master/conv_l_ena.png","masterOverflowLeftButtonHover":"Missing_master/conv_l_ovr.png","masterOverflowLeftButtonDown":"Missing_master/conv_l_dwn.png","masterOverflowLeftGlobalButtonEnabled":"Missing_master/conv_l_ena_dk.png","masterOverflowLeftGlobalButtonHover":"Missing_master/conv_l_ovr_dk.png","masterOverflowRightButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/conv_r_ena.png","masterOverflowRightButtonHover":"Missing_master/conv_r_ovr.png","masterOverflowRightButtonDown":"Missing_master/conv_r_dwn.png","masterOverflowRightGlobalButtonEnabled":"Missing_master/conv_r_ena_dk.png","masterOverflowRightGlobalButtonHover":"Missing_master/conv_r_ovr_dk.png","masterPivotViewSelFilterCHPHB":"Missing_master/sel_filter_chphb.png","masterPivotViewSelFilterCHPHC":"Missing_master/sel_filter_chphc.png","masterPivotViewSelFilterCHPHT":"Missing_master/sel_filter_chpht.png","masterPivotViewSelFilterRHPHC":"Missing_master/sel_filter_rhphc.png","masterPivotViewSelFilterRHPHL":"Missing_master/sel_filter_rhphl.png","masterPivotViewSelFilterRHPHR":"Missing_master/sel_filter_rhphr.png","masterRedoButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/redo_ena.png","masterRedoButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/redo_dis.png","masterRedoButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/redo_ovr.png","masterRedoButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/redo_dwn.png","masterSelectDropDownEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/selectdropdown_ena.png","masterSelectDropDownHover":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/selectdropdown_ovr.png","masterSelectDropDownDown":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/selectdropdown_dwn.png","masterSelectDropDownDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/selectdropdown_dis.png","masterScrollUpButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/scroll_arrow_up_ena.png","masterScrollUpButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/scroll_arrow_up_dis.png","masterScrollUpButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/scroll_arrow_up_dwn.png","masterScrollDownButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/scroll_arrow_down_ena.png","masterScrollDownButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/scroll_arrow_down_dis.png","masterScrollDownButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/scroll_arrow_down_dwn.png","masterQuickQueryEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/quickquery_ena.png","masterQuickQueryHover":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/quickquery_ovr.png","masterQuickQueryDown":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/quickquery_dwn.png","masterShuttleDownButtonEnabled":"Missing_master/shuttledown_ena.png","masterShuttleDownButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttledown_dis.png","masterShuttleDownButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttledown_ovr.png","masterShuttleDownButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttledown_dwn.png","masterShuttleDownAllButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttledownall_ena.png","masterShuttleDownAllButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttledownall_dis.png","masterShuttleDownAllButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttledownall_ovr.png","masterShuttleDownAllButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttledownall_dwn.png","masterShuttleLeftButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttleleft_ena.png","masterShuttleLeftButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttleleft_dis.png","masterShuttleLeftButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttleleft_ovr.png","masterShuttleLeftButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttleleft_dwn.png","masterShuttleLeftAllButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttleleftall_ena.png","masterShuttleLeftAllButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttleleftall_dis.png","masterShuttleLeftAllButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttleleftall_ovr.png","masterShuttleLeftAllButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttleleftall_dwn.png","masterShuttleRightButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttleright_ena.png","masterShuttleRightButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttleright_dis.png","masterShuttleRightButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttleright_ovr.png","masterShuttleRightButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttleright_dwn.png","masterShuttleRightAllButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttlerightall_ena.png","masterShuttleRightAllButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttlerightall_dis.png","masterShuttleRightAllButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttlerightall_ovr.png","masterShuttleRightAllButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttlerightall_dwn.png","masterShuttleUpButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttleup_ena.png","masterShuttleUpButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttleup_dis.png","masterShuttleUpButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttleup_ovr.png","masterShuttleUpButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttleup_dwn.png","masterShuttleUpAllButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttleupall_ena.png","masterShuttleUpAllButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttleupall_dis.png","masterShuttleUpAllButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttleupall_ovr.png","masterShuttleUpAllButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttleupall_dwn.png","masterShuttleOrderBottomButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttlereorderbottom_ena.png","masterShuttleOrderBottomButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttlereorderbottom_dis.png","masterShuttleOrderBottomButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttlereorderbottom_ovr.png","masterShuttleOrderBottomButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttlereorderbottom_dwn.png","masterShuttleOrderDownButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttlereorderdown_ena.png","masterShuttleOrderDownButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttlereorderdown_dis.png","masterShuttleOrderDownButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttlereorderdown_ovr.png","masterShuttleOrderDownButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttlereorderdown_dwn.png","masterShuttleOrderTopButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttlereordertop_ena.png","masterShuttleOrderTopButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttlereordertop_dis.png","masterShuttleOrderTopButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttlereordertop_ovr.png","masterShuttleOrderTopButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttlereordertop_dwn.png","masterShuttleOrderUpButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttlereorderup_ena.png","masterShuttleOrderUpButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttlereorderup_dis.png","masterShuttleOrderUpButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttlereorderup_ovr.png","masterShuttleOrderUpButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/shuttlereorderup_dwn.png","masterSliderHorizontalThumb":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/sliderhorizontalthumb.png","masterSliderHorizontalIncreaseEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/sliderhorizontalincrease_ena.png","masterSliderHorizontalIncreaseHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/sliderhorizontalincrease_ovr.png","masterSliderHorizontalIncreaseDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/sliderhorizontalincrease_dwn.png","masterSliderHorizontalIncreaseDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/sliderhorizontalincrease_dis.png","masterSliderHorizontalDecreaseEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/sliderhorizontaldecrease_ena.png","masterSliderHorizontalDecreaseHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/sliderhorizontaldecrease_ovr.png","masterSliderHorizontalDecreaseDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/sliderhorizontaldecrease_dwn.png","masterSliderHorizontalDecreaseDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/sliderhorizontaldecrease_dis.png","masterSliderVerticalThumb":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/sliderverticalthumb.png","masterSliderVerticalIncreaseEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/sliderverticalincrease_ena.png","masterSliderVerticalIncreaseHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/sliderverticalincrease_ovr.png","masterSliderVerticalDecreaseEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/sliderverticaldecrease_ena.png","masterSliderVerticalDecreaseHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/sliderverticaldecrease_ovr.png","masterLabelSliderVerticalThumb":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/labelsliderverticalthumb.png","masterSliderHorizontalPlayEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/play_ena.png","masterSliderHorizontalPlayHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/play_ovr.png","masterSliderHorizontalPlayDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/play_dwn.png","masterSliderHorizontalPlayDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/play_dis.png","masterSliderHorizontalPauseEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/pause_ena.png","masterSliderHorizontalPauseHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/pause_ovr.png","masterSliderHorizontalPauseDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/pause_dwn.png","masterSortDescendingEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/sortdes_ena.png","masterSortDescendingHover":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/sortdes_ovr.png","masterSortDescendingSelected":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/sortdes_sel.png","masterSortAscendingEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/sortasc_ena.png","masterSortAscendingHover":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/sortasc_ovr.png","masterSortAscendingSelected":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/sortasc_sel.png","masterSpinboxDownEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/spinboxdown_ena.png","masterSpinboxDownHovered":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/spinboxdown_ovr.png","masterSpinboxDownDown":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/spinboxdown_dwn.png","masterSpinboxDownDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/spinboxdown_dis.png","masterSpinboxUpEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/spinboxup_ena.png","masterSpinboxUpHovered":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/spinboxup_ovr.png","masterSpinboxUpDown":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/spinboxup_dwn.png","masterSpinboxUpDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/spinboxup_dis.png","masterSplitterHorizontalCollapseButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/splitterhc.png","masterSplitterHorizontalCollapseButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/splitterhc_ovr.png","masterSplitterHorizontalRestoreButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/splitterhr.png","masterSplitterHorizontalRestoreButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/splitterhr_ovr.png","masterSplitterVerticalCollapseButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/splittervc.png","masterSplitterVerticalCollapseButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/splittervc_ovr.png","masterSplitterVerticalRestoreButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/splittervr.png","masterSplitterVerticalRestoreButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/splittervr_ovr.png","masterTimeDateButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/timedate_ena.png","masterTimeDateButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/timedate_dis.png","masterTimeDateButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/timedate_ovr.png","masterTimeDateButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/timedate_dwn.png","masterToolbarSeparator":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/toolbarseparator.png","masterToolbarSeparatorDarkThere":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/master/toolbarseparatordarktheme.png","masterTrainUnvisitedEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/train_unvisited_ena.png","masterTrainUnvisitedHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/train_unvisited_ovr.png","masterTrainUnvisitedDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/train_unvisited_dwn.png","masterTrainVisitedEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/train_visited_ena.png","masterTrainVisitedHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/train_visited_ovr.png","masterTrainVisitedDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/train_visited_dwn.png","masterTrainLineEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/trainline_ena.png","masterTrainLineVisited":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/trainline_visited.png","masterTrainActive":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/train_active.png","masterUndoButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/undo_ena.png","masterUndoButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/undo_dis.png","masterUndoButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/undo_ovr.png","masterUndoButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/undo_dwn.png","masterAlignCenterButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/centeralign_ena.png","masterAlignCenterButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/centeralign_dis.png","masterAlignCenterButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/centeralign_ovr.png","masterAlignCenterButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/centeralign_dwn.png","masterAlignFullButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/fullalign_ena.png","masterAlignFullButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/fullalign_dis.png","masterAlignFullButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/fullalign_ovr.png","masterAlignFullButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/fullalign_dwn.png","masterAlignLeftButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/leftalign_ena.png","masterAlignLeftButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/leftalign_dis.png","masterAlignLeftButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/leftalign_ovr.png","masterAlignLeftButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/leftalign_dwn.png","masterAlignRightButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/rightalign_ena.png","masterAlignRightButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/rightalign_dis.png","masterAlignRightButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/rightalign_ovr.png","masterAlignRightButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/rightalign_dwn.png","masterBoldButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/bold_ena.png","masterBoldButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/bold_dis.png","masterBoldButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/bold_ovr.png","masterBoldButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/bold_dwn.png","masterBulletListButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/bullist_ena.png","masterBulletListButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/bullist_dis.png","masterBulletListButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/bullist_ovr.png","masterBulletListButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/bullist_dwn.png","masterIndentButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/indent_ena.png","masterIndentButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/indent_dis.png","masterIndentButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/indent_ovr.png","masterIndentButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/indent_dwn.png","masterItalicButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/italic_ena.png","masterItalicButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/italic_dis.png","masterItalicButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/italic_ovr.png","masterItalicButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/italic_dwn.png","masterLinkButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/link_ena.png","masterLinkButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/link_dis.png","masterLinkButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/link_ovr.png","masterLinkButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/link_dwn.png","masterNumberedListButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/numlist_ena.png","masterNumberedListButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/numlist_dis.png","masterNumberedListButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/numlist_ovr.png","masterNumberedListButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/numlist_dwn.png","masterStrikethroughButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/strikethrough_ena.png","masterStrikethroughButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/strikethrough_dis.png","masterStrikethroughButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/strikethrough_ovr.png","masterStrikethroughButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/strikethrough_dwn.png","masterSubscriptButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/subscript_ena.png","masterSubscriptButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/subscript_dis.png","masterSubscriptButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/subscript_ovr.png","masterSubscriptButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/subscript_dwn.png","masterSuperscriptButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/superscript_ena.png","masterSuperscriptButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/superscript_dis.png","masterSuperscriptButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/superscript_ovr.png","masterSuperscriptButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/superscript_dwn.png","masterUnderlineButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/underline_ena.png","masterUnderlineButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/underline_dis.png","masterUnderlineButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/underline_ovr.png","masterUnderlineButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/underline_dwn.png","masterUnIndentButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/unindent_ena.png","masterUnIndentButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/unindent_dis.png","masterUnIndentButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/unindent_ovr.png","masterUnIndentButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/unindent_dwn.png","masterUnLinkButtonEnabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/unlink_ena.png","masterUnLinkButtonDisabled":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/unlink_dis.png","masterUnLinkButtonHover":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/unlink_ovr.png","masterUnLinkButtonDown":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/unlink_dwn.png","masterRemoveFilterSmallButtonEnabled":"Missing_master/removefilter_sm_ena.png","masterRemoveFilterSmallButtonDisabled":"Missing_master/removefilter_sm_dis.png","masterRemoveFilterSmallButtonHover":"Missing_master/removefilter_sm_ovr.png","masterRemoveFilterSmallButtonDown":"Missing_master/removefilter_sm_dwn.png","masterTimelineScrollDownEnabled":"Missing_master/timeline_scroll_down.png","masterTimelineScrollDownDisabled":"Missing_master/timeline_scroll_down_dis.png","masterTimelineScrollDownHover":"Missing_master/timeline_scroll_down_ovr.png","masterTimelineScrollDownDown":"Missing_master/timeline_scroll_down_dwn.png","masterTimelineScrollLeftEnabled":"Missing_master/timeline_scroll_left.png","masterTimelineScrollLeftDisabled":"Missing_master/timeline_scroll_left_dis.png","masterTimelineScrollLeftHover":"Missing_master/timeline_scroll_left_ovr.png","masterTimelineScrollLeftDown":"Missing_master/timeline_scroll_left_dwn.png","masterTimelineScrollRightEnabled":"Missing_master/timeline_scroll_right.png","masterTimelineScrollRightDisabled":"Missing_master/timeline_scroll_right_dis.png","masterTimelineScrollRightHover":"Missing_master/timeline_scroll_right_ovr.png","masterTimelineScrollRightDown":"Missing_master/timeline_scroll_right_dwn.png","masterTimelineScrollUpEnabled":"Missing_master/timeline_scroll_up.png","masterTimelineScrollUpDisabled":"Missing_master/timeline_scroll_up_dis.png","masterTimelineScrollUpHover":"Missing_master/timeline_scroll_up_ovr.png","masterTimelineScrollUpDown":"Missing_master/timeline_scroll_up_dwn.png","masterMessageTransferAnimation":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/master/chattransferring_lg_qualifier.gif"}}});</script><script type="text/javascript">obips.ResourceManager.seedResource({p:"common/privileges.xml",v:{exprs:{"canAccessCatalogUI":true,"canAccessCatalogSearchUI":true,"canAccessHomePage":true,"canAccessSimpleSearchField":undefined,"canAccessAdvancedSearchLink":undefined,"canAccessOpenMenu":true,"canAccessNewMenu":true,"canAccessHelpMenu":true,"canAccessDashboardsMenu":true,"canAccessFavoritesMenu":true,"canAccessMyAccountLink":true,"canAccessCustomLinks":true,"canAccessAdministrationMenu":false,"canAccessUserRoleAdmin":false,"canAccessModeler":false,"canManageSessions":false,"canIssueRawSQL":false,"canManageThemes":false,"canToggleMaintenanceMode":true,"canManageUsers":true,"canManagePrivileges":false,"canManageSpatialMetaData":false,"enableClientStorage":true,"enableSessionStorage":true,"enableLocalStorage":true,"enableCloudRepositoryHelp":false,"enableProductTour":false,"enableCloudBieeHome":false,"canReloadMetadata":false,"canLoadDataSet":undefined,"canOpenMetadataDict":false,"canAccessVisualAnalyzer":false,"canInteractInVisualAnalyzer":true}}});saw.header.alertsNode = "";
+saw.header.Branding.customTheme = new saw.header.Branding.Custom('TML', 'saw.dll/skins/18439484747113799/TML/sk_TML/master/images/tata-insight-logo.png',
+'', 'tata-insight-logo.png', '',
+'', false, false);saw.header.renderHeader(null, 'PCBU Spares', '', '',
+{'Oracle Analytics': 'http://docs.oracle.com/pls/topic/lookup?ctx=oas_en&id=analytics-server-books', 'Oracle Analytics Publisher': "saw.dll?xmlpObjectTasks" + '&Action=help'}, '', 'common/dashboard_48_img', '');saw.getSessionInfos().portalPath='/shared/PCBU Dealer/_portal/PCBU Spares';</script><script type="text/javascript">obidash.pageIdentifier = 'r66r8r8q23risji6';obidash.canSaveSelectionForMe = true;</script><div id="idPersonalizationMenu" class="NQWMenu" onmouseover="NQWMenuMouseOver(event)" onmouseout="NQWMenuMouseOut(event)" href="javascript:void(null)" menuinit="" sdir="right"><table cellspacing="0" class="menuShadowWrapper">
+<tbody><tr><td rowspan="2" colspan="2" class="masterMenu shadowMenuCell"><a id="idPagePrint" class="masterMenuItem NQWMenuItem NQWMenuItemWIconMixin NQWMenuItemOption" href="javascript:void(null)" onclick="return false;" onmouseover="saw.dashboard.DisplayLayouts(event, 'idDashboardPrintDisplayLayoutMenu', '/shared/PCBU Dealer/_portal/PCBU Spares', 'PCBU Spares Synopsis', 'true', 'pdf');"><table class="MenuItemTable" cellspacing="0" cellpadding="0"><tbody><tr><td class="MenuItemIconCell"><img border="0" src="/analytics/res/v-V8L8Skv6BJ8/sk_Alta/catalog/print_ena.png" alt="Printer Image"></td><td class="MenuItemTextCell">Print</td><td class="MenuItemRightArrowCell"><img src="/analytics/res/v-V8L8Skv6BJ8/s_Alta/uicomponents/obips.ContextMenu/openSubmenu_n.png" alt="Print Right Arrow Image" border="0"></td></tr></tbody></table></a><a id="idPageExportToExcel" class="masterMenuItem NQWMenuItem NQWMenuItemWIconMixin NQWMenuItemOption" href="javascript:void(null)" onclick="return false;" onmouseover="saw.dashboard.DisplayLayouts(event, 'idDashboardExportToExcelMenu', '/shared/PCBU Dealer/_portal/PCBU Spares', 'PCBU Spares Synopsis', 'true', 'excel');"><table class="MenuItemTable" cellspacing="0" cellpadding="0"><tbody><tr><td class="MenuItemIconCell"><img border="0" src="/analytics/res/v-V8L8Skv6BJ8/sk_Alta/catalog/xlsfile_ena.png" alt="Excel Image"></td><td class="MenuItemTextCell">Export to Excel</td><td class="MenuItemRightArrowCell"><img src="/analytics/res/v-V8L8Skv6BJ8/s_Alta/uicomponents/obips.ContextMenu/openSubmenu_n.png" alt="Print Right Arrow Image" border="0"></td></tr></tbody></table></a><a id="idPageRefresh" class="masterMenuItem NQWMenuItem NQWMenuItemWIconMixin NQWMenuItemOption" href="javascript:void(null)" onclick="RefreshPage();return false;"><table class="MenuItemTable" cellspacing="0" cellpadding="0"><tbody><tr><td class="MenuItemIconCell"><img border="0" src="/analytics/res/v-V8L8Skv6BJ8/sk_Alta/common/refresh_ena.png" alt="Refresh Image"></td><td class="MenuItemTextCell" colspan="2">Refresh</td></tr></tbody></table></a><a id="idAddToBriefingBook" class="masterMenuItem NQWMenuItem NQWMenuItemWIconMixin NQWMenuItemOption" href="javascript:void(null)" onclick="PopupBBWindow(event, 'PCBU Spares Synopsis', '', false, 'saw.dll?SaveOffline&amp;PortalPath=%2fshared%2fPCBU%20Dealer%2f_portal%2fPCBU%20Spares&amp;Page=PCBU%20Spares%20Synopsis&amp;Action=Print&amp;PageId=r66r8r8q23risji6');"><table class="MenuItemTable" cellspacing="0" cellpadding="0"><tbody><tr><td class="MenuItemIconCell"><img border="0" src="/analytics/res/v-V8L8Skv6BJ8/sk_Alta/catalog/addbriefingbook_ena.png" alt="Add To Briefing Book"></td><td class="MenuItemTextCell" colspan="2">Add To Briefing Book</td></tr></tbody></table></a>
+<a id="idLinkToThisPage" class="masterMenuItem NQWMenuItem NQWMenuItemWIconMixin NQWMenuItemOption" href="javascript:void(null)" onclick="return linkToPage(true);"><table class="MenuItemTable" cellspacing="0" cellpadding="0"><tbody><tr><td class="MenuItemIconCell">&nbsp;</td><td class="MenuItemTextCell" colspan="2">Create Bookmark Link</td></tr></tbody></table></a>
+<a id="idGetPURL" class="masterMenuItem NQWMenuItem NQWMenuItemWIconMixin NQWMenuItemOption" href="javascript:void(null)" onclick="SetHint(); return false;"><table class="MenuItemTable" cellspacing="0" cellpadding="0"><tbody><tr><td class="MenuItemIconCell">&nbsp;</td><td class="MenuItemTextCell" colspan="2">Create Prompted Link</td></tr></tbody></table></a><div class="NQWMenuItemSeparator"></div><div id="idApplySavedSelectionsMenuItem">
+<a class="masterMenuItem NQWLeftMenuItem NQWMenuItemWIconMixin NQWMenuItemOption" href="javascript:void(null)" onclick="return false;" onmouseover="saw.menuItemMouseOver(event,'idSavedSelectionsMenu','saveSettingDisplay');"><table class="MenuItemTable" cellspacing="0" cellpadding="0"><tbody><tr><td class="MenuItemIconCell">&nbsp;</td><td class="MenuItemTextCell">Apply Saved Customization</td><td class="MenuItemRightArrowCell"><img src="/analytics/res/v-V8L8Skv6BJ8/s_Alta/uicomponents/obips.ContextMenu/openSubmenu_n.png" alt="Right Arrow Image" border="0"></td></tr></tbody></table></a></div>
+<a id="idSavingSelectionsMenuItem" class="masterMenuItem NQWMenuItem NQWMenuItemWIconMixin NQWMenuItemOption" href="javascript:void(null)" onclick="obidash.SaveCustomizationDialog.open(); return false;"><table class="MenuItemTable" cellspacing="0" cellpadding="0"><tbody><tr><td class="MenuItemIconCell">&nbsp;</td><td class="MenuItemTextCell" colspan="2">Save Current Customization...</td></tr></tbody></table></a><a id="idEditSavedSelectionsMenuItem" class="masterMenuItem NQWMenuItem NQWMenuItemWIconMixin NQWMenuItemOption" href="javascript:void(null)" onclick="saw.dashboard.loadEditCustomizationHeader(); return false;"><table class="MenuItemTable" cellspacing="0" cellpadding="0"><tbody><tr><td class="MenuItemIconCell">&nbsp;</td><td class="MenuItemTextCell" colspan="2">Edit Saved Customizations...</td></tr></tbody></table></a><a id="idClearMySelectionsMenuItem" class="masterMenuItem NQWMenuItem NQWMenuItemWIconMixin NQWMenuItemOption" href="javascript:void(null)" onclick="return PersonalizationEditor.removeDefaultSelection(false)"><table class="MenuItemTable" cellspacing="0" cellpadding="0"><tbody><tr><td class="MenuItemIconCell">&nbsp;</td><td class="MenuItemTextCell" colspan="2">Clear My Customization</td></tr></tbody></table></a></td>
+<td class="shadowOffsetCellRight"></td>      </tr>
+<tr><td class="shadowRight">&nbsp;</td></tr><tr><td class="shadowOffsetCellBottom"></td><td class="shadowBottom">&nbsp;</td><td class="shadowCorner"></td></tr>      </tbody></table></div><div id="idDashboardPrintDisplayLayoutMenu" class="NQWMenu" onmouseover="NQWMenuMouseOver(event)" onmouseout="NQWMenuMouseOut(event)" href="javascript:void(null)" submenuinit="" sdir="left"><table cellspacing="0" class="menuShadowWrapper">
+<tbody><tr><td rowspan="2" colspan="2" class="masterMenu shadowMenuCell"><a class="masterMenuItem NQWMenuItem NQWMenuItemWIconMixin" name="printdisplaylayouts" href="javascript:void(null)" onclick="return PortalPrint('/shared/PCBU Dealer/_portal/PCBU Spares', 'PCBU Spares Synopsis', true, 'pdf');"><table class="MenuItemTable" cellspacing="0" cellpadding="0"><tbody><tr><td class="MenuItemIconCell"><img alt="" src="/analytics/res/v-V8L8Skv6BJ8/sk_Alta/catalog/printtopdf_ena.png"></td><td class="MenuItemTextCell">Default Layout</td></tr></tbody></table></a></td>
+<td class="shadowOffsetCellRight"></td>      </tr>
+<tr><td class="shadowRight">&nbsp;</td></tr><tr><td class="shadowOffsetCellBottom"></td><td class="shadowBottom">&nbsp;</td><td class="shadowCorner"></td></tr>      </tbody></table></div>
+<div id="idDashboardPrintManageLayoutMenu" class="NQWMenu" onmouseover="NQWMenuMouseOver(event)" onmouseout="NQWMenuMouseOut(event)" href="javascript:void(null)" submenuinit="" sdir="left"><table cellspacing="0" class="menuShadowWrapper">
+<tbody><tr><td rowspan="2" colspan="2" class="masterMenu shadowMenuCell"><a class="masterMenuItem NQWMenuItem NQWMenuItemWIconMixin" name="printeditlayouts" href="javascript:void(null)" onclick="return ExportDashboardToBIP('/shared/PCBU Dealer/_portal/PCBU Spares', 'PCBU Spares Synopsis', true);"><table class="MenuItemTable" cellspacing="0" cellpadding="0"><tbody><tr><td class="MenuItemIconCell"><img alt="" src="/analytics/res/v-V8L8Skv6BJ8/sk_Alta/catalog/printtopdf_ena.png"></td><td class="MenuItemTextCell">Edit Layouts...</td></tr></tbody></table></a><a class="masterMenuItem NQWMenuItem NQWMenuItemWIconMixin" name="printeditlayouts" href="javascript:void(null)" onclick="return false;"><table class="MenuItemTable" cellspacing="0" cellpadding="0"><tbody><tr><td class="MenuItemIconCell"><img alt="" src="/analytics/res/v-V8L8Skv6BJ8/sk_Alta/catalog/printtopdf_ena.png"></td><td class="MenuItemTextCell">Remove Layouts</td></tr></tbody></table></a><a class="masterMenuItem NQWMenuItem NQWMenuItemWIconMixin" name="printnewlayouts" href="javascript:void(null)" onclick="return false;"><table class="MenuItemTable" cellspacing="0" cellpadding="0"><tbody><tr><td class="MenuItemIconCell"><img alt="" src="/analytics/res/v-V8L8Skv6BJ8/sk_Alta/catalog/printtohtml_ena.png"></td><td class="MenuItemTextCell">New Layouts...</td></tr></tbody></table></a></td>
+<td class="shadowOffsetCellRight"></td>      </tr>
+<tr><td class="shadowRight">&nbsp;</td></tr><tr><td class="shadowOffsetCellBottom"></td><td class="shadowBottom">&nbsp;</td><td class="shadowCorner"></td></tr>      </tbody></table></div>
+<div id="idDashboardExportToExcelMenu" class="NQWMenu" onmouseover="NQWMenuMouseOver(event)" onmouseout="NQWMenuMouseOut(event)" href="javascript:void(null)" submenuinit="" sdir="left"><table cellspacing="0" class="menuShadowWrapper">
+<tbody><tr><td rowspan="2" colspan="2" class="masterMenu shadowMenuCell"><a class="masterMenuItem NQWMenuItem NQWMenuItemWIconMixin" name="currentPage" href="javascript:void(null)" onclick="return saw.dashboard.exportToExcel('/shared/PCBU Dealer/_portal/PCBU Spares', 'PCBU Spares Synopsis', true);"><table class="MenuItemTable" cellspacing="0" cellpadding="0"><tbody><tr><td class="MenuItemIconCell"><img alt="" src="/analytics/res/v-V8L8Skv6BJ8/sk_Alta/catalog/exporttoexcel_ena.png"></td><td class="MenuItemTextCell">Export Current Page</td></tr></tbody></table></a><a class="masterMenuItem NQWMenuItem NQWMenuItemWIconMixin" name="entireDashboard" href="javascript:void(null)" onclick="return saw.dashboard.exportToExcel('/shared/PCBU Dealer/_portal/PCBU Spares', 'PCBU Spares Synopsis', false);"><table class="MenuItemTable" cellspacing="0" cellpadding="0"><tbody><tr><td class="MenuItemIconCell"><img alt="" src="/analytics/res/v-V8L8Skv6BJ8/sk_Alta/catalog/exporttoexcel_ena.png"></td><td class="MenuItemTextCell">Export Entire Dashboard</td></tr></tbody></table></a></td>
+<td class="shadowOffsetCellRight"></td>      </tr>
+<tr><td class="shadowRight">&nbsp;</td></tr><tr><td class="shadowOffsetCellBottom"></td><td class="shadowBottom">&nbsp;</td><td class="shadowCorner"></td></tr>      </tbody></table></div><div id="idSavedSelectionsMenu" class="NQWMenu" onmouseover="NQWMenuMouseOver(event)" onmouseout="NQWMenuMouseOut(event)" href="javascript:void(null)" submenuinit="PersonalizationEditor.getSavedSelectionsMenu" sdir="left"><table cellspacing="0" class="menuShadowWrapper">
+<tbody><tr><td rowspan="2" colspan="2" class="masterMenu shadowMenuCell">Loading</td>
+<td class="shadowOffsetCellRight"></td>      </tr>
+<tr><td class="shadowRight">&nbsp;</td></tr><tr><td class="shadowOffsetCellBottom"></td><td class="shadowBottom">&nbsp;</td><td class="shadowCorner"></td></tr>      </tbody></table></div>
+
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/common/componentheader.js"></script><span id="sawruler" style="display:none;visibility:hidden;white-space:nowrap;"></span> 
+<div class="OACMasterGlobalLayer ComponentHeader"><div id="idComponentHeaderContainerDiv" class="ComponentHeaderContainerDiv"><table cellspacing="0" cellpadding="0" border="0" class="masterPrimaryLayer ComponentHeaderTable 
+">
+<tbody><tr><td class="ComponentLevelTabbarOuterDiv"><div id="idComponentLevelTabbarOuterDiv"><div class="tabAreaContainer"><table class="tabBar" width="100%" cellpadding="0px" cellspacing="0px" style="table-layout: fixed;"><tbody><tr><td class="secondaryTabBarSpacer tabBarTableCellStartWidth tabImageStart" style="width: 0px;"><img src="/analytics/res/v-V8L8Skv6BJ8/s_blafp/uicomponents/obips.TabBar/overflow_left_ena.png" alt="More Tab" class="obipsTabBarOverflow" style="display: none;"></td><td class="secondaryTabBarSpacer"><div style="overflow: hidden;"><table border="0" cellspacing="0" cellpadding="0"><tbody><tr><td><table cellpadding="0" cellspacing="0" border="0" class="masterH3 masterTabBarTabSecondarySelected secondaryTabSelected tabContainerSelected" id="dashboard_page_0_tab"><tbody><tr><td title="PCBU Spares Synopsis"><div tabindex="0" title="PCBU Spares Synopsis">PCBU Spares Synopsis</div></td></tr></tbody></table><div class="masterTabBarTabBottomBorderBlocker" style="display: block; left: 20px; width: 148px;"></div></td><td><table cellpadding="0" cellspacing="0" border="0" class="masterH3 masterTabBarTabSecondaryEnabled secondaryTabEnabled tabContainer" id="dashboard_page_1_tab"><tbody><tr><td title="Business Snapshot"><div tabindex="0" title="Business Snapshot">Business Snapshot</div></td></tr></tbody></table><div class="masterTabBarTabBottomBorderBlocker" style="display: none;"></div></td><td><table cellpadding="0" cellspacing="0" border="0" class="masterH3 masterTabBarTabSecondaryEnabled secondaryTabEnabled tabContainer" id="dashboard_page_2_tab"><tbody><tr><td title="Business Health"><div tabindex="0" title="Business Health">Business Health</div></td></tr></tbody></table><div class="masterTabBarTabBottomBorderBlocker" style="display: none;"></div></td><td><table cellpadding="0" cellspacing="0" border="0" class="masterH3 masterTabBarTabSecondaryEnabled secondaryTabEnabled tabContainer" id="dashboard_page_3_tab"><tbody><tr><td title="Sales"><div tabindex="0" title="Sales">Sales</div></td></tr></tbody></table><div class="masterTabBarTabBottomBorderBlocker" style="display: none;"></div></td><td><table cellpadding="0" cellspacing="0" border="0" class="masterH3 masterTabBarTabSecondaryEnabled secondaryTabEnabled tabContainer" id="dashboard_page_4_tab"><tbody><tr><td title="Procurement"><div tabindex="0" title="Procurement">Procurement</div></td></tr></tbody></table><div class="masterTabBarTabBottomBorderBlocker" style="display: none;"></div></td><td><table cellpadding="0" cellspacing="0" border="0" class="masterH3 masterTabBarTabSecondaryEnabled secondaryTabEnabled tabContainer" id="dashboard_page_5_tab"><tbody><tr><td title="Inventory Management"><div tabindex="0" title="Inventory Management">Inventory Management</div></td></tr></tbody></table><div class="masterTabBarTabBottomBorderBlocker" style="display: none;"></div></td><td><table cellpadding="0" cellspacing="0" border="0" class="masterH3 masterTabBarTabSecondaryEnabled secondaryTabEnabled tabContainer" id="dashboard_page_6_tab"><tbody><tr><td title="Payments"><div tabindex="0" title="Payments">Payments</div></td></tr></tbody></table><div class="masterTabBarTabBottomBorderBlocker" style="display: none;"></div></td><td><table cellpadding="0" cellspacing="0" border="0" class="masterH3 masterTabBarTabSecondaryEnabled secondaryTabEnabled tabContainer" id="dashboard_page_7_tab"><tbody><tr><td title="Transactional Reports"><div tabindex="0" title="Transactional Reports">Transactional Reports</div></td></tr></tbody></table><div class="masterTabBarTabBottomBorderBlocker" style="display: none;"></div></td><td><table cellpadding="0" cellspacing="0" border="0" class="masterH3 masterTabBarTabSecondaryEnabled secondaryTabEnabled tabContainer" id="dashboard_page_8_tab"><tbody><tr><td title="GST"><div tabindex="0" title="GST">GST</div></td></tr></tbody></table><div class="masterTabBarTabBottomBorderBlocker" style="display: none;"></div></td><td><table cellpadding="0" cellspacing="0" border="0" class="masterH3 masterTabBarTabSecondaryEnabled secondaryTabEnabled tabContainer" id="dashboard_page_9_tab"><tbody><tr><td title="Dealer Monitoring"><div tabindex="0" title="Dealer Monitoring">Dealer Monitoring</div></td></tr></tbody></table><div class="masterTabBarTabBottomBorderBlocker" style="display: none;"></div></td><td><table cellpadding="0" cellspacing="0" border="0" class="masterH3 masterTabBarTabSecondaryEnabled secondaryTabEnabled tabContainer" id="dashboard_page_10_tab"><tbody><tr><td title="Channel Partner Ordering"><div tabindex="0" title="Channel Partner Ordering">Channel Partner Ordering</div></td></tr></tbody></table><div class="masterTabBarTabBottomBorderBlocker" style="display: none;"></div></td><td><table cellpadding="0" cellspacing="0" border="0" class="masterH3 masterTabBarTabSecondaryEnabled secondaryTabEnabled tabContainer" id="dashboard_page_11_tab"><tbody><tr><td title="FFR"><div tabindex="0" title="FFR">FFR</div></td></tr></tbody></table><div class="masterTabBarTabBottomBorderBlocker" style="display: none;"></div></td><td><table cellpadding="0" cellspacing="0" border="0" class="masterH3 masterTabBarTabSecondaryEnabled secondaryTabEnabled tabContainer" id="dashboard_page_12_tab"><tbody><tr><td title="Servigistics"><div tabindex="0" title="Servigistics">Servigistics</div></td></tr></tbody></table><div class="masterTabBarTabBottomBorderBlocker" style="display: none;"></div></td><td><table cellpadding="0" cellspacing="0" border="0" class="masterH3 masterTabBarTabSecondaryEnabled secondaryTabEnabled tabContainer" id="dashboard_page_13_tab"><tbody><tr><td title="Parts Query"><div tabindex="0" title="Parts Query">Parts Query</div></td></tr></tbody></table><div class="masterTabBarTabBottomBorderBlocker" style="display: none;"></div></td></tr></tbody></table></div></td><td class="secondaryTabBarSpacer obipsTabBarToolbarCell DashTabsToolbarCell"><img src="/analytics/res/v-V8L8Skv6BJ8/s_blafp/uicomponents/obips.TabBar/overflow_right_ena.png" alt="More Tab" class="obipsTabBarOverflow" style="display: inline;"></td></tr></tbody></table><div class="masterSecondaryLayer secondaryContentRegion" style="display: none;"></div></div></div></td>
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/uicomponents/obips.ToolbarHeader/obips.ToolbarHeader.js"></script><script type="text/javascript" src="saw.dll/uicomponents/obips.ToolbarHeader/obips.ToolbarHeader.xml?fmapId=2z9YtA" id="uicomponents/obips.ToolbarHeader/obips.ToolbarHeader.xml"></script>
+
+
+
+<script type="text/javascript" src="/analytics/res/v-V8L8Skv6BJ8/b_mozilla/uicomponents/obips.UberBar/obips.UberBar.js"></script><td class="ComponentHeaderBackground ComponentHeaderPageOptions" id="idPageOptionTd" style="width:100%;">
+<div id="idPageOptions" class="SecondaryTabbarBottomBorder "><div class="masterBackground uberBarMainDiv" id="uberBar" style="background-color: transparent; border-style: none; white-space: nowrap;"><span tabindex="0" id="uberBar__overflowButton" role="button" aria-haspopup="true" class="masterOverflowRightButton obipsUberBarButtonOverflowSpan" title="Show More Buttons" aria-disabled="true" style="display: none;"></span><span tabindex="0" id="uberBar_dashboardpageoptions" role="button" aria-haspopup="true" class="masterToolbarIconButtonEnabled uberBarButtonSpan ComponentHeaderUberBarButtonSpan" title="Page Options"><img class="uberBarButtonIconImg" id="uberBar_dashboardpageoptions_image" alt="Page Options" src="/analytics/res/v-V8L8Skv6BJ8/sk_Alta/dashboard/popupmenu_ena.png"></span><span tabindex="0" id="uberBar_help" role="button" class="masterToolbarButton uberBarButtonSpan ComponentHeaderUberBarButtonSpan" title="Help"><img class="uberBarButtonIconImg ComponentHeaderUberBarImg" id="uberBar_help_image" alt="Help" title="Help" role="button" src="/analytics/res/v-V8L8Skv6BJ8/sk_Alta/common/helptopics_ena.png"></span></div></div>
+</td><td class="ComponentHeaderBackground PageBodyTopRightTd" style="width:100%;">
+<div style="width:6px;" class="PageBodyTopRight  "></div></td><td class="ComponentHeaderBackground PageBodyTopRightTd" style="width:11px;"><div class="HeaderBorderRight  "></div></td></tr></tbody></table></div>  
+<table cellspacing="0" cellpadding="0" border="0" style="table-layout:fixed;width:100%" class="masterPrimaryLayer PrimaryTabTable">
+<tbody><tr>
+<td style="width:4px" class="PrimaryTabbarLeftBorder"></td><td><div id="PageContentOuterDiv" class="masterSecondaryLayer PageContentOuterDiv 
+ PageWithTabsContentOuterDiv PageContentBodyDiv" style="height: 657px;">
+<table cellspacing="0" cellpadding="0" border="0" style="width:100%;table-layout:fixed;">
+<tbody><tr>
+<td class="SecondaryTabbarLeftBorder"></td><td style="width:100%"><script>obips.ResourceManager.seedResource({p:"uicomponents/obips.UberBar/obips.UberBar.xml",v:{strings:{"kmsgUICUberBarShowMoreButtons":"Show More Buttons"},urls:{"overflow_n":"/analytics/res/v-V8L8Skv6BJ8/s_blafp/uicomponents/obips.UberBar/overflow_n.png","radioGroupMenuOption":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/uicomponents/obips.UberBar/status_bullet.png","tickMenuOption":"/analytics/res/v-V8L8Skv6BJ8/s_Alta/uicomponents/obips.UberBar/menuOptionTick.gif"}}});</script><script type="text/javascript">saw.dashboard.createComponentHeader(tabArray, '0', '0', true, true, "/shared/PCBU Dealer/_portal/PCBU Spares/PCBU Spares Synopsis");</script><div id="DashboardPageContentDiv" class="DashboardPageContentDiv" style="height: 657px; overflow: auto;"><script type="text/javascript">saw.dashboard.createSubPages(null, '0', true, "/shared/PCBU Dealer/_portal/PCBU Spares/PCBU Spares Synopsis");saw.dashboard.initializeLayout();</script><script type="text/javascript">obidash.bDashboardPageDelayExecution = false;</script><div id="DashboardErrorDiv" class="DashboardPageWarningBar" style="display:none"></div><table class="PageTable" width="100%" cellspacing="0"><tbody><tr style="height:100%;"><td class="PageColumnCell" valign="top" style="height:100%;"><div style=""><table class="ColumnTable" cellspacing="0">
+<script type="text/javascript">if (saw.dashboard) saw.dashboard.addReportId('d:dashboard~p:r66r8r8q23risji6~s:ki9bja9tnhee1em8');</script><tbody><tr><td>
+<div class="SectionDiv" id="Embedd:dashboard~p:r66r8r8q23risji6~s:ki9bja9tnhee1em8" style="" headeron="" minimized="false" rendered="false">
+<table class="masterTertiaryLayer SectionTable" cellspacing="0" cellpadding="0" style="" id="sectiontable_d:dashboard~p:r66r8r8q23risji6~s:ki9bja9tnhee1em8"> 
+<tbody><tr>
+<td style="">
+<div id="d:dashboard~p:r66r8r8q23risji6~s:ki9bja9tnhee1em8Contents" style="">
+<table style="width:100%; height:100%;">
+
+<script type="text/javascript">if (saw.dashboard) saw.dashboard.addSimpleObjectId('d:dashboard~p:r66r8r8q23risji6~s:ki9bja9tnhee1em8~h:c673qmpe6n7o6arp');</script>
+<tbody><tr height="100%"><td valign="top" class="htmlText" colspan="2" style="" id="EmbedViewd:dashboard~p:r66r8r8q23risji6~s:ki9bja9tnhee1em8~h:c673qmpe6n7o6arp">
+
+
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<meta name="Generator" content="Microsoft Word 11 (filtered)">
+<title>PCBU Spares Synopsis</title>
+<style>
+<!--
+ /* Font Definitions */
+ @font-face
+	{font-family:Calibri;
+	panose-1:2 15 5 2 2 2 4 3 2 4;}
+ /* Style Definitions */
+ p.MsoNormal, li.MsoNormal, div.MsoNormal
+	{margin:0cm;
+	margin-bottom:.0001pt;
+	font-size:12.0pt;
+	font-family:"Times New Roman";}
+@page Section1
+	{size:595.3pt 841.9pt;
+	margin:72.0pt 90.0pt 72.0pt 90.0pt;}
+div.Section1
+	{page:Section1;}
+-->
+</style>
+
+
+
+
+
+<div class="Section1">
+
+<table class="MsoNormalTable" border="0" cellspacing="0" cellpadding="0" width="1393" style="width:1044.75pt;margin-left:-.75pt;border-collapse:collapse">
+ <tbody><tr style="height:18.75pt">
+  <td width="1393" nowrap="" colspan="4" valign="bottom" style="width:1044.75pt;
+  padding:0cm 5.4pt 0cm 5.4pt;height:18.75pt">
+  <p class="MsoNormal" align="center" style="text-align:center"><b><span style="font-size:13.0pt;font-family:Calibri;color:#3366FF">PCBU Dealer Spares
+  Synopsis</span></b></p>
+  </td>
+ </tr>
+ <tr style="height:18.75pt">
+  <td width="654" nowrap="" valign="bottom" style="width:490.45pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="16" nowrap="" valign="bottom" style="width:11.8pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="137" nowrap="" valign="bottom" style="width:110.5pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="576" nowrap="" valign="bottom" style="width:432.0pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+ </tr>
+ <tr style="height:18.75pt">
+  <td width="654" nowrap="" valign="bottom" style="width:490.45pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="16" nowrap="" valign="bottom" style="width:11.8pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="137" nowrap="" valign="bottom" style="width:110.5pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="576" nowrap="" valign="bottom" style="width:432.0pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+ </tr>
+ <tr style="height:18.75pt">
+  <td width="654" nowrap="" valign="bottom" style="width:490.45pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><b><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">Business Snapshot</span></b></p>
+  </td>
+  <td width="16" nowrap="" valign="bottom" style="width:11.8pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="137" nowrap="" valign="bottom" style="width:110.5pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="576" nowrap="" valign="bottom" style="width:432.0pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><b><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">Inventory Management</span></b></p>
+  </td>
+ </tr>
+ <tr style="height:18.75pt">
+  <td width="654" nowrap="" valign="bottom" style="width:490.45pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">Provides Current month Sales, Purchase and Inventory Valuation
+  Details</span></p>
+  </td>
+  <td width="16" nowrap="" valign="bottom" style="width:11.8pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="137" nowrap="" valign="bottom" style="width:110.5pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="576" nowrap="" valign="bottom" style="width:432.0pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">Provides Summary of Current Inventory valuation analysis </span></p>
+  </td>
+ </tr>
+ <tr style="height:18.75pt">
+  <td width="654" nowrap="" valign="bottom" style="width:490.45pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="16" nowrap="" valign="bottom" style="width:11.8pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="137" nowrap="" valign="bottom" style="width:110.5pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="576" nowrap="" valign="bottom" style="width:432.0pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+ </tr>
+ <tr style="height:18.75pt">
+  <td width="654" nowrap="" valign="bottom" style="width:490.45pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><b><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">Business Health </span></b></p>
+  </td>
+  <td width="16" nowrap="" valign="bottom" style="width:11.8pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="137" nowrap="" valign="bottom" style="width:110.5pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="576" nowrap="" valign="bottom" style="width:432.0pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><b><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">Payment</span></b></p>
+  </td>
+ </tr>
+ <tr style="height:18.75pt">
+  <td width="654" nowrap="" valign="bottom" style="width:490.45pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">Provides Organization's Sales details, Purchase details, </span></p>
+  </td>
+  <td width="16" nowrap="" valign="bottom" style="width:11.8pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="137" nowrap="" valign="bottom" style="width:110.5pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="576" nowrap="" valign="bottom" style="width:432.0pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">Provides Outstanding Ageing details</span></p>
+  </td>
+ </tr>
+ <tr style="height:18.75pt">
+  <td width="654" nowrap="" valign="bottom" style="width:490.45pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">Opening and Closing Inventory Valuations for the current
+  fiscal year</span></p>
+  </td>
+  <td width="16" nowrap="" valign="bottom" style="width:11.8pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="137" nowrap="" valign="bottom" style="width:110.5pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="576" nowrap="" valign="bottom" style="width:432.0pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+ </tr>
+ <tr style="height:18.75pt">
+  <td width="654" nowrap="" valign="bottom" style="width:490.45pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="16" nowrap="" valign="bottom" style="width:11.8pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="137" nowrap="" valign="bottom" style="width:110.5pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="576" nowrap="" valign="bottom" style="width:432.0pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+ </tr>
+ <tr style="height:18.75pt">
+  <td width="654" nowrap="" valign="bottom" style="width:490.45pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><b><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">Sales</span></b></p>
+  </td>
+  <td width="16" nowrap="" valign="bottom" style="width:11.8pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="137" nowrap="" valign="bottom" style="width:110.5pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="576" nowrap="" valign="bottom" style="width:432.0pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><b><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">Transactional Report</span></b></p>
+  </td>
+ </tr>
+ <tr style="height:18.75pt">
+  <td width="654" nowrap="" valign="bottom" style="width:490.45pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">Provides Customer wise Sales, Executive wise Sales, </span></p>
+  </td>
+  <td width="16" nowrap="" valign="bottom" style="width:11.8pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="137" nowrap="" valign="bottom" style="width:110.5pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="576" nowrap="" valign="bottom" style="width:432.0pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">Provides Sales, Procurement, Inventory and Payment Outstanding
+  Details</span></p>
+  </td>
+ </tr>
+ <tr style="height:18.75pt">
+  <td width="654" nowrap="" valign="bottom" style="width:490.45pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">Overall Sales and Workshop Consumption Report</span></p>
+  </td>
+  <td width="16" nowrap="" valign="bottom" style="width:11.8pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="137" nowrap="" valign="bottom" style="width:110.5pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="576" nowrap="" valign="bottom" style="width:432.0pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+ </tr>
+ <tr style="height:18.75pt">
+  <td width="654" nowrap="" valign="bottom" style="width:490.45pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="16" nowrap="" valign="bottom" style="width:11.8pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="137" nowrap="" valign="bottom" style="width:110.5pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="576" nowrap="" valign="bottom" style="width:432.0pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+ </tr>
+ <tr style="height:18.75pt">
+  <td width="654" nowrap="" valign="bottom" style="width:490.45pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><b><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">Procurement</span></b></p>
+  </td>
+  <td width="16" nowrap="" valign="bottom" style="width:11.8pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="137" nowrap="" valign="bottom" style="width:110.5pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="576" nowrap="" valign="bottom" style="width:432.0pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><b><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">Dealer Monitoring</span></b></p>
+  </td>
+ </tr>
+ <tr style="height:18.75pt">
+  <td width="654" nowrap="" valign="bottom" style="width:490.45pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">Shows Spare part purchase details from Tata Motors and local
+  vendors</span></p>
+  </td>
+  <td width="16" nowrap="" valign="bottom" style="width:11.8pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="137" nowrap="" valign="bottom" style="width:110.5pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">&nbsp;</span></p>
+  </td>
+  <td width="576" nowrap="" valign="bottom" style="width:432.0pt;padding:0cm 5.4pt 0cm 5.4pt;
+  height:18.75pt">
+  <p class="MsoNormal"><span style="font-size:13.0pt;font-family:Calibri;
+  color:#3366FF">Provides Invoice and Stock Value Report indicating MoM and YoY
+  Growth</span></p>
+  </td>
+ </tr>
+</tbody></table>
+
+<p class="MsoNormal">&nbsp;</p>
+
+</div>
+
+
+
+
+</td></tr></tbody></table>
+</div>
+</td></tr>
+</tbody></table>
+</div>
+</td></tr></tbody></table>
+</div>
+</td>
+<td style="width:0px;"></td> </tr></tbody></table><div id="idViewStateDiv" stateid="r2tm5vooudao7cn86equ0guosq" statepath="d:dashboard~p:r66r8r8q23risji6"></div><script>window.sawXmlIslandidClientStateXml="<nqw xmlns:saw=\x22com.siebel.analytics.web/report/v1.1\x22 xmlns:xsi=\x22http://www.w3.org/2001/XMLSchema-instance\x22 xmlns:sawst=\x22com.siebel.analytics.web/state/v1\x22>\u003csawst:clientState>\u003csawst:stateRef>\u003csawst:envState xmlns:sawst=\"com.siebel.analytics.web/state/v1\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlVersion=\"200811100\">\u003csawst:container cid=\"d:dashboard\" xsi:type=\"sawst:topLevelStateContainer\" persistPageState=\"true\">\u003csawst:container cid=\"p:r66r8r8q23risji6\" xsi:type=\"sawst:page\" firstVisit=\"true\">\u003csawst:container cid=\"s:ki9bja9tnhee1em8\" xsi:type=\"sawst:section\" rendered=\"true\"/>\u003c/sawst:container>\u003c/sawst:container>\u003c/sawst:envState>\u003c/sawst:stateRef>\u003csawst:reportXmlRefferedTo>\u003c/sawst:reportXmlRefferedTo>\u003c/sawst:clientState></nqw>";</script>
+<div id="idDashboardCall" style="display:none" call="Dashboard"></div><div id="idReloadCall" call="ReloadDashboard"></div><div id="idPageID" pageid="r66r8r8q23risji6"></div><div style="height:5px;"></div><div id="formsDiv"><script type="text/javascript">obips.views.ViewController.getController('d:dashboard~p:r66r8r8q23risji6').setViewEnv({"enableViewLevelAjax":true,"curCmd":"Dashboard","drillCmd":"PortalGo","goCmd":"PortalGo","viewState":"r2tm5vooudao7cn86equ0guosq","done":"Dashboard","fmapid":"2z9YtA","portalPath":"/shared/PCBU Dealer/_portal/PCBU Spares","page":"PCBU Spares Synopsis","argMap":{"Page":"PCBU Spares Synopsis","PageDelayedState":"NotDelayed","PortalPath":"/shared/PCBU Dealer/_portal/PCBU Spares"}});</script></div></div><script type="text/javascript">
+ if (typeof(analysisOnDashboardPage) != 'undefined') {var g_oListOfAnalysis = analysisOnDashboardPage([], '/shared/PCBU Dealer/_portal/PCBU Spares', 'r66r8r8q23risji6')}
+</script>
+<div id="idSelsPermissionsDlgDiv" class="dialogDiv" style="display:none;" capturekey="" dlgtitle="Saved Customization Permissions and Defaults" helpurl="" buttontext="" buttontip="" buttonscript="" buttonfloatorientation="" buttoniconsrc=""><table class="XUIPromptTable"><tbody><tr><td class="RecipHelpText" colspan="3">Move a group to the "Groups with Permission" area to allow members to use this Saved Customization.  Check the box next to a group to make this Saved Customization its default.</td></tr><tr><td class="masterPrompt XUIPromptCaption">Groups <b>with</b>Permission</td><td></td><td class="masterPrompt XUIPromptCaption">Groups without Permission</td></tr><tr><td><div id="idSelsPermissionsDlgSel" class="RecipList"></div></td><td><table><tbody><tr><td class="RecipButtons"><span class="masterToolbarTextButton minibuttonOn"><a title="Allow specified group(s) to use this Saved Customization" onclick="SavedSelectionPermissionsEditor.selectRecipients('idSelsPermissionsDlg'); return false;" href="javascript:void(null)">&lt;&lt;</a></span></td><td class="RecipButtons"><span class="masterToolbarTextButton minibuttonOn"><a title="Prevent specified group(s) from using this Saved Customization" onclick="SavedSelectionPermissionsEditor.deleteRecipients('idSelsPermissionsDlg'); return false;" href="javascript:void(null)">&gt;&gt;</a></span></td></tr></tbody></table></td><td><div id="idSelsPermissionsDlgUnsel" class="RecipList"></div></td></tr></tbody></table></div></td>
+<td class="SecondaryTabbarRightBorder"></td></tr>
+</tbody></table>
+<table cellspacing="0" cellpadding="0" style="width:100%;table-layout:fixed;"><tbody><tr><td style="width:6px"><div class="PageBodyBottomLeft"></div></td><td style="width:100%"><div class="PageBodyBottomCenter"></div></td><td style="width:6px"><div class="PageBodyBottomRight"></div></td></tr></tbody></table></div> 
+</td>
+<td class="PageOuterBodyCenterRight"></td></tr>
+
+<tr>
+<td style="width:4px" class="PrimaryTabbarLeftBorder"></td><td>
+<div id="BreadCrumbDiv" class="masterBreadCrumbDiv BreadCrumbDiv" style="display: none;"></div>
+</td>
+<td class="PageOuterBodyCenterRight"></td></tr>
+
+<script>obips.BreadCrumbs.Manager.getSingleton().showBreadCrumbs();</script></tbody></table>
+<table cellspacing="0" cellpadding="0" style="width:100%;table-layout:fixed;"><tbody><tr><td class="PageOuterBodyTd"><div class="PageOuterBodyBottomLeft"></div></td><td class="PageOuterBodyMiddleTd"><div class="PageOuterBodyBottomCenter"></div></td><td class="PageOuterBodyTd"><div class="PageOuterBodyBottomRight"></div></td></tr></tbody></table></div>
+ <script type="text/javascript">obidash.bEnableDashboardDelayExecution = true;</script><iframe id="idEmbed" src="/analytics/res/v-V8L8Skv6BJ8/empty.htm" name="idEmbed" title="idEmbed" style="visibility: hidden; width: 0px; height: 0px; position: absolute; top: 0px;"></iframe></body></html>

@@ -1,0 +1,335 @@
+[
+  {
+    "frameUrl": "https://insights.inservices.pv.tatamotors/analytics/saw.dll?Dashboard",
+    "inputs": [
+      {
+        "tag": "A",
+        "type": "",
+        "name": "",
+        "id": "idSkipContentLink",
+        "class": "HeaderSkipLink",
+        "text": "Skip to content",
+        "visible": true
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "",
+        "id": "idPagePrint",
+        "class": "masterMenuItem NQWMenuItem NQWMenuItemWIconMixin NQWMenuItemOption",
+        "text": "Print",
+        "visible": false
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "",
+        "id": "idPageExportToExcel",
+        "class": "masterMenuItem NQWMenuItem NQWMenuItemWIconMixin NQWMenuItemOption",
+        "text": "Export to Excel",
+        "visible": false
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "",
+        "id": "idPageRefresh",
+        "class": "masterMenuItem NQWMenuItem NQWMenuItemWIconMixin NQWMenuItemOption",
+        "text": "Refresh",
+        "visible": false
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "",
+        "id": "idAddToBriefingBook",
+        "class": "masterMenuItem NQWMenuItem NQWMenuItemWIconMixin NQWMenuItemOption",
+        "text": "Add To Briefing Book",
+        "visible": false
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "",
+        "id": "idLinkToThisPage",
+        "class": "masterMenuItem NQWMenuItem NQWMenuItemWIconMixin NQWMenuItemOption",
+        "text": "Create Bookmark Link",
+        "visible": false
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "",
+        "id": "idGetPURL",
+        "class": "masterMenuItem NQWMenuItem NQWMenuItemWIconMixin NQWMenuItemOption",
+        "text": "Create Prompted Link",
+        "visible": false
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "",
+        "id": "",
+        "class": "masterMenuItem NQWLeftMenuItem NQWMenuItemWIconMixin NQWMenuItemOption",
+        "text": "Apply Saved Customization",
+        "visible": false
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "",
+        "id": "idSavingSelectionsMenuItem",
+        "class": "masterMenuItem NQWMenuItem NQWMenuItemWIconMixin NQWMenuItemOption",
+        "text": "Save Current Customization...",
+        "visible": false
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "",
+        "id": "idEditSavedSelectionsMenuItem",
+        "class": "masterMenuItem NQWMenuItem NQWMenuItemWIconMixin NQWMenuItemOption",
+        "text": "Edit Saved Customizations...",
+        "visible": false
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "",
+        "id": "idClearMySelectionsMenuItem",
+        "class": "masterMenuItem NQWMenuItem NQWMenuItemWIconMixin NQWMenuItemOption",
+        "text": "Clear My Customization",
+        "visible": false
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "printdisplaylayouts",
+        "id": "",
+        "class": "masterMenuItem NQWMenuItem NQWMenuItemWIconMixin",
+        "text": "Default Layout",
+        "visible": false
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "printeditlayouts",
+        "id": "",
+        "class": "masterMenuItem NQWMenuItem NQWMenuItemWIconMixin",
+        "text": "Edit Layouts...",
+        "visible": false
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "printeditlayouts",
+        "id": "",
+        "class": "masterMenuItem NQWMenuItem NQWMenuItemWIconMixin",
+        "text": "Remove Layouts",
+        "visible": false
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "printnewlayouts",
+        "id": "",
+        "class": "masterMenuItem NQWMenuItem NQWMenuItemWIconMixin",
+        "text": "New Layouts...",
+        "visible": false
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "currentPage",
+        "id": "",
+        "class": "masterMenuItem NQWMenuItem NQWMenuItemWIconMixin",
+        "text": "Export Current Page",
+        "visible": false
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "entireDashboard",
+        "id": "",
+        "class": "masterMenuItem NQWMenuItem NQWMenuItemWIconMixin",
+        "text": "Export Entire Dashboard",
+        "visible": false
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "SectionElements",
+        "id": "",
+        "class": "",
+        "text": "Spares Consumption Invoice Line Items",
+        "visible": true
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "SectionElements",
+        "id": "",
+        "class": "",
+        "text": "Sales Back Orders",
+        "visible": true
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "SectionElements",
+        "id": "",
+        "class": "",
+        "text": "Sales Executive wise Month on Month Sales",
+        "visible": true
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "SectionElements",
+        "id": "",
+        "class": "",
+        "text": "Spares Revenue Analysis - New",
+        "visible": true
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "SectionElements",
+        "id": "",
+        "class": "",
+        "text": "Division wise Part Consumption",
+        "visible": true
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "SectionElements",
+        "id": "",
+        "class": "",
+        "text": "Spares Consumption",
+        "visible": true
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "SectionElements",
+        "id": "",
+        "class": "",
+        "text": "Part Wise Sales - New",
+        "visible": true
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "SectionElements",
+        "id": "",
+        "class": "",
+        "text": "SAP Purchase Back Order Report",
+        "visible": true
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "SectionElements",
+        "id": "",
+        "class": "",
+        "text": "FIAT Purchase Back Order Report",
+        "visible": true
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "SectionElements",
+        "id": "",
+        "class": "",
+        "text": "Vendor Purchase Back Orders",
+        "visible": true
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "SectionElements",
+        "id": "",
+        "class": "",
+        "text": "Stock Ledger Summary",
+        "visible": true
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "SectionElements",
+        "id": "",
+        "class": "",
+        "text": "Current Inventory Valuation - Detailed",
+        "visible": true
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "SectionElements",
+        "id": "",
+        "class": "",
+        "text": "Spare Parts - Movement Analysis",
+        "visible": true
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "SectionElements",
+        "id": "",
+        "class": "",
+        "text": "Payments Outstanding Detailed Report",
+        "visible": true
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "FirstSectionElement",
+        "id": "",
+        "class": "",
+        "text": "",
+        "visible": true
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "SectionElements",
+        "id": "",
+        "class": "",
+        "text": "Stock Transaction Register - With Adjustment",
+        "visible": true
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "SectionElements",
+        "id": "",
+        "class": "",
+        "text": "Stock Transaction Register - Without Adjustments",
+        "visible": true
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "",
+        "id": "",
+        "class": "",
+        "text": "<<",
+        "visible": false
+      },
+      {
+        "tag": "A",
+        "type": "",
+        "name": "",
+        "id": "",
+        "class": "",
+        "text": ">>",
+        "visible": false
+      }
+    ]
+  },
+  {
+    "frameUrl": "https://insights.inservices.pv.tatamotors/analytics/res/v-V8L8Skv6BJ8/empty.htm",
+    "inputs": []
+  }
+]

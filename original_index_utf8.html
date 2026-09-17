@@ -1,0 +1,186 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TATA Spare Order Management System</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="./style.css">
+  </head>
+  <body>
+    
+    <!-- LOGIN PAGE -->
+    <div id="login-page" class="view-container active">
+      <div class="login-background"></div>
+      <div class="login-card">
+        <div class="login-header">
+          <h2>TATA Spares</h2>
+          <p>Order Management System</p>
+        </div>
+        <form id="login-form">
+          <div class="input-group">
+            <i data-lucide="mail"></i>
+            <input type="email" id="username" placeholder="Email Address" required>
+          </div>
+          <div class="input-group">
+            <i data-lucide="lock"></i>
+            <input type="password" id="password" placeholder="Password" required>
+          </div>
+          <button type="submit" class="btn-primary">Sign In</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- MAIN DASHBOARD -->
+    <div id="dashboard-page" class="view-container">
+      
+      <!-- SIDEBAR -->
+      <aside id="sidebar" class="sidebar">
+        <nav class="sidebar-nav">
+          <a href="#" class="nav-item active">
+            <i data-lucide="layout-dashboard"></i>
+            <span>Dashboard</span>
+          </a>
+          <a href="#" class="nav-item">
+            <i data-lucide="box"></i>
+            <span>Inventory</span>
+          </a>
+          <a href="#" class="nav-item">
+            <i data-lucide="shopping-cart"></i>
+            <span>Orders</span>
+          </a>
+          <a href="#" class="nav-item">
+            <i data-lucide="shopping-bag"></i>
+            <span>Purchase</span>
+          </a>
+          <a href="#" class="nav-item">
+            <i data-lucide="bar-chart-2"></i>
+            <span>Reporting</span>
+          </a>
+          <a href="#" class="nav-item">
+            <i data-lucide="help-circle"></i>
+            <span>Support</span>
+          </a>
+          <a href="#" class="nav-item">
+            <i data-lucide="settings"></i>
+            <span>Settings</span>
+          </a>
+        <!-- Sidebar footer removed -->
+      </aside>
+
+      <!-- MAIN CONTENT AREA -->
+      <main class="main-content">
+        
+        <!-- TOP NAVIGATION -->
+        <header class="topbar">
+          <div class="topbar-left">
+            <button id="hamburger-btn" class="hamburger-btn">
+              <i data-lucide="menu"></i>
+            </button>
+            <div class="topbar-brand">
+              <img src="/tata-logo.svg?v=2" alt="TATA Logo" class="topbar-logo">
+              <h1 class="page-title">Spare Management System</h1>
+            </div>
+          </div>
+          <div class="topbar-right">
+            <div class="search-bar">
+              <input type="text" placeholder="Search...">
+              <i data-lucide="search"></i>
+            </div>
+            <div class="topbar-icons">
+              <button class="icon-btn"><i data-lucide="bell"></i></button>
+            </div>
+            <button id="logout-btn" class="topbar-logout-btn">
+              <i data-lucide="log-out"></i>
+              <span>Logout</span>
+            </button>
+          </div>
+        </header>
+        
+        <!-- DASHBOARD CONTENT -->
+        <div class="dashboard-content">
+          <h2 class="welcome-text" id="welcome-message">Welcome!</h2>
+          
+          <!-- OVERVIEW WIDGETS -->
+          <div class="overview-section">
+            <h3 class="section-title">Overview</h3>
+            <div class="widget-grid">
+              <div class="widget-card light-green">
+                <div class="widget-icon"><i data-lucide="package"></i></div>
+                <div class="widget-info">
+                  <span class="widget-value">5483</span>
+                  <span class="widget-label">Total Products</span>
+                </div>
+              </div>
+              <div class="widget-card light-blue">
+                <div class="widget-icon"><i data-lucide="layers"></i></div>
+                <div class="widget-info">
+                  <span class="widget-value">2859</span>
+                  <span class="widget-label">Orders</span>
+                </div>
+              </div>
+              <div class="widget-card light-teal">
+                <div class="widget-icon"><i data-lucide="trending-up"></i></div>
+                <div class="widget-info">
+                  <span class="widget-value">5483</span>
+                  <span class="widget-label">Total Stock</span>
+                </div>
+              </div>
+              <div class="widget-card light-orange">
+                <div class="widget-icon"><i data-lucide="alert-triangle"></i></div>
+                <div class="widget-info">
+                  <span class="widget-value">38</span>
+                  <span class="widget-label">Out of Stock</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- CHARTS SECTION -->
+          <div class="charts-grid">
+            <div class="chart-card small-card">
+               <h4 class="card-title">No of users</h4>
+               <div class="users-info">
+                 <div class="users-icon"><i data-lucide="users"></i></div>
+                 <div class="users-stats">
+                   <span class="stats-value">583 K</span>
+                   <span class="stats-label">Total Customers</span>
+                 </div>
+               </div>
+            </div>
+            
+            <div class="chart-card">
+              <h4 class="card-title">Inventory Values</h4>
+              <div class="chart-container pie-container">
+                <canvas id="inventoryPieChart"></canvas>
+              </div>
+            </div>
+
+            <div class="chart-card tall-card">
+              <h4 class="card-title">Top 10 Stores by sales</h4>
+              <div class="chart-container bar-container">
+                <canvas id="storesBarChart"></canvas>
+              </div>
+            </div>
+
+            <div class="chart-card wide-card">
+              <h4 class="card-title">Expense vs Profit <span class="subtitle">Last 6 months</span></h4>
+              <div class="chart-container line-container">
+                <canvas id="expenseLineChart"></canvas>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+      </main>
+    </div>
+
+    <script type="module" src="/main.js"></script>
+  </body>
+</html>

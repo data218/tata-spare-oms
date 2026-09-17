@@ -1,0 +1,26 @@
+-- Create a consumption table to hold data fetched from the BI portal
+CREATE TABLE consumption_data (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    division VARCHAR(255),
+    invoice_no VARCHAR(255),
+    invoice_status VARCHAR(255),
+    mode_of_payment VARCHAR(255),
+    invoice_type VARCHAR(255),
+    part_no VARCHAR(255),
+    part_desc TEXT,
+    part_type VARCHAR(255),
+    tm_part_indicator VARCHAR(255),
+    product_category VARCHAR(255),
+    date DATE,
+    category VARCHAR(255),
+    order_num VARCHAR(255),
+    order_type VARCHAR(255),
+    order_sub VARCHAR(255),
+    rate NUMERIC,
+    billing_type VARCHAR(255),
+    sold_qty NUMERIC,
+    value NUMERIC,
+    tax_amount NUMERIC,
+    dealer VARCHAR(255),
+    fetched_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
