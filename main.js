@@ -535,7 +535,7 @@ if (fetchForm) {
     lucide.createIcons();
     
     try {
-      const response = await fetch('http://localhost:3000/api/fetch-data', {
+      const response = await fetch('/api/fetch-data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fromDate, toDate })
@@ -987,7 +987,7 @@ document.addEventListener('DOMContentLoaded', () => {
       syncBtn.style.opacity = '0.7';
       
       try {
-        const response = await fetch('http://localhost:3000/api/sync', {
+        const response = await fetch('/api/sync', {
           method: 'POST'
         });
         const result = await response.json();
@@ -1089,7 +1089,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Load existing credentials
     async function loadCredentials() {
       try {
-        const res = await fetch('http://localhost:3000/api/credentials');
+        const res = await fetch('/api/credentials');
         const data = await res.json();
         locContainer.innerHTML = '';
         if (data && data.length > 0) {
@@ -1126,7 +1126,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       
       try {
-        await fetch('http://localhost:3000/api/credentials', {
+        await fetch('/api/credentials', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(creds)
