@@ -860,13 +860,15 @@ window.topPartsChartInstance = null;
 window.renderDashboardAnalytics = function() {
   if (!window.originalProcessedParts || window.originalProcessedParts.length === 0) return;
   
-  // 1. Process data for charts
+  // 1. Process data for charts & KPIs
   const locationMap = {};
   const partMap = {};
+  let totalConsumptionValue = 0;
+  let totalPartsConsumed = 0;
   
   window.originalProcessedParts.forEach(p => {
     // Value by location
-    const val = p.available * p.unitPrice;
+    const val = p.currentStock * p.ndpPrice;
     locationMap[p.location] = (locationMap[p.location] || 0) + val;
     
     // Top parts by consumption
@@ -874,6 +876,10 @@ window.renderDashboardAnalytics = function() {
        name: p.partId,
        qty: p.consumption30d
     };
+    
+    // Global KPIs
+    totalConsumptionValue += p.consumption30d * p.ndpPrice;
+    totalPartsConsumed += p.consumption30d;
   });
   
   const locLabels = Object.keys(locationMap);
@@ -882,6 +888,17 @@ window.renderDashboardAnalytics = function() {
   const topParts = Object.values(partMap).sort((a,b) => b.qty - a.qty).slice(0, 5);
   const partLabels = topParts.map(p => p.name);
   const partData = topParts.map(p => p.qty);
+  
+  // Update Dashboard View KPIs
+  const kpiVal = document.getElementById('kpi-total-value');
+  const kpiQty = document.getElementById('kpi-total-qty');
+  const kpiSpares = document.getElementById('kpi-total-spares');
+  const kpiLocs = document.getElementById('kpi-active-locations');
+  
+  if (kpiVal) kpiVal.textContent = '₹' + Math.round(totalConsumptionValue).toLocaleString('en-IN');
+  if (kpiQty) kpiQty.textContent = totalPartsConsumed.toLocaleString('en-IN');
+  if (kpiSpares) kpiSpares.textContent = window.originalProcessedParts.length.toLocaleString('en-IN');
+  if (kpiLocs) kpiLocs.textContent = locLabels.length.toLocaleString('en-IN');
 
   // 2. Render Charts
   const locCtx = document.getElementById('locationChart');
