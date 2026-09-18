@@ -773,6 +773,7 @@ async function loadDataAndRender() {
   }
 
   renderDashboard();
+  renderDashboardAnalytics();
 }
 
 function renderDashboard() {
