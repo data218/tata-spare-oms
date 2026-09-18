@@ -854,6 +854,88 @@ function renderDashboard() {
   renderTablePage();
 }
 
+window.locationChartInstance = null;
+window.topPartsChartInstance = null;
+
+window.renderDashboardAnalytics = function() {
+  if (!window.originalProcessedParts || window.originalProcessedParts.length === 0) return;
+  
+  // 1. Process data for charts
+  const locationMap = {};
+  const partMap = {};
+  
+  window.originalProcessedParts.forEach(p => {
+    // Value by location
+    const val = p.available * p.unitPrice;
+    locationMap[p.location] = (locationMap[p.location] || 0) + val;
+    
+    // Top parts by consumption
+    partMap[p.partId] = {
+       name: p.partId,
+       qty: p.consumption30d
+    };
+  });
+  
+  const locLabels = Object.keys(locationMap);
+  const locData = Object.values(locationMap);
+  
+  const topParts = Object.values(partMap).sort((a,b) => b.qty - a.qty).slice(0, 5);
+  const partLabels = topParts.map(p => p.name);
+  const partData = topParts.map(p => p.qty);
+
+  // 2. Render Charts
+  const locCtx = document.getElementById('locationChart');
+  if (locCtx && typeof Chart !== 'undefined') {
+    if (window.locationChartInstance) window.locationChartInstance.destroy();
+    window.locationChartInstance = new Chart(locCtx.getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: locLabels,
+        datasets: [{
+          label: 'Stock Value (₹)',
+          data: locData,
+          backgroundColor: '#3b82f6',
+          borderRadius: 4
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false }
+    });
+  }
+
+  const partsCtx = document.getElementById('topPartsChart');
+  if (partsCtx && typeof Chart !== 'undefined') {
+    if (window.topPartsChartInstance) window.topPartsChartInstance.destroy();
+    window.topPartsChartInstance = new Chart(partsCtx.getContext('2d'), {
+      type: 'doughnut',
+      data: {
+        labels: partLabels,
+        datasets: [{
+          data: partData,
+          backgroundColor: ['#f59e0b', '#3b82f6', '#10b981', '#ef4444', '#8b5cf6']
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false }
+    });
+  }
+
+  // 3. Render Recent Activity Table
+  const tbody = document.getElementById('recent-activity-table');
+  if (tbody && window.rawInventoryData && window.rawInventoryData.consumption) {
+    const recentCons = window.rawInventoryData.consumption.slice(0, 5);
+    tbody.innerHTML = '';
+    recentCons.forEach(c => {
+       const tr = document.createElement('tr');
+       tr.innerHTML = `
+         <td style="padding:12px 16px; border-bottom:1px solid var(--border-color); font-size:0.85rem;">${c.part_no || c.part_number || 'Unknown'}</td>
+         <td style="padding:12px 16px; border-bottom:1px solid var(--border-color); font-size:0.85rem;">${c.location_code || 'ALL'}</td>
+         <td style="padding:12px 16px; border-bottom:1px solid var(--border-color); font-size:0.85rem;">${c.sold_qty || 0}</td>
+         <td style="padding:12px 16px; border-bottom:1px solid var(--border-color); text-align:right;"><span style="background:#dbeafe; color:#1e40af; padding:4px 8px; border-radius:12px; font-size:0.75rem; font-weight:500;">Consumed</span></td>
+       `;
+       tbody.appendChild(tr);
+    });
+  }
+};
+
 function renderTablePage() {
   const tbody = document.getElementById('inventory-table-body');
   if(!tbody) return;
