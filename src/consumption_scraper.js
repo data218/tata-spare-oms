@@ -12,38 +12,48 @@ const SUPABASE_URL = 'https://crreoeautoqzcgtlwlsd.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNycmVvZWF1dG9xemNndGx3bHNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0NzU1OTAsImV4cCI6MjA5NDA1MTU5MH0.AvHLX1piSZMGwb1qjgJ1xuBtL_F-nToQo4ClHmsHNG8';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-async function fetchConsumptionData(fromDate, toDate) {
+async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
+    let totalRowsInserted = 0;
+    const notify = (msg) => {
+        console.log(msg);
+        if (onProgress) onProgress(msg);
+    };
     if (!fromDate || !toDate) {
         throw new Error("fromDate and toDate are required.");
     }
 
-    console.log('Fetching locations from Supabase...');
-    const { data: locations, error: locError } = await supabase.from('tata_locations').select('*');
-    if (locError) {
-        throw new Error('Failed to fetch locations: ' + locError.message);
-    }
-    if (!locations || locations.length === 0) {
-        throw new Error('No locations found in tata_locations table. Please add a location in Settings.');
-    }
+    notify('Fetching master credentials from Supabase...');
+    const { data: settings, error: setErr } = await supabase.from('tata_bot_settings').select('*');
+    if (setErr) throw new Error('Failed to fetch settings from Supabase');
 
-    console.log('Clearing old data from Supabase once before processing locations...');
-    const { error: deleteError } = await supabase.from('tata_consumption_data').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    const uRow = settings.find(r => r.key === 'master_username' || r.key === 'tata_bi_username');
+    const pRow = settings.find(r => r.key === 'master_password' || r.key === 'tata_bi_password');
+    
+    if (!uRow || !pRow) {
+        throw new Error('Master credentials not found in tata_bot_settings table. Please save Tata BI Portal Credentials in Settings.');
+    }
+    
+    const location = { location_name: 'Master', username: uRow.value, password: pRow.value };
+
+    notify('Clearing old data from Supabase once before processing locations...');
+    const { error: deleteError } = await supabase.from('tata_consumption_data').delete().neq('division', 'DELETE_ALL');
     if (deleteError) {
         console.error('Warning: Failed to delete old data.', deleteError.message);
     } else {
-        console.log('Old data removed successfully.');
+        notify('Old data removed successfully.');
     }
 
-    for (const location of locations) {
-        console.log(`Starting Puppeteer for Tata Motors BI (Location: ${location.location_name}, Date Range: ${fromDate} to ${toDate})...`);
-    const browser = await puppeteer.launch({ 
-        headless: false,
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-blink-features=AutomationControlled'
-        ]
-    });
+    notify(`Starting automated bot for Consumption Data (Date Range: ${fromDate} to ${toDate})...`);
+        const browser = await puppeteer.launch({ 
+            headless: 'new',
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-popup-blocking',
+                '--disable-blink-features=AutomationControlled'
+            ]
+        });
     const page = await browser.newPage();
     
     // Set a realistic user agent
@@ -71,7 +81,7 @@ async function fetchConsumptionData(fromDate, toDate) {
         // ---------------------------------------------------------
         let botUser = location.username;
         let botPass = location.password;
-        console.log(`Logging in as: ${botUser} for location ${location.location_name}`);
+        notify(`Logging in as: ${botUser}...`);
 
         // Wait for the login form to be ready
         await page.waitForSelector('input[name="j_username"]', { visible: true });
@@ -84,15 +94,27 @@ async function fetchConsumptionData(fromDate, toDate) {
         await new Promise(r => setTimeout(r, 500 + Math.random() * 1000));
 
         // Submit login form
-        console.log('Submitting login...');
+        notify('Submitting login credentials...');
         await page.click('#btn_login');
 
-        // Wait for navigation after login
-        await page.waitForNavigation({ waitUntil: 'networkidle2' }).catch(() => {});
         // Add an extra wait for any subsequent client-side redirects or dashboard loading
         await new Promise(r => setTimeout(r, 5000));
+        
+        // Check if login failed
+        const errorMsg = await page.$('.bitech-errormsg-container');
+        if (errorMsg) {
+            const isVisible = await page.evaluate(el => {
+                const style = window.getComputedStyle(el);
+                return style && style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+            }, errorMsg);
+            
+            if (isVisible) {
+                const errText = await page.evaluate(el => el.textContent, errorMsg);
+                throw new Error(`Login failed for ${botUser}: ${errText.trim()}`);
+            }
+        }
 
-        console.log('Login successful. Navigating to PCBU Spares report...');
+        notify('Login successful. Navigating to PCBU Spares report...');
         
         // Click on the Dashboards dropdown
         await page.waitForSelector('#dashboard', { visible: true });
@@ -148,10 +170,10 @@ async function fetchConsumptionData(fromDate, toDate) {
             console.log('WARNING: Could not find Spares Consumption link!');
         }
 
-        console.log('Waiting for date prompt to load (15s)...');
-        await new Promise(r => setTimeout(r, 15000));
+        notify('Waiting for date prompt to load...');
+        await new Promise(r => setTimeout(r, 3000));
         
-        console.log('Filling in the date prompt (bypassing calendar popup)...');
+        notify(`Filling in dates: ${fromDate} to ${toDate}...`);
         let dateInputsFound = false;
         for (const frame of page.frames()) {
             try {
@@ -200,8 +222,7 @@ async function fetchConsumptionData(fromDate, toDate) {
             console.log('WARNING: Could not find date inputs in any frame!');
         }
 
-        console.log('Waiting for the data table to load (30 seconds)...');
-        await new Promise(r => setTimeout(r, 30000));
+        notify('Waiting for the data table to load...');
         
         console.log('Setting up download behavior...');
         const downloadPath = path.resolve('./downloads');
@@ -209,13 +230,23 @@ async function fetchConsumptionData(fromDate, toDate) {
             fs.mkdirSync(downloadPath, { recursive: true });
         }
         
-        const client = await page.createCDPSession();
-        await client.send('Page.setDownloadBehavior', {
-            behavior: 'allow',
-            downloadPath: downloadPath
-        });
+        try {
+            const client = await page.createCDPSession();
+            await client.send('Browser.setDownloadBehavior', {
+                behavior: 'allowAndName',
+                downloadPath: downloadPath,
+                eventsEnabled: true
+            });
+        } catch (err) {
+            console.log('Browser.setDownloadBehavior failed, falling back to Page.setDownloadBehavior');
+            const client = await page.createCDPSession();
+            await client.send('Page.setDownloadBehavior', {
+                behavior: 'allow',
+                downloadPath: downloadPath
+            });
+        }
 
-        console.log('Clicking Export...');
+        notify('Exporting report to CSV...');
         
         console.log('Extracting all links from all frames...');
         let allLinks = [];
@@ -233,43 +264,79 @@ async function fetchConsumptionData(fromDate, toDate) {
         console.log('Clicking Export...');
         
         async function robustClick(textToFind) {
-            try {
-                await page.click(`::-p-text(${textToFind})`);
-                return true;
-            } catch (e) {
-                for (const frame of page.frames()) {
-                    try {
-                        await frame.click(`::-p-text(${textToFind})`);
-                        return true;
-                    } catch (err) {}
-                }
+            let clicked = false;
+            for (const frame of [page, ...page.frames()]) {
+                try {
+                    clicked = await frame.evaluate((txt) => {
+                        const links = Array.from(document.querySelectorAll('a, span, div, td'));
+                        const target = links.find(el => el.textContent && el.textContent.trim() === txt);
+                        if (target) {
+                            target.click();
+                            return true;
+                        }
+                        return false;
+                    }, textToFind);
+                    if (clicked) return true;
+                } catch (err) {}
             }
             return false;
         }
 
-        const foundExport = await robustClick('Export');
+        let foundExport = false;
+        for(let i = 0; i < 15; i++) {
+            foundExport = await robustClick('Export');
+            if (foundExport) break;
+            await new Promise(r => setTimeout(r, 2000));
+        }
         if (!foundExport) console.log('WARNING: Could not find Export button');
-        await new Promise(r => setTimeout(r, 3000));
 
         console.log('Clicking Data...');
-        const foundData = await robustClick('Data');
+        let foundData = false;
+        for(let i = 0; i < 10; i++) {
+            foundData = await robustClick('Data');
+            if (foundData) break;
+            await new Promise(r => setTimeout(r, 1000));
+        }
         if (!foundData) console.log('WARNING: Could not find Data button');
-        await new Promise(r => setTimeout(r, 3000));
 
         console.log('Clicking CSV...');
-        const foundCSV = await robustClick('CSV');
+        let foundCSV = false;
+        for(let i = 0; i < 10; i++) {
+            foundCSV = await robustClick('CSV');
+            if (foundCSV) break;
+            await new Promise(r => setTimeout(r, 1000));
+        }
         if (!foundCSV) console.log('WARNING: Could not find CSV button');
+        
+        console.log('Waiting 2 seconds to see what happened after clicking CSV...');
+        await new Promise(r => setTimeout(r, 2000));
+        await page.screenshot({ path: 'debug_after_csv_click.png', fullPage: true });
 
         console.log('Waiting for download to complete (polling downloads folder)...');
         let downloadedFile = null;
+        const start = Date.now();
         for (let i = 0; i < 60; i++) {
             await new Promise(r => setTimeout(r, 2000));
             const files = fs.readdirSync(downloadPath);
-            const csvFile = files.find(f => f.endsWith('.csv') && !f.endsWith('.crdownload'));
-            if (csvFile) {
-                downloadedFile = path.join(downloadPath, csvFile);
-                console.log('Download complete: ', downloadedFile);
-                break;
+            const crdownload = files.find(f => f.endsWith('.crdownload'));
+            if (!crdownload) {
+                let newestFile = null;
+                let newestTime = 0;
+                for (const file of files) {
+                    const fullPath = path.join(downloadPath, file);
+                    const stats = fs.statSync(fullPath);
+                    if (stats.mtimeMs > newestTime) {
+                        newestTime = stats.mtimeMs;
+                        newestFile = fullPath;
+                    }
+                }
+                
+                if (newestFile && newestTime > start - 10000) {
+                    downloadedFile = newestFile + '.csv';
+                    fs.renameSync(newestFile, downloadedFile);
+                    console.log('Download complete and renamed to CSV: ', downloadedFile);
+                    break;
+                }
             }
         }
         
@@ -281,15 +348,14 @@ async function fetchConsumptionData(fromDate, toDate) {
             console.log('Reading and parsing downloaded CSV file...');
             const results = [];
             
-            await new Promise((resolve, reject) => {
-                fs.createReadStream(downloadedFile)
+        const rowsCount = await new Promise((resolve, reject) => {
+            fs.createReadStream(downloadedFile)
                     .pipe(csv())
                     .on('data', (data) => {
                         const firstKey = Object.keys(data)[0];
                         const divisionValue = data['Division'] || data[firstKey];
                         
                         results.push({
-                            location: location.location_name,
                             division: divisionValue,
                             invoice_no: data['Invoice Number'],
                             invoice_status: data['Invoice Status'],
@@ -314,32 +380,38 @@ async function fetchConsumptionData(fromDate, toDate) {
                         });
                     })
                     .on('end', async () => {
-                        console.log(`Successfully parsed ${results.length} rows.`);
-                        const BATCH_SIZE = 1000;
-                        console.log(`Starting upload to Supabase in batches of ${BATCH_SIZE}...`);
-                        
-                        for (let i = 0; i < results.length; i += BATCH_SIZE) {
-                            const batch = results.slice(i, i + BATCH_SIZE);
-                            const { error: insertError } = await supabase.from('tata_consumption_data').insert(batch);
-                            if (insertError) {
-                                console.error(`Error inserting batch ${i / BATCH_SIZE + 1}:`, insertError.message);
-                            } else {
-                                console.log(`Successfully inserted batch ${i / BATCH_SIZE + 1} (${batch.length} rows)`);
-                            }
-                        }
-                        console.log('Upload complete!');
-                        
-                        // Clean up the downloaded file
                         try {
-                            fs.unlinkSync(downloadedFile);
-                            console.log('Cleaned up downloaded file.');
-                        } catch (e) {
-                            console.error('Could not delete file:', e);
+                            notify(`Finished parsing CSV. Found ${results.length} rows. Uploading to database...`);
+                            const BATCH_SIZE = 1000;
+                            console.log(`Starting upload to Supabase in batches of ${BATCH_SIZE}...`);
+                            
+                            for (let i = 0; i < results.length; i += BATCH_SIZE) {
+                                const batch = results.slice(i, i + BATCH_SIZE);
+                                const { error: insertError } = await supabase.from('tata_consumption_data').insert(batch);
+                                if (insertError) {
+                                    console.error(`Error inserting batch ${i / BATCH_SIZE + 1}:`, insertError.message);
+                                    throw insertError;
+                                } else {
+                                    console.log(`Successfully inserted batch ${i / BATCH_SIZE + 1} (${batch.length} rows)`);
+                                }
+                            }
+                            notify('Upload complete! File processed and deleted.');
+                            
+                            // Clean up the downloaded file
+                            try {
+                                fs.unlinkSync(downloadedFile);
+                                console.log('Cleaned up downloaded file.');
+                            } catch (e) {
+                                console.error('Could not delete file:', e);
+                            }
+                            resolve(results.length);
+                        } catch (err) {
+                            reject(err);
                         }
-                        resolve();
                     })
                     .on('error', reject);
             });
+            totalRowsInserted += rowsCount;
             
         } else {
             throw new Error('Download timed out or failed.');
@@ -352,7 +424,7 @@ async function fetchConsumptionData(fromDate, toDate) {
         console.log('Closing browser...');
         await browser.close();
     }
-    } // End of locations loop
+    return [`ALL LOCATIONS CONSUMPTION DATA UPLOADED ${totalRowsInserted} ROWS`];
 }
 
 // Remove the self-executing call so we only run when triggered by the server

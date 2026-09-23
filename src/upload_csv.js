@@ -74,7 +74,7 @@ async function uploadData() {
                 const batch = results.slice(i, i + BATCH_SIZE);
                 
                 const { data, error } = await supabase
-                    .from('consumption_data')
+                    .from('tata_consumption_data')
                     .insert(batch);
                     
                 if (error) {

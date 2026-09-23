@@ -1,4 +1,3 @@
-import Chart from 'chart.js/auto';
 import { supabase } from './supabase.js';
 
 // Initialize Lucide Icons
@@ -12,19 +11,128 @@ const logoutBtn = document.getElementById('logout-btn');
 const sidebar = document.getElementById('sidebar');
 const hamburgerBtn = document.getElementById('hamburger-btn');
 
+// --- Live Clock & Beautiful Date Formatter ---
+function formatBeautifulDate(dateInput) {
+  let d = dateInput instanceof Date ? dateInput : new Date(dateInput);
+  if (isNaN(d.getTime())) {
+    // Try to parse DD/MM/YYYY
+    if (typeof dateInput === 'string') {
+      const parts = dateInput.split(', ')[0].split('/');
+      if (parts.length === 3) d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T${dateInput.split(', ')[1]}`);
+    }
+    if (isNaN(d.getTime())) return dateInput;
+  }
+  
+  const day = d.getDate();
+  const suffix = ["th", "st", "nd", "rd"][day % 10 > 3 ? 0 : (day - day % 10 !== 10) * day % 10];
+  const month = d.toLocaleString('en-US', { month: 'short' });
+  const year = d.getFullYear().toString().slice(-2);
+  const time = d.toLocaleTimeString('en-US', { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  
+  return `${day}${suffix} ${month}'${year}, ${time}`;
+}
+
+function updateLiveClock() {
+  const timeEl = document.getElementById('live-time');
+  const dateEl = document.getElementById('live-date');
+  if (timeEl && dateEl) {
+    const now = new Date();
+    timeEl.textContent = now.toLocaleTimeString('en-US', { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const day = now.getDate();
+    const suffix = ["th", "st", "nd", "rd"][day % 10 > 3 ? 0 : (day - day % 10 !== 10) * day % 10];
+    dateEl.textContent = `${day}${suffix} ${now.toLocaleString('en-US', { month: 'short' })}'${now.getFullYear().toString().slice(-2)}`;
+  }
+}
+setInterval(updateLiveClock, 1000);
+document.addEventListener('DOMContentLoaded', () => {
+  updateLiveClock();
+  
+  const refreshBtn = document.getElementById('refresh-data-btn');
+  if (refreshBtn) {
+    const ensureSpin = () => {
+      const iconEl = refreshBtn.querySelector('#refresh-icon');
+      if (iconEl) iconEl.classList.add('spin-animation');
+    };
+    refreshBtn.addEventListener('click', async () => {
+      if (refreshBtn.dataset.busy === '1') return;
+      refreshBtn.dataset.busy = '1';
+      refreshBtn.disabled = true;
+      const textEl = document.getElementById('refresh-btn-text');
+      if (textEl) textEl.textContent = 'Refreshing...';
+      ensureSpin(); // Lucide re-creates icons on render, so re-apply after every data render
+      
+      const startTime = Date.now();
+      try {
+        // Quick connection check
+        const { error } = await supabase.from('tata_spare_inventory').select('id').limit(1);
+        if (error) throw error;
+        await loadDataAndRender();
+        ensureSpin();
+      } catch (err) {
+        console.error('Connection check failed:', err);
+        alert('Database connection failed. Please check your internet or Supabase configuration.');
+      }
+      
+      // Always show spinning for at least 1.5s so a long refresh keeps the spinner visible
+      const elapsed = Date.now() - startTime;
+      if (elapsed < 1500) {
+        await new Promise(resolve => setTimeout(resolve, 1500 - elapsed));
+      }
+      
+      refreshBtn.dataset.busy = '';
+      refreshBtn.disabled = false;
+      if (textEl) textEl.textContent = 'Refresh';
+      const iconEl = refreshBtn.querySelector('#refresh-icon');
+      if (iconEl) iconEl.classList.remove('spin-animation');
+    });
+  }
+});
+
 // --- Session & Auth Logic ---
 function initCharts() {
   console.log('Charts initialization placeholder - no charts implemented yet.');
 }
 
+function applyAccessControls(user) {
+  const syncBtn = document.getElementById('sync-data-btn');
+  const locationFilter = document.getElementById('location-select');
+  const settingsMenu = document.querySelector('[data-target="view-settings"]');
+  const devStatusMenu = document.querySelector('[data-target="view-dev-status"]');
+  const sidebarDivider = document.getElementById('sidebar-divider');
+  
+  if (user.role !== 'Super Admin' && user.role !== 'Admin') {
+    if (syncBtn) syncBtn.style.setProperty('display', 'none', 'important');
+    if (settingsMenu) settingsMenu.style.setProperty('display', 'none', 'important');
+    if (devStatusMenu) devStatusMenu.style.setProperty('display', 'none', 'important');
+    if (sidebarDivider) sidebarDivider.style.setProperty('display', 'none', 'important');
+    
+    if (locationFilter && user.location !== 'ALL') {
+      locationFilter.value = user.location;
+      locationFilter.disabled = true;
+      // Force refresh data if filter changed
+      if(typeof renderDashboard === 'function') renderDashboard();
+    }
+  } else {
+    if (syncBtn) syncBtn.style.display = 'flex';
+    if (settingsMenu) settingsMenu.style.display = 'flex';
+    if (devStatusMenu) devStatusMenu.style.display = 'flex';
+    if (sidebarDivider) sidebarDivider.style.display = 'block';
+    if (locationFilter) locationFilter.disabled = false;
+  }
+}
+window.applyAccessControls = applyAccessControls;
+
 function checkSession() {
   const session = sessionStorage.getItem('currentUser');
   if (session) {
     const user = JSON.parse(session);
-    loginPage.classList.remove('active');
-    dashboardPage.classList.add('active');
-    const welcomeMsg = document.getElementById('welcome-message');
-    if (welcomeMsg) welcomeMsg.textContent = `Welcome ${user.username}!`;
+    if (loginPage) loginPage.classList.remove('active');
+    if (dashboardPage) dashboardPage.classList.add('active');
+
+    
+    const globalWelcomeName = document.getElementById('global-welcome-name');
+    if (globalWelcomeName) globalWelcomeName.textContent = user.username;
+    
     setTimeout(() => {
       initCharts();
       if(typeof applyAccessControls === 'function') applyAccessControls(user);
@@ -51,21 +159,136 @@ if (toggleLoginPwdBtn && loginPwdInput) {
 // --- Excel-Style Advanced Table Filtering ---
 window.activeFilters = new Map();
 window.activeSort = new Map();
+window.tableFilterData = {};
+
+// Per-table filter config: header text -> field key, row source, and re-render callback.
+const tableFilterConfigs = {
+  'recent-activity-table': {
+    getRows: () => (window.rawInventoryData && window.rawInventoryData.consumption) || [],
+    fields: {
+      'Date': 'date', 'Location': 'division', 'Part No.': 'part_no',
+      'Description': 'part_desc', 'Qty': 'sold_qty', 'Value (Γé╣)': 'value'
+    },
+    render: (rows) => { window.tableFilterData['recent-activity-table'] = rows; renderRecentActivity(); }
+  },
+  'health-table-body': {
+    getRows: () => window.originalProcessedParts || [],
+    fields: {
+      'Part No.': 'partId', 'Description': 'model', 'Location': 'location',
+      'Category': 'productCategory', 'Stock': 'currentStock',
+      'Stock Value (Γé╣)': 'stockValue', 'Status': 'statusText'
+    },
+    render: (rows) => { window.tableFilterData['health-table-body'] = rows; window.hCurrentPage = 1; window.renderHealthTable(); }
+  },
+  'demand-table-body': {
+    getRows: () => window.originalProcessedParts || [],
+    fields: {
+      'Part No.': 'partId', 'Description': 'model', 'Curr. Stock': 'currentStock',
+      'In-Transit': 'inTransit', '6-Mth Avg Cons.': 'consumption6m', 'Safety Stock': 'safetyStock',
+      'Open Demand': 'demand', 'Reorder Qty': 'orderQty', 'Status': 'statusText'
+    },
+    render: (rows) => { window.tableFilterData['demand-table-body'] = rows; window.dCurrentPage = 1; window.renderDemandTable(); }
+  },
+  'cons-table-body': {
+    getRows: () => {
+      const allCons = (window.rawInventoryData && window.rawInventoryData.consumption) ? [...window.rawInventoryData.consumption] : [];
+      const locationSelect = document.getElementById('location-select');
+      const selectedLoc = locationSelect ? locationSelect.value : 'ALL';
+      if (selectedLoc === 'ALL') return allCons;
+      
+      const sLoc = (selectedLoc || '').toUpperCase().replace(/\s+/g, '');
+      const mapLocation = (d) => {
+        if (!d) return 'Narwal';
+        d = d.toLowerCase();
+        if (d.includes('channirama') || d.includes('chhanirama')) return 'Channi Rama';
+        if (d.includes('smamsamba') || d.includes('supwal')) return 'Supwal';
+        if (d.includes('smamkathua') || d.includes('kathua')) return 'Kathua';
+        if (d.includes('jammu') || d.includes('narwal') || d.includes('narval')) return 'Narwal';
+        return 'Narwal';
+      };
+      
+      return allCons.filter(r => mapLocation(r.division || r.dealer).toUpperCase().replace(/\s+/g, '') === sLoc);
+    },
+    fields: {
+      'Month/Year': 'monthYear', 'Part No.': 'part_no', 'Description': 'part_desc',
+      'Cons. (Qty)': 'sold_qty', 'Value (₹)': 'value', 'NDP (₹)': 'ndpPrice',
+      'Tax (₹)': 'tax_amount', 'Billing Type': 'billing_type', 'Order Type': 'order_type',
+      'Mode of Pmt': 'mode_of_payment'
+    },
+    render: (rows) => { window.tableFilterData['cons-table-body'] = rows; window.cCurrentPage = 1; window.renderConsumptionTable(); }
+  },
+  'users-table-body': {
+    getRows: () => (typeof window.getDashboardUsers === 'function' ? window.getDashboardUsers() : []),
+    fields: {
+      'ID': 'id', 'Username': 'username', 'Password': 'password',
+      'Role': 'role', 'Location': 'location'
+    },
+    render: (rows) => { window.tableFilterData['users-table-body'] = rows; if (typeof window.renderUsers === 'function') window.renderUsers(); }
+  }
+};
 
 function getFieldValue(obj, key, tableId) {
   if (key === 'statusText') {
     if (tableId === 'demand-table-body') {
-      return obj.needsReorder ? 'REORDER' : 'SUFFICIENT';
+      const needsReorder = (obj.currentStock + obj.inTransit) < (obj.min + obj.demand);
+      return needsReorder ? 'REORDER' : 'SUFFICIENT';
     } else if (tableId === 'health-table-body') {
       if (obj.currentStock === 0) return 'Out of Stock';
-      if (obj.currentStock < 5) return 'Low Stock';
+      const t = (Number(obj.demand) || 0) >= 1 ? (Number(obj.demand) || 0) : 5;
+      if (obj.currentStock < t) return 'Low Stock';
       return 'Healthy';
     } else {
       const text = obj.status?.text || '';
       return text.replace(/<[^>]*>?/gm, '').trim();
     }
   }
+  if (key === 'monthYear') {
+    const dStr = obj.date || obj.fetched_at || '';
+    if (!dStr) return '-';
+    if (!obj._monthYearCache) {
+      const dateObj = new Date(dStr);
+      obj._monthYearCache = !isNaN(dateObj) ? dateObj.toLocaleString('en-US', { month: 'short', year: 'numeric' }) : '-';
+    }
+    return obj._monthYearCache;
+  }
+  if (key === 'ndpPrice') {
+    const pn = obj.part_no || 'Unknown';
+    if (window.rawInventoryData && window.rawInventoryData.priceList) {
+      if (!window._priceMapCache) {
+        window._priceMapCache = {};
+        window.rawInventoryData.priceList.forEach(p => {
+          window._priceMapCache[p.part_number] = Number(p.ndp) || 0;
+        });
+      }
+      return window._priceMapCache[pn] || 0;
+    }
+    return 0;
+  }
   return obj[key];
+}
+
+// Add an Excel-style caret to every filterable header
+function markFilterHeaders() {
+  Object.entries(tableFilterConfigs).forEach(([tableId, cfg]) => {
+    const tbody = document.getElementById(tableId);
+    if (!tbody) return;
+    const table = tbody.closest('table');
+    if (!table) return;
+    table.querySelectorAll('thead th').forEach(th => {
+      const text = th.textContent.trim();
+      const key = cfg.fields[text];
+      if (!key) return;
+      th.classList.add('has-filter');
+      th.style.cursor = 'pointer';
+      th.dataset.colKey = key;
+      if (!th.querySelector('.th-filter-caret')) {
+        const caret = document.createElement('span');
+        caret.className = 'th-filter-caret';
+        caret.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 4px; vertical-align: -2px; display: inline-block; color: var(--text-secondary);"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>';
+        th.appendChild(caret);
+      }
+    });
+  });
 }
 
 document.addEventListener('click', (e) => {
@@ -96,22 +319,36 @@ document.addEventListener('click', (e) => {
   const tbody = table.querySelector('tbody');
   if (!tbody) return;
   const tableId = tbody.id;
-
-  const text = th.textContent.trim();
-  const keyMap = {
-    'Part': 'partId', 'Part No.': 'partId',
-    'Part Name': 'model', 'Description': 'model',
-    'Stock': 'currentStock', 'Quantity': 'currentStock',
-    'Reserved': 'reserved', 'Available': 'available',
-    'In Transit': 'inTransit', 'Min': 'min', 'Safety Min': 'min',
-    'Demand': 'demand', 'Pending': 'demand', 'Req': 'netRequirement',
-    'Order Qty': 'orderQty', 'Suggested': 'suggestedOrder',
-    'Status': 'statusText', 'Health Status': 'statusText', 'Forecast Action': 'statusText',
-    'Location': 'location', 'Bin Location': 'binLocation', 'Category': 'productCategory',
-    'Total Price (₹)': 'stockValue', '30D Cons.': 'avgConsumption'
-  };
   
-  const key = keyMap[text];
+  const cfg = tableFilterConfigs[tableId];
+  if (!cfg) return;
+  const sourceRows = cfg.getRows();
+
+  // Prefer the dataset colKey added by markFilterHeaders
+  let key = th.dataset.colKey;
+  
+  if (!key) {
+    const text = Array.from(th.childNodes)
+      .filter(n => n.nodeType === Node.TEXT_NODE)
+      .map(n => n.textContent)
+      .join('').trim();
+      
+    const keyMap = {
+      'Part': 'partId', 'Part No.': 'partId',
+      'Part Name': 'model', 'Description': 'model',
+      'Stock': 'currentStock', 'Quantity': 'currentStock',
+      'Reserved': 'reserved', 'Available': 'available',
+      'In Transit': 'inTransit', 'Min': 'min', 'Safety Min': 'min',
+      'Demand': 'demand', 'Pending': 'demand', 'Req': 'netRequirement',
+      'Order Qty': 'orderQty', 'Suggested': 'suggestedOrder',
+      'Status': 'statusText', 'Health Status': 'statusText', 'Forecast Action': 'statusText',
+      'Location': 'location', 'Bin Location': 'binLocation', 'Category': 'productCategory',
+      'Total Price (?)': 'stockValue', 'Total Amount (₹)': 'stockValue', '30D Cons.': 'avgConsumption',
+      'NDP (₹)': 'ndpPrice', 'Stock Qty': 'currentStock'
+    };
+    key = keyMap[text];
+  }
+  
   if (!key) return; // Action columns
 
   if (!window.originalProcessedParts || window.originalProcessedParts.length === 0) return;
@@ -124,8 +361,8 @@ document.addEventListener('click', (e) => {
   const currentSort = window.activeSort.get(tableId);
 
   // Get unique values for this column
-  const uniqueValues = [...new Set(window.originalProcessedParts.map(item => {
-    const val = getFieldValue(item, key);
+  const uniqueValues = [...new Set(sourceRows.map(item => {
+    const val = getFieldValue(item, key, tableId);
     return String(val === null || val === undefined ? '' : val);
   }))];
   uniqueValues.sort((a, b) => {
@@ -162,19 +399,23 @@ document.addEventListener('click', (e) => {
   }).join('');
 
   div.innerHTML = `
-    <div style="padding: 8px; border-bottom: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 4px;">
-      <button class="sort-asc-btn" style="padding: 6px; text-align: left; background: ${currentSort.key === key && currentSort.isAsc ? 'var(--blue-50)' : 'transparent'}; border: none; cursor: pointer; border-radius: 4px; font-size: 0.85rem; color: var(--text-primary);"><i data-lucide="arrow-up-az" style="width: 14px; height: 14px; display: inline-block; vertical-align: text-bottom; margin-right: 6px;"></i> Sort A to Z</button>
-      <button class="sort-desc-btn" style="padding: 6px; text-align: left; background: ${currentSort.key === key && !currentSort.isAsc ? 'var(--blue-50)' : 'transparent'}; border: none; cursor: pointer; border-radius: 4px; font-size: 0.85rem; color: var(--text-primary);"><i data-lucide="arrow-down-za" style="width: 14px; height: 14px; display: inline-block; vertical-align: text-bottom; margin-right: 6px;"></i> Sort Z to A</button>
+    <div class="col-filter-header">
+      <div class="fil-sort">
+        <button class="fil-sort-btn sort-asc-btn ${currentSort.key === key && currentSort.isAsc ? 'active-sort' : ''}"><i data-lucide="arrow-up-az" style="width: 14px; height: 14px; display: inline-block;"></i> Sort A to Z</button>
+        <button class="fil-sort-btn sort-desc-btn ${currentSort.key === key && !currentSort.isAsc ? 'active-sort' : ''}"><i data-lucide="arrow-down-za" style="width: 14px; height: 14px; display: inline-block;"></i> Sort Z to A</button>
+      </div>
+      <input type="text" class="col-filter-search" placeholder="Search values..." style="padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.8rem; font-family: inherit; width: 100%; box-sizing: border-box;">
     </div>
-    <div style="max-height: 200px; overflow-y: auto; padding: 4px 0;">
-      <label class="column-filter-checkbox" style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; cursor: pointer; font-size: 0.85rem; font-weight: 500; border-bottom: 1px solid var(--border-color); margin-bottom: 4px;">
-        <input type="checkbox" class="select-all-cb" ${currentFilters.size === 0 || currentFilters.size === uniqueValues.length ? 'checked' : ''}> Select All
+    <div class="col-filter-body">
+      <label class="col-filter-checkbox" style="font-weight: 600; border-bottom: 1px solid var(--border-color);">
+        <input type="checkbox" class="select-all-cb" ${currentFilters.size === 0 || currentFilters.size === uniqueValues.length ? 'checked' : ''} style="cursor: pointer;"> <span>Select All</span>
       </label>
       ${checkboxesHtml}
     </div>
-    <div style="padding: 10px; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between; gap: 8px;">
-      <button class="clear-btn" style="padding: 6px 12px; background: transparent; border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; font-size: 0.8rem;">Clear</button>
-      <button class="apply-btn" style="padding: 6px 12px; background: #10b981; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: 500;">Apply</button>
+    <div class="col-filter-footer">
+      <button class="clear-btn" style="margin-right: auto;">Clear</button>
+      <button class="fil-btn fil-btn-cancel">Cancel</button>
+      <button class="fil-btn fil-btn-ok apply-btn">OK</button>
     </div>
   `;
 
@@ -209,6 +450,16 @@ document.addEventListener('click', (e) => {
     });
   });
 
+  // Search within dropdown (Excel-style live filter of the value list)
+  const searchInput = div.querySelector('.col-filter-search');
+  searchInput.addEventListener('input', () => {
+    const q = searchInput.value.toLowerCase();
+    Array.from(div.querySelectorAll('label.col-filter-checkbox:not(:first-of-type)')).forEach(label => {
+      const valText = (label.querySelector('input')?.value || '').toLowerCase();
+      label.style.display = !q || valText.includes(q) || (label.querySelector('span')?.textContent || '').toLowerCase().includes(q) ? '' : 'none';
+    });
+  });
+
   // Handle Clear
   div.querySelector('.clear-btn').addEventListener('click', () => {
     window.activeFilters.get(tableId)[key] = new Set();
@@ -218,7 +469,12 @@ document.addEventListener('click', (e) => {
     div.remove();
   });
 
-  // Handle Apply
+  // Handle Cancel (close without applying)
+  div.querySelector('.fil-btn-cancel').addEventListener('click', () => {
+    div.remove();
+  });
+
+  // Handle OK (Apply)
   div.querySelector('.apply-btn').addEventListener('click', () => {
     const checked = checkboxes.filter(cb => cb.checked).map(cb => cb.value);
     
@@ -242,11 +498,13 @@ document.addEventListener('click', (e) => {
   });
 
   const applyFiltersAndSort = () => {
+    const cfg = tableFilterConfigs[tableId];
+    if (!cfg) return;
     const filters = window.activeFilters.get(tableId);
-    let result = window.originalProcessedParts.filter(part => {
+    let result = cfg.getRows().filter(part => {
       for (const [fKey, fSet] of Object.entries(filters)) {
         if (fSet.size > 0) {
-          const rawVal = getFieldValue(part, fKey);
+          const rawVal = getFieldValue(part, fKey, tableId);
           const val = String(rawVal === null || rawVal === undefined ? '' : rawVal);
           if (!fSet.has(val)) return false;
         }
@@ -257,8 +515,8 @@ document.addEventListener('click', (e) => {
     const sortConfig = window.activeSort.get(tableId);
     if (sortConfig.key) {
       result.sort((a, b) => {
-        let valA = getFieldValue(a, sortConfig.key);
-        let valB = getFieldValue(b, sortConfig.key);
+        let valA = getFieldValue(a, sortConfig.key, tableId);
+        let valB = getFieldValue(b, sortConfig.key, tableId);
         if (typeof valA === 'string') valA = valA.toLowerCase();
         if (typeof valB === 'string') valB = valB.toLowerCase();
         
@@ -268,19 +526,7 @@ document.addEventListener('click', (e) => {
       });
     }
 
-    // Only update the global filtered list if we are updating the main table.
-    // If updating sub-tables, we should theoretically maintain separate states, 
-    // but for now we follow the existing pattern where they share the filtered state,
-    // or just re-render them using the new result.
-    filteredProcessedParts = result;
-    
-    if (tableId === 'inventory-table-body' && typeof renderTablePage === 'function') {
-      currentPage = 1; renderTablePage();
-    } else if (tableId === 'health-table-body' && typeof renderHealthTable === 'function') {
-      window.hCurrentPage = 1; renderHealthTable();
-    } else if (tableId === 'demand-table-body' && typeof renderDemandTable === 'function') {
-      window.dCurrentPage = 1; renderDemandTable();
-    }
+    if (typeof cfg.render === 'function') cfg.render(result);
   };
 });
 
@@ -317,8 +563,10 @@ if (loginFormElement) {
       sessionStorage.setItem('currentUser', JSON.stringify(user));
       sessionStorage.setItem('tata_crm_auth', 'true');
       
-      const welcomeMessage = document.getElementById('welcome-message');
-      if (welcomeMessage) welcomeMessage.textContent = `Welcome ${user.username}!`;
+
+
+      const globalWelcomeName = document.getElementById('global-welcome-name');
+      if (globalWelcomeName) globalWelcomeName.textContent = user.username;
 
       // If we are on the single-page dashboard version
       const loginPage = document.getElementById('login-page');
@@ -339,41 +587,14 @@ if (loginFormElement) {
 
 logoutBtn.addEventListener('click', async () => {
   sessionStorage.removeItem('currentUser');
-  document.getElementById('password').value = '';
-  dashboardPage.classList.remove('active');
-  loginPage.classList.add('active');
+  sessionStorage.removeItem('tataUser');
+  window.location.href = 'index.html';
 });
 
 // Run session check on load
 checkSession();
 
-window.applyAccessControls = function(user) {
-  const syncBtn = document.getElementById('sync-data-btn');
-  const locationFilter = document.getElementById('location-select');
-  const settingsMenu = document.querySelector('[data-target="view-settings"]');
-  const devStatusMenu = document.querySelector('[data-target="view-dev-status"]');
-  const sidebarDivider = document.getElementById('sidebar-divider');
-  
-  if (user.role !== 'Super Admin' && user.role !== 'Admin') {
-    if (syncBtn) syncBtn.style.setProperty('display', 'none', 'important');
-    if (settingsMenu) settingsMenu.style.setProperty('display', 'none', 'important');
-    if (devStatusMenu) devStatusMenu.style.setProperty('display', 'none', 'important');
-    if (sidebarDivider) sidebarDivider.style.setProperty('display', 'none', 'important');
-    
-    if (locationFilter && user.location !== 'ALL') {
-      locationFilter.value = user.location;
-      locationFilter.disabled = true;
-      // Force refresh data if filter changed
-      if(typeof renderDashboard === 'function') renderDashboard();
-    }
-  } else {
-    if (syncBtn) syncBtn.style.display = 'flex';
-    if (settingsMenu) settingsMenu.style.display = 'flex';
-    if (devStatusMenu) devStatusMenu.style.display = 'flex';
-    if (sidebarDivider) sidebarDivider.style.display = 'block';
-    if (locationFilter) locationFilter.disabled = false;
-  }
-};
+
 
 // --- Sidebar Toggle Logic ---
 hamburgerBtn.addEventListener('click', () => {
@@ -405,7 +626,7 @@ navItems.forEach(item => {
     if (targetId) {
       viewSections.forEach(view => {
         if (view.id === targetId) {
-          view.style.display = 'block';
+          view.style.display = 'flex';
         } else {
           view.style.display = 'none';
         }
@@ -417,6 +638,28 @@ navItems.forEach(item => {
 });
 
 // --- Locations Settings Logic ---
+async function populateLocationSelect() {
+  const select = document.getElementById('location-select');
+  if (!select) return;
+  try {
+    const { data, error } = await supabase.from('tata_locations').select('location_name');
+    if (error) throw error;
+    const current = select.value || 'ALL';
+    select.innerHTML = '<option value="ALL">All Locations</option>';
+    (data || []).forEach(loc => {
+      const opt = document.createElement('option');
+      opt.value = loc.location_name;
+      opt.textContent = loc.location_name;
+      select.appendChild(opt);
+    });
+    if ([...select.options].some(o => o.value === current)) {
+      select.value = current;
+    }
+  } catch (e) {
+    console.error('Error populating location select:', e);
+  }
+}
+
 async function loadLocations() {
   const locList = document.getElementById('locations-list');
   if (!locList) return;
@@ -464,6 +707,23 @@ async function loadLocations() {
         }
       });
     });
+
+    // Populate dropdowns (Inventory Upload, New User Location & Fetch Target Location)
+    const selects = ['inventory-upload-location', 'new-location', 'fetch-target-location'].map(id => document.getElementById(id)).filter(Boolean);
+    selects.forEach(sel => {
+      // For fetch-target-location, we keep "All Locations" as the default first option
+      if (sel.id === 'fetch-target-location') {
+        sel.innerHTML = '<option value="ALL" selected>All Locations</option>';
+      } else {
+        sel.innerHTML = '<option value="" disabled selected>Select Location</option>';
+      }
+      data.forEach(loc => {
+        const opt = document.createElement('option');
+        opt.value = loc.location_name;
+        opt.textContent = loc.location_name;
+        sel.appendChild(opt);
+      });
+    });
     
   } catch (err) {
     console.error('Error loading locations:', err);
@@ -476,12 +736,111 @@ async function loadLastSync() {
   try {
     const { data, error } = await supabase.from('tata_bot_settings').select('value').eq('key', 'last_sync').single();
     if(!error && data) {
-       syncText.textContent = 'Last updated: ' + data.value;
+       syncText.textContent = formatBeautifulDate(data.value);
     }
   } catch(e) {}
 }
 
+function showLocationAlert(type, message) {
+  const existing = document.querySelector('.tata-location-alert');
+  if (existing) existing.remove();
+  const toast = document.createElement('div');
+  toast.className = 'tata-location-alert';
+  const icon = type === 'error' ? 'alert-triangle' : 'check-circle-2';
+  const label = type === 'error' ? 'Failed' : 'Fetched';
+  toast.innerHTML = `
+    <div class="tata-location-alert-icon"><i data-lucide="${icon}"></i></div>
+    <div>
+      <div class="tata-location-alert-title">${label}: ${message}</div>
+      <div class="tata-location-alert-close">&times;</div>
+    </div>`;
+  toast.style.background = type === 'error' ? '#fee2e2' : '#dcfce7';
+  toast.style.border = '1px solid ' + (type === 'error' ? '#ef4444' : '#059669');
+  document.body.appendChild(toast);
+  toast.addEventListener('click', () => toast.remove());
+  setTimeout(() => toast.remove(), 8000);
+  try { lucide.createIcons(); } catch(e) {}
+}
+
+// --- Master Credentials Logic ---
+const credForm = document.getElementById('tata-credentials-form');
+const tataUserInput = document.getElementById('tata-username');
+const tataPassInput = document.getElementById('tata-password');
+const toggleTataPassBtn = document.getElementById('toggle-tata-password');
+
+if (toggleTataPassBtn && tataPassInput) {
+  toggleTataPassBtn.addEventListener('click', () => {
+    if (tataPassInput.type === 'password') {
+      tataPassInput.type = 'text';
+      toggleTataPassBtn.innerHTML = '<i data-lucide="eye-off" style="width: 16px; height: 16px;"></i>';
+    } else {
+      tataPassInput.type = 'password';
+      toggleTataPassBtn.innerHTML = '<i data-lucide="eye" style="width: 16px; height: 16px;"></i>';
+    }
+    lucide.createIcons();
+  });
+}
+
+async function loadMasterCredentials() {
+  if (!tataUserInput || !tataPassInput) return;
+  try {
+    const { data: userRow } = await supabase.from('tata_bot_settings').select('value').eq('key', 'master_username').single();
+    const { data: passRow } = await supabase.from('tata_bot_settings').select('value').eq('key', 'master_password').single();
+    if (userRow) tataUserInput.value = userRow.value;
+    if (passRow) tataPassInput.value = passRow.value;
+  } catch (err) {
+    console.error('Error loading master credentials:', err);
+  }
+}
+loadMasterCredentials();
+
+if (credForm) {
+  credForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = credForm.querySelector('button[type="submit"]');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i data-lucide="loader-2" class="lucide-spin" style="width:16px;height:16px;"></i> Saving...';
+    btn.disabled = true;
+    
+    try {
+      await supabase.from('tata_bot_settings').upsert([
+        { key: 'master_username', value: tataUserInput.value },
+        { key: 'master_password', value: tataPassInput.value }
+      ], { onConflict: 'key' });
+      
+      const msg = document.getElementById('settings-msg');
+      if (msg) {
+        msg.style.display = 'block';
+        setTimeout(() => msg.style.display = 'none', 3000);
+      }
+    } catch (err) {
+      console.error('Error saving master credentials:', err);
+      alert('Error saving credentials');
+    }
+    
+    btn.innerHTML = originalText;
+    btn.disabled = false;
+    lucide.createIcons();
+  });
+}
+
 const addLocForm = document.getElementById('add-location-form');
+const toggleLocPassBtn = document.getElementById('toggle-loc-password');
+const locPassInput = document.getElementById('loc-password');
+
+if (toggleLocPassBtn && locPassInput) {
+  toggleLocPassBtn.addEventListener('click', () => {
+    if (locPassInput.type === 'password') {
+      locPassInput.type = 'text';
+      toggleLocPassBtn.innerHTML = '<i data-lucide="eye-off" style="width: 16px; height: 16px;"></i>';
+    } else {
+      locPassInput.type = 'password';
+      toggleLocPassBtn.innerHTML = '<i data-lucide="eye" style="width: 16px; height: 16px;"></i>';
+    }
+    lucide.createIcons();
+  });
+}
+
 if (addLocForm) {
   addLocForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -506,58 +865,115 @@ if (addLocForm) {
 
 const fetchForm = document.getElementById('fetch-data-form');
 if (fetchForm) {
-  fetchForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const btn = document.getElementById('fetch-data-btn');
+  fetchForm.addEventListener('submit', (e) => e.preventDefault());
+  
+  const handleFetch = async (btnId, type) => {
+    const btn = document.getElementById(btnId);
     const statusDiv = document.getElementById('fetch-status');
     const rawFromDate = document.getElementById('from-date').value;
     const rawToDate = document.getElementById('to-date').value;
+    const targetLocation = document.getElementById('fetch-target-location').value;
     
-    if (!rawFromDate || !rawToDate) {
+    if (type === 'consumption' && (!rawFromDate || !rawToDate)) {
       statusDiv.style.display = 'block';
       statusDiv.style.color = '#ef4444';
-      statusDiv.textContent = 'Please select both dates.';
+      statusDiv.textContent = 'Please select both dates for consumption data.';
       return;
     }
     
-    // Convert YYYY-MM-DD to MM/DD/YYYY
-    const [fY, fM, fD] = rawFromDate.split('-');
-    const fromDate = `${fM}/${fD}/${fY}`;
-    const [tY, tM, tD] = rawToDate.split('-');
-    const toDate = `${tM}/${tD}/${tY}`;
+    let fromDate = '', toDate = '';
+    if (rawFromDate && rawToDate) {
+      // Convert YYYY-MM-DD to MM/DD/YYYY
+      const [fY, fM, fD] = rawFromDate.split('-');
+      fromDate = `${fM}/${fD}/${fY}`;
+      const [tY, tM, tD] = rawToDate.split('-');
+      toDate = `${tM}/${tD}/${tY}`;
+    }
     
     const originalText = btn.innerHTML;
-    btn.innerHTML = '<i data-lucide="loader" class="lucide-spin"></i> Fetching Data... This may take a few minutes.';
+    const originalBg = btn.style.background;
+    btn.innerHTML = '<i data-lucide="loader" class="lucide-spin"></i> Fetching...';
     btn.disabled = true;
+    
+    // Disable the other button too
+    const otherBtnId = type === 'consumption' ? 'fetch-inventory-btn' : 'fetch-consumption-btn';
+    const otherBtn = document.getElementById(otherBtnId);
+    otherBtn.disabled = true;
+    
     statusDiv.style.display = 'block';
     statusDiv.style.color = 'var(--text-secondary)';
     statusDiv.textContent = 'Starting background scraper... please wait and do not close this page.';
     lucide.createIcons();
     
+    function resetBtn() {
+      btn.innerHTML = originalText;
+      btn.style.background = originalBg;
+      btn.disabled = false;
+      otherBtn.disabled = false;
+      lucide.createIcons();
+    }
+    
     try {
+      const eventSource = new EventSource('/api/status');
+      
+      eventSource.onmessage = async function(event) {
+        const data = JSON.parse(event.data);
+        statusDiv.innerHTML = data.message;
+        
+        // Toast-style alert with location name on success/failure (each message once)
+        if (!window.__tataLocationAlerts) window.__tataLocationAlerts = new Set();
+        const plain = (data.message || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+        const sig = plain.slice(0, 90);
+        if (plain && !window.__tataLocationAlerts.has(sig)) {
+          window.__tataLocationAlerts.add(sig);
+          if (plain.includes('ERROR:') || plain.includes('FATAL ERROR:')) {
+            showLocationAlert('error', plain.replace(/^FATAL ERROR:\s*/, '').replace(/^ERROR:\s*/, ''));
+          } else if (/UPLOADED \d+ ROWS/i.test(plain)) {
+            const loc = (plain.match(/^(.+?)\s+(?:CONSUMPTION|INVENTORY)?\s*DATA/i) || [])[1] || plain.split(' ')[0];
+            showLocationAlert('success', `${loc.trim().replace(/\s+$/, '')} data fetched successfully`);
+          } else if (plain.includes('successfully')) {
+            showLocationAlert('success', 'All requested scrapers finished successfully');
+          }
+        }
+        
+        if (data.message.includes('FATAL ERROR:')) {
+          statusDiv.style.color = '#ef4444';
+          eventSource.close();
+          resetBtn();
+        } else if (data.message.includes('ERROR:')) {
+          statusDiv.style.color = '#ef4444';
+          // Do not close connection for individual location errors
+        } else if (data.message.includes('successfully!')) {
+          statusDiv.style.color = '#059669';
+          btn.innerHTML = '<i data-lucide="check"></i> Done!';
+          btn.style.background = '#059669';
+          lucide.createIcons();
+          
+          const newDateStr = new Date().toLocaleString();
+          await supabase.from('tata_bot_settings').upsert({ key: 'last_sync', value: newDateStr }, { onConflict: 'key' });
+          loadLastSync();
+          
+          // Force update the UI immediately in case RLS blocked the upsert
+          const syncText = document.getElementById('last-updated-text');
+          if (syncText && typeof formatBeautifulDate === 'function') {
+            syncText.textContent = formatBeautifulDate(newDateStr);
+          }
+          
+          setTimeout(() => loadDataAndRender(), 1000);
+          
+          eventSource.close();
+          setTimeout(() => resetBtn(), 5000);
+        }
+      };
+
       const response = await fetch('/api/fetch-data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fromDate, toDate })
+        body: JSON.stringify({ fromDate, toDate, type, targetLocation })
       });
       
       const result = await response.json();
-      
-      if (result.success) {
-        btn.innerHTML = '<i data-lucide="check"></i> Data Replaced!';
-        btn.style.background = '#059669';
-        statusDiv.style.color = '#059669';
-        statusDiv.textContent = 'Success: ' + result.message;
-        
-        // Update last sync time
-        await supabase.from('tata_bot_settings').upsert({ key: 'last_sync', value: new Date().toLocaleString() }, { onConflict: 'key' });
-        loadLastSync();
-
-        // Reload dashboard data
-        setTimeout(() => {
-          loadDataAndRender();
-        }, 1000);
-      } else {
+      if (!result.success) {
         throw new Error(result.error);
       }
     } catch (err) {
@@ -565,16 +981,12 @@ if (fetchForm) {
       btn.innerHTML = '<i data-lucide="alert-triangle"></i> Error';
       statusDiv.style.color = '#ef4444';
       statusDiv.textContent = 'Error: ' + err.message;
+      resetBtn();
     }
-    
-    lucide.createIcons();
-    setTimeout(() => {
-      btn.innerHTML = originalText;
-      btn.style.background = '#ef4444';
-      btn.disabled = false;
-      lucide.createIcons();
-    }, 5000);
-  });
+  };
+
+  document.getElementById('fetch-consumption-btn').addEventListener('click', () => handleFetch('fetch-consumption-btn', 'consumption'));
+  document.getElementById('fetch-inventory-btn').addEventListener('click', () => handleFetch('fetch-inventory-btn', 'inventory'));
 }
 
 
@@ -587,35 +999,55 @@ let filteredProcessedParts = [];
 let currentPage = 1;
 const itemsPerPage = 50;
 
-async function fetchTableData(tableName) {
-  let tableData = [];
-  let page = 0;
+async function fetchTableData(tableName, locationFilter = null, columns = '*') {
   const pageSize = 1000;
-  while (true) {
-    const { data, error } = await supabase
-      .from(tableName)
-      .select('*')
-      .range(page * pageSize, (page + 1) * pageSize - 1);
-      
+  
+  // 1. Get exact row count first (fast, head-only)
+  let countQuery = supabase.from(tableName).select('id', { count: 'exact', head: true });
+  if (locationFilter) countQuery = countQuery.eq('division', locationFilter);
+  const { count, error: countErr } = await countQuery;
+  if (countErr) {
+    console.error(`Error counting ${tableName}:`, countErr);
+    return [];
+  }
+  if (!count) return [];
+
+  // 2. Fetch every page in parallel
+  const totalPages = Math.ceil(count / pageSize);
+  const queries = [];
+  for (let page = 0; page < totalPages; page++) {
+    let query = supabase.from(tableName).select(columns).range(page * pageSize, (page + 1) * pageSize - 1);
+    if (locationFilter) query = query.eq('division', locationFilter);
+    queries.push(query);
+  }
+  
+  const results = await Promise.all(queries);
+  const tableData = [];
+  for (const { data, error } of results) {
     if (error) {
       console.error(`Error fetching ${tableName}:`, error);
-      break;
+      continue;
     }
-    if (!data || data.length === 0) break;
-    tableData = tableData.concat(data);
-    if (data.length < pageSize) break;
-    page++;
+    if (data && data.length) tableData.push(...data);
   }
   return tableData;
 }
 
 async function fetchInventoryData() {
   try {
+    const sessionStr = sessionStorage.getItem('currentUser') || '{}';
+    const currentUser = JSON.parse(sessionStr);
+    const userLocation = currentUser.location || 'ALL';
+    const isAdmin = currentUser.role === 'Super Admin' || currentUser.role === 'Admin' || userLocation === 'ALL';
+    const filter = isAdmin ? null : userLocation;
+
     const [inventoryData, consumptionData, priceListData] = await Promise.all([
-      fetchTableData('tata_spare_inventory'),
-      fetchTableData('tata_consumption_data'),
-      fetchTableData('tata_price_list')
+      fetchTableData('tata_spare_inventory', filter, 'part_no, division, qty, availability, product_category, description, last_receipt, fetched_at'),
+      fetchTableData('tata_consumption_data', filter, '*'),
+      fetchTableData('tata_price_list', null, 'part_number, ndp, description, category')
     ]);
+    
+    // Removed debug UI
     
     return { inventory: inventoryData, consumption: consumptionData, priceList: priceListData };
   } catch (err) {
@@ -637,29 +1069,47 @@ function processRawData({ inventory, consumption, priceList = [] }) {
     });
   });
 
-  // Pre-process consumption data
-  const consumptionByPart = new Map();
+  // Helper to map raw dealer names to our standard locations
+  const mapLocation = (dealerName) => {
+    if (!dealerName) return 'Narwal';
+    const d = dealerName.toLowerCase();
+    if (d.includes('channirama') || d.includes('chhanirama')) return 'Channi Rama';
+    if (d.includes('smamsamba') || d.includes('supwal')) return 'Supwal';
+    if (d.includes('smamkathua') || d.includes('kathua')) return 'Kathua';
+    if (d.includes('jammu') || d.includes('narwal') || d.includes('narval')) return 'Narwal';
+    return 'Narwal'; // Default
+  };
+
+  // Pre-process consumption data grouped by Part + Location
+  const consumptionByPartLoc = new Map();
   consumption.forEach(row => {
-    const pn = row.part_no || row.part_number; // Fallback just in case
+    const pn = row.part_no || row.part_number; 
+    const loc = mapLocation(row.dealer);
+    const key = pn + '_' + loc;
+    
     const qty = parseInt(row.sold_qty) || 0;
-    if (consumptionByPart.has(pn)) {
-      consumptionByPart.set(pn, consumptionByPart.get(pn) + qty);
+    if (consumptionByPartLoc.has(key)) {
+      consumptionByPartLoc.set(key, consumptionByPartLoc.get(key) + qty);
     } else {
-      consumptionByPart.set(pn, qty);
+      consumptionByPartLoc.set(key, qty);
     }
   });
   
   inventory.forEach(row => {
-    const pn = row.part_number;
-    const consQty = consumptionByPart.get(pn) || 0;
+    const pn = row.part_no || row.part_number;
+    const loc = row.location_1 || row.division || 'Narwal';
+    const standardLoc = mapLocation(loc);
+    const key = pn + '_' + standardLoc;
+    
+    const consQty = consumptionByPartLoc.get(key) || 0;
     const priceData = priceByPart.get(pn) || {};
     
-    if (!grouped.has(pn)) {
-      grouped.set(pn, {
+    if (!grouped.has(key)) {
+      grouped.set(key, {
         partId: pn,
         model: priceData.description || row.description || 'Unknown',
-        location: row.location || 'NARWAL',
-        productCategory: (priceData.category || row.product_category || 'Uncategorized').trim().toUpperCase(),
+        location: standardLoc,
+        productCategory: (row.product_category || priceData.category || 'Uncategorized').trim().toUpperCase(),
         currentStock: 0,
         reserved: 0,
         inTransit: 0,
@@ -667,24 +1117,73 @@ function processRawData({ inventory, consumption, priceList = [] }) {
         ndpPrice: priceData.ndp || 0,
         min: 5,
         demand: Math.ceil(consQty / 4), // Simple mocked demand based on real consumption
-        consumption30d: consQty
+        consumption30d: consQty,
+        last_receipt: row.last_receipt || '',
+        ageingDays: -1
       });
     }
-    const existing = grouped.get(pn);
+    const existing = grouped.get(key);
     const avail = (row.availability || '').toLowerCase();
     
     if (avail.includes('on hand')) {
       existing.currentStock += row.qty;
-      existing.stockValue += (existing.ndpPrice * row.qty) || (row.total_price || 0);
     } else if (avail.includes('transit')) {
       existing.inTransit += row.qty;
     } else if (avail.includes('reserv')) {
       existing.reserved += row.qty;
     } else {
       existing.currentStock += row.qty;
-      existing.stockValue += (existing.ndpPrice * row.qty) || (row.total_price || 0);
+    }
+    
+    // Update last_receipt to the most recent one
+    const lr = row.last_receipt;
+    if (lr) {
+      if (!existing.last_receipt || new Date(lr) > new Date(existing.last_receipt)) {
+        existing.last_receipt = lr;
+      }
     }
   });
+
+  // Include consumption that has NO inventory record
+  consumptionByPartLoc.forEach((consQty, key) => {
+    if (!grouped.has(key)) {
+      const parts = key.split('_');
+      const pn = parts[0];
+      const loc = parts[1];
+      const priceData = priceByPart.get(pn) || {};
+      
+      grouped.set(key, {
+        partId: pn,
+        model: priceData.description || 'Unknown',
+        location: loc,
+        productCategory: (priceData.category || 'Uncategorized').trim().toUpperCase(),
+        currentStock: 0,
+        reserved: 0,
+        inTransit: 0,
+        stockValue: 0,
+        ndpPrice: priceData.ndp || 0,
+        min: 5,
+        demand: Math.ceil(consQty / 4), 
+        consumption30d: consQty,
+        last_receipt: '',
+        ageingDays: -1
+      });
+    }
+  });
+
+  // Stock value = available (on hand) qty x price list NDP
+  const now = new Date();
+  for (const part of grouped.values()) {
+    part.stockValue = part.ndpPrice * part.currentStock;
+    if (part.currentStock > 0 && part.last_receipt) {
+      const lrDate = new Date(part.last_receipt);
+      if (!isNaN(lrDate)) {
+        part.ageingDays = Math.floor((now - lrDate) / (1000 * 60 * 60 * 24));
+      }
+    } else {
+      part.ageingDays = -1; // No stock = no ageing
+    }
+  }
 
   return Array.from(grouped.values());
 }
@@ -703,13 +1202,24 @@ function calculateRequirements(parts) {
     'SPARE PART': 0
   };
 
+  const cons6mMap = {};
+  if (window.rawInventoryData && window.rawInventoryData.consumption) {
+    window.rawInventoryData.consumption.forEach(r => {
+      const pn = r.part_no || 'Unknown';
+      if (!cons6mMap[pn]) cons6mMap[pn] = 0;
+      cons6mMap[pn] += (Number(r.sold_qty) || 0);
+    });
+  }
+
   const processed = parts.map(part => {
-    // Override lead time and safety stock based on business rule: 7 days
-    const leadTime = 7;
-    const safetyStock = Math.ceil((part.consumption30d / 30) * leadTime);
+    // Override lead time and safety stock based on business rule: 14 days (7 days internal + 7 days supplier)
+    const leadTime = 14;
+    const consumption6m = cons6mMap[part.partId] || (part.consumption30d * 6);
+    const avgDailyConsumption = consumption6m / 180;
+    const safetyStock = Math.ceil(avgDailyConsumption * leadTime);
     
     const available = part.currentStock - part.reserved;
-    // Net Requirement = Demand + Safety Stock − Available Stock − Confirmed In-Transit
+    // Net Requirement = Demand + Safety Stock - Available Stock - Confirmed In-Transit
     const netRequirement = part.demand + safetyStock - available - part.inTransit;
     const orderQty = Math.max(0, netRequirement);
     
@@ -735,17 +1245,71 @@ function calculateRequirements(parts) {
     // AI Reason String
     const aiReason = `<strong>Part ${part.partId} — Order ${orderQty} units</strong><br><br>
       Current available: ${available}<br>
-      30-day average consumption: ${part.consumption30d}/month<br>
+      6-month consumption: ${consumption6m} (avg ~${Math.round(avgDailyConsumption*30)}/month)<br>
       Open demand: ${part.demand}<br>
-      Safety stock (7 days): ${safetyStock}<br>
+      Safety stock (14 days): ${safetyStock}<br>
       In-transit: ${part.inTransit}<br>
       Supplier lead time: ${leadTime} days<br><br>
       <strong>Reason:</strong> ${orderQty > 0 ? 'Available stock is insufficient to cover current demand and safety stock after considering confirmed incoming stock.' : 'Current inventory and incoming stock are sufficient to meet demand and maintain safety thresholds.'}`;
 
-    return { ...part, leadTime, safetyStock, available, netRequirement, orderQty, status, aiReason };
+    return { ...part, leadTime, safetyStock, consumption6m, available, netRequirement, orderQty, status, aiReason };
   });
 
   return { processed, kpis, categoryTotals };
+}
+
+async function checkMissingDataAlerts() {
+  // Always-visible error alert when a configured Tata location has no inventory data
+  // in Supabase (e.g. the Siebel login failed and the data could not be fetched).
+  const existing = document.getElementById('missing-locations-alert');
+  if (existing) existing.remove();
+
+  let locations = [];
+  try {
+    const { data, error } = await supabase.from('tata_locations').select('location_name');
+    if (error) throw error;
+    locations = data || [];
+  } catch (e) {
+    console.error('Error loading locations for alert:', e);
+    return;
+  }
+
+  const missing = [];
+  for (const loc of locations) {
+    if (!loc.location_name) continue;
+    try {
+      const { count, error } = await supabase
+        .from('tata_spare_inventory')
+        .select('*', { count: 'exact', head: true })
+        .eq('division', loc.location_name);
+      if (error) throw error;
+      if (!count) missing.push(loc.location_name);
+    } catch (e) {
+      console.error('Error counting inventory for', loc.location_name, e);
+    }
+  }
+
+  if (!missing.length) return;
+
+  const banner = document.createElement('div');
+  banner.id = 'missing-locations-alert';
+  banner.style.cssText = 'background: rgba(239,68,68,0.1); border: 1px solid #ef4444; border-left: 4px solid #ef4444; padding: 14px 16px; border-radius: 6px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; z-index: 20;';
+  banner.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <i data-lucide="alert-triangle" style="color: #ef4444; width: 22px; height: 22px;"></i>
+      <div>
+        <h4 style="margin: 0; color: #ef4444; font-size: 0.95rem; font-weight: 600;">Inventory data not fetched for: ${missing.join(', ')}</h4>
+        <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.85rem;">Unable to fetch data for the above location(s). Check the Tata DMS login credentials and retry the fetch. This alert hides automatically once data is available.</p>
+      </div>
+    </div>`;
+
+  const dashboardContent = document.querySelector('#view-dashboard .dashboard-content') || document.getElementById('view-dashboard');
+  if (dashboardContent) {
+    dashboardContent.prepend(banner);
+  } else {
+    document.body.prepend(banner);
+  }
+  try { lucide.createIcons(); } catch (e) {}
 }
 
 async function loadDataAndRender() {
@@ -753,18 +1317,15 @@ async function loadDataAndRender() {
   if(tbody) tbody.innerHTML = '<tr><td colspan="12" style="text-align:center; padding: 20px;">Loading live data from Supabase...</td></tr>';
   
   rawInventoryData = await fetchInventoryData();
+  window.rawInventoryData = rawInventoryData;
   aggregatedParts = processRawData(rawInventoryData);
   
-  const updatedEl = document.querySelector('#last-updated-text span');
-  if (updatedEl && rawInventoryData.length > 0) {
+  const updatedEl = document.getElementById('last-updated-text');
+  if (updatedEl && rawInventoryData.inventory && rawInventoryData.inventory.length > 0) {
     // Grab the updated_at from the first row (they should all be similar from the bulk insert)
-    const latestDateStr = rawInventoryData[0].updated_at;
+    const latestDateStr = rawInventoryData.inventory[0].updated_at || rawInventoryData.inventory[0].fetched_at;
     if (latestDateStr) {
-      const d = new Date(latestDateStr);
-      updatedEl.textContent = d.toLocaleString('en-IN', { 
-        day: '2-digit', month: 'short', year: 'numeric', 
-        hour: '2-digit', minute: '2-digit', hour12: true 
-      });
+      updatedEl.textContent = formatBeautifulDate(latestDateStr);
     } else {
       updatedEl.textContent = 'Unknown';
     }
@@ -774,6 +1335,10 @@ async function loadDataAndRender() {
 
   renderDashboard();
   renderDashboardAnalytics();
+  await checkMissingDataAlerts();
+  await populateLocationSelect();
+  markFilterHeaders();
+  if (typeof window.renderRecentActivity === 'function' && typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
 }
 
 function renderDashboard() {
@@ -782,7 +1347,9 @@ function renderDashboard() {
   
   const filteredParts = aggregatedParts.filter(part => {
     if (selectedLoc === 'ALL') return true;
-    return part.location === selectedLoc;
+    const pLoc = (part.location || '').toUpperCase().replace(/\s+/g, '');
+    const sLoc = (selectedLoc || '').toUpperCase().replace(/\s+/g, '');
+    return pLoc === sLoc;
   });
 
   const { processed, kpis, categoryTotals } = calculateRequirements(filteredParts);
@@ -820,6 +1387,7 @@ function renderDashboard() {
   if(typeof window.renderHealthTable === 'function') window.renderHealthTable();
   if(typeof window.renderDemandTable === 'function') window.renderDemandTable();
   if(typeof window.renderConsumptionTable === 'function') window.renderConsumptionTable();
+  if(typeof window.renderConsumptionAnalytics === 'function') window.renderConsumptionAnalytics();
   
   lucide.createIcons();
   if (typeof renderTablePage === 'function') renderTablePage();
@@ -935,23 +1503,133 @@ window.renderDashboardAnalytics = function() {
     });
   }
 
-  // 3. Render Recent Activity Table
-  const tbody = document.getElementById('recent-activity-table');
-  if (tbody && window.rawInventoryData && window.rawInventoryData.consumption) {
-    const recentCons = window.rawInventoryData.consumption.slice(0, 5);
-    tbody.innerHTML = '';
-    recentCons.forEach(c => {
-       const tr = document.createElement('tr');
-       tr.innerHTML = `
-         <td style="padding:12px 16px; border-bottom:1px solid var(--border-color); font-size:0.85rem;">${c.part_no || c.part_number || 'Unknown'}</td>
-         <td style="padding:12px 16px; border-bottom:1px solid var(--border-color); font-size:0.85rem;">${c.location_code || 'ALL'}</td>
-         <td style="padding:12px 16px; border-bottom:1px solid var(--border-color); font-size:0.85rem;">${c.sold_qty || 0}</td>
-         <td style="padding:12px 16px; border-bottom:1px solid var(--border-color); text-align:right;"><span style="background:#dbeafe; color:#1e40af; padding:4px 8px; border-radius:12px; font-size:0.75rem; font-weight:500;">Consumed</span></td>
-       `;
-       tbody.appendChild(tr);
-    });
-  }
+// 3. Render Recent Activity Table
+    renderRecentActivity();
 };
+
+window.invLocationChartInstance = null;
+window.invStatusChartInstance = null;
+window.invTopValueChartInstance = null;
+
+function renderInventoryAnalytics() {
+  if (typeof Chart === 'undefined') return;
+  const parts = window.originalProcessedParts || [];
+
+  // 1. Stock value by location
+  const locMap = {};
+  parts.forEach(p => {
+    const loc = p.location || 'Unknown';
+    locMap[loc] = (locMap[loc] || 0) + (Number(p.stockValue) || 0);
+  });
+  const locLabels = Object.keys(locMap);
+  const locData = locLabels.map(l => locMap[l]);
+
+  const thresholdFor = (p) => {
+    const d = Number(p.demand) || 0;
+    return d >= 1 ? d : 5;
+  };
+
+  // 2. Stock status mix (Out of Stock / Low Stock / Healthy)
+  let oos = 0, low = 0, healthy = 0;
+  parts.forEach(p => {
+    if (Number(p.currentStock) === 0) oos++;
+    else if (Number(p.currentStock) < thresholdFor(p)) low++;
+    else healthy++;
+  });
+
+  // 3. Top 10 parts by stock value
+  const topParts = [...parts].sort((a, b) => (Number(b.stockValue) || 0) - (Number(a.stockValue) || 0)).slice(0, 10);
+  const topLabels = topParts.map(p => p.partId);
+  const topData = topParts.map(p => Number(p.stockValue) || 0);
+
+  const renderBar = (canvasId, instanceKey, labels, data, color, isHorizontal, formatMoney) => {
+    const ctx = document.getElementById(canvasId);
+    if (!ctx) return;
+    const ins = window[instanceKey];
+    if (ins) ins.destroy();
+    window[instanceKey] = new Chart(ctx.getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: isHorizontal ? 'Part No.' : 'Value (Γé╣)',
+          data,
+          backgroundColor: color,
+          borderRadius: 4
+        }]
+      },
+      options: {
+        indexAxis: isHorizontal ? 'y' : 'x',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (c) => formatMoney ? 'Γé╣' + Number(c.parsed.x !== undefined ? c.parsed.x : c.parsed.y).toLocaleString('en-IN', { maximumFractionDigits: 0 }) : String(c.parsed.y !== undefined ? c.parsed.y : c.parsed.x)
+            }
+          }
+        },
+        scales: {
+          x: { ticks: { font: { size: 10 } }, grid: { display: false } },
+          y: { beginAtZero: true, ticks: { font: { size: 10 }, callback: (v) => formatMoney ? 'Γé╣' + v.toLocaleString('en-IN', { notation: 'compact' }) : v } }
+        }
+      }
+    });
+  };
+
+  const renderDoughnut = (canvasId, instanceKey, labels, data, colors) => {
+    const ctx = document.getElementById(canvasId);
+    if (!ctx) return;
+    const ins = window[instanceKey];
+    if (ins) ins.destroy();
+    window[instanceKey] = new Chart(ctx.getContext('2d'), {
+      type: 'doughnut',
+      data: {
+        labels,
+        datasets: [{ data, backgroundColor: colors }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '55%',
+        plugins: {
+          legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } }
+        }
+      }
+    });
+  };
+
+  renderBar('invLocationChart', 'invLocationChartInstance', locLabels, locData, '#3b82f6', false, true);
+  renderDoughnut('invStatusMixChart', 'invStatusChartInstance', ['Out of Stock', 'Low Stock', 'Healthy'], [oos, low, healthy], ['#ef4444', '#f59e0b', '#10b981']);
+  renderBar('invTopValueChart', 'invTopValueChartInstance', topLabels, topData, '#8b5cf6', true, true);
+}
+window.renderInventoryAnalytics = renderInventoryAnalytics;
+
+function renderRecentActivity() {
+  const tbody = document.getElementById('recent-activity-table');
+  if (!tbody || !window.rawInventoryData || !window.rawInventoryData.consumption) return;
+  const rows = window.tableFilterData['recent-activity-table'] || window.rawInventoryData.consumption;
+  const recentCons = rows.slice(0, 5);
+  tbody.innerHTML = '';
+  if (recentCons.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:16px; color:var(--text-secondary);">No data found.</td></tr>';
+    return;
+  }
+  recentCons.forEach(c => {
+     const tr = document.createElement('tr');
+     tr.innerHTML = `
+       <td style="padding:12px 16px; border-bottom:1px solid var(--border-color); font-size:0.85rem;">${c.date || c.fetched_at?.slice(0,10) || '-'}</td>
+       <td style="padding:12px 16px; border-bottom:1px solid var(--border-color); font-size:0.85rem;">${c.division || 'ALL'}</td>
+       <td style="padding:12px 16px; border-bottom:1px solid var(--border-color); font-size:0.85rem;">${c.part_no || c.part_number || 'Unknown'}</td>
+       <td style="padding:12px 16px; border-bottom:1px solid var(--border-color); font-size:0.85rem;">${c.part_desc || '-'}</td>
+       <td style="padding:12px 16px; border-bottom:1px solid var(--border-color); font-size:0.85rem; text-align:center;">${c.sold_qty || 0}</td>
+       <td style="padding:12px 16px; border-bottom:1px solid var(--border-color); font-size:0.85rem; text-align:right;">Γé╣${(Number(c.value) || 0).toLocaleString('en-IN', {maximumFractionDigits: 0})}</td>
+     `;
+     tbody.appendChild(tr);
+  });
+}
+window.renderRecentActivity = renderRecentActivity;
 
 function renderTablePage() {
   const tbody = document.getElementById('inventory-table-body');
@@ -1053,7 +1731,20 @@ document.addEventListener('DOMContentLoaded', () => {
   // Location Filter & Refresh Logic
   const locSelect = document.getElementById('location-select');
   if (locSelect) {
-    locSelect.addEventListener('change', renderDashboard);
+    locSelect.addEventListener('change', () => {
+      renderDashboard();
+      renderDashboardAnalytics();
+      
+      // Also update consumption charts and table if location changes
+      if (typeof window.renderConsumptionAnalytics === 'function') window.renderConsumptionAnalytics();
+      
+      if (typeof window.renderConsumptionTable === 'function') {
+         const rows = tableFilterConfigs['cons-table-body'].getRows();
+         window.tableFilterData['cons-table-body'] = rows;
+         window.cCurrentPage = 1;
+         window.renderConsumptionTable();
+      }
+    });
   }
   
   const refreshBtn = document.getElementById('refresh-dashboard-btn');
@@ -1126,127 +1817,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   
-  // Settings Form Logic - Multi Location
-  const credForm = document.getElementById('tata-credentials-form');
-  const locContainer = document.getElementById('locations-container');
-  const addLocBtn = document.getElementById('add-location-btn');
-  
-  if(credForm && locContainer) {
-    // Render a single location row
-    function createLocationRow(locData = { location: '', username: '', password: '' }) {
-      const row = document.createElement('div');
-      row.className = 'location-row';
-      row.style.display = 'grid';
-      row.style.gridTemplateColumns = '1fr 1fr 1fr auto';
-      row.style.gap = '12px';
-      row.style.alignItems = 'end';
-      
-      row.innerHTML = `
-        <div>
-          <label style="display:block; margin-bottom:4px; font-size:0.85rem;">Location Name</label>
-          <input type="text" class="loc-name" value="${locData.location}" required style="width:100%; padding:8px; border:1px solid var(--border-color); border-radius:4px;" placeholder="e.g. NARWAL">
-        </div>
-        <div>
-          <label style="display:block; margin-bottom:4px; font-size:0.85rem;">User ID</label>
-          <input type="text" class="loc-user" value="${locData.username}" style="width:100%; padding:8px; border:1px solid var(--border-color); border-radius:4px;" placeholder="Username">
-        </div>
-        <div>
-          <label style="display:block; margin-bottom:4px; font-size:0.85rem;">Password</label>
-          <div style="position: relative; display: flex; align-items: center;">
-            <input type="password" class="loc-pass" value="${locData.password}" style="width:100%; padding:8px; padding-right:36px; border:1px solid var(--border-color); border-radius:4px;" placeholder="Password">
-            <button type="button" class="toggle-pass-btn" style="position: absolute; right: 8px; background: transparent; border: none; cursor: pointer; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; padding: 4px;" title="Toggle Password Visibility">
-              <i data-lucide="eye" style="width: 16px; height: 16px;"></i>
-            </button>
-          </div>
-        </div>
-        <button type="button" class="remove-loc-btn" style="padding:8px; border:none; background:transparent; color:#ef4444; cursor:pointer;" title="Remove Location">
-          <i data-lucide="trash-2" style="width:18px;height:18px;"></i>
-        </button>
-      `;
-      
-      row.querySelector('.remove-loc-btn').addEventListener('click', () => {
-        row.remove();
-      });
 
-      const passInput = row.querySelector('.loc-pass');
-      const toggleBtn = row.querySelector('.toggle-pass-btn');
-      
-      toggleBtn.addEventListener('click', () => {
-        if (passInput.type === 'password') {
-          passInput.type = 'text';
-          toggleBtn.innerHTML = '<i data-lucide="eye-off" style="width: 16px; height: 16px;"></i>';
-        } else {
-          passInput.type = 'password';
-          toggleBtn.innerHTML = '<i data-lucide="eye" style="width: 16px; height: 16px;"></i>';
-        }
-        lucide.createIcons();
-      });
-      
-      locContainer.appendChild(row);
-      lucide.createIcons();
-    }
-
-    // Load existing credentials
-    async function loadCredentials() {
-      try {
-        const res = await fetch('/api/credentials');
-        const data = await res.json();
-        locContainer.innerHTML = '';
-        if (data && data.length > 0) {
-          data.forEach(d => createLocationRow(d));
-        } else {
-          createLocationRow(); // Add empty row if none
-        }
-      } catch (e) {
-        console.error('Failed to load credentials', e);
-        createLocationRow({ location: 'NARWAL' });
-        createLocationRow({ location: 'SUPWAL' });
-        createLocationRow({ location: 'KATHUA' });
-      }
-    }
-    
-    // Load on start
-    loadCredentials();
-
-    addLocBtn.addEventListener('click', () => {
-      createLocationRow();
-    });
-
-    credForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      
-      const rows = document.querySelectorAll('.location-row');
-      const creds = [];
-      rows.forEach(row => {
-        creds.push({
-          location: row.querySelector('.loc-name').value,
-          username: row.querySelector('.loc-user').value,
-          password: row.querySelector('.loc-pass').value
-        });
-      });
-      
-      try {
-        await fetch('/api/credentials', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(creds)
-        });
-        
-        const msg = document.getElementById('settings-msg');
-        msg.style.display = 'block';
-        msg.textContent = 'Credentials saved for ' + creds.length + ' locations!';
-        msg.style.color = '#10b981';
-        setTimeout(() => {
-          msg.style.display = 'none';
-        }, 3000);
-      } catch (err) {
-        const msg = document.getElementById('settings-msg');
-        msg.style.display = 'block';
-        msg.textContent = 'Failed to save credentials.';
-        msg.style.color = '#ef4444';
-      }
-    });
-  }
 
   // --- Dashboard User Management Logic ---
   let dashboardUsers = JSON.parse(localStorage.getItem('dashboardUsers')) || [
@@ -1265,11 +1836,13 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderUsers() {
     if(!usersTableBody) return;
     usersTableBody.innerHTML = '';
-    dashboardUsers.forEach(user => {
+    const users = window.tableFilterData['users-table-body'] || dashboardUsers;
+    users.forEach(user => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${user.id}</td>
         <td><strong>${user.username}</strong></td>
+        <td style="font-family: monospace; color: #475569;">${user.password || 'N/A'}</td>
         <td><span class="status-badge ${user.role === 'Super Admin' || user.role === 'Admin' ? 'purple' : 'blue'}">${user.role}</span></td>
         <td><span class="status-badge" style="background:#e2e8f0; color:#475569;">${user.location || 'ALL'}</span></td>
         <td style="text-align: right;">
@@ -1282,6 +1855,8 @@ document.addEventListener('DOMContentLoaded', () => {
     lucide.createIcons();
     attachUserActionListeners();
   }
+  window.renderUsers = renderUsers;
+  window.getDashboardUsers = () => dashboardUsers;
 
   function attachUserActionListeners() {
     document.querySelectorAll('.btn-delete-user').forEach(btn => {
@@ -1343,6 +1918,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (user) {
         user.password = newPwd;
         saveUsers();
+        renderUsers();
       }
       alert('Password updated successfully for ' + document.getElementById('change-pwd-username').textContent);
       changePwdForm.reset();
@@ -1351,6 +1927,35 @@ document.addEventListener('DOMContentLoaded', () => {
     
     renderUsers();
   }
+
+  // Reset form functions
+  function resetForms() {
+    if(addUserForm) addUserForm.reset();
+    if(changePwdForm) changePwdForm.reset();
+  }
+
+  // --- Settings Tab Logic ---
+  const settingsTabs = document.querySelectorAll('.settings-tab');
+  const settingsPanels = document.querySelectorAll('.settings-panel');
+
+  settingsTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      // Remove active class from all tabs
+      settingsTabs.forEach(t => t.classList.remove('active'));
+      // Add active class to clicked tab
+      tab.classList.add('active');
+
+      // Hide all panels
+      settingsPanels.forEach(panel => panel.style.display = 'none');
+
+      // Show target panel
+      const targetId = tab.getAttribute('data-target');
+      const targetPanel = document.getElementById(targetId);
+      if (targetPanel) {
+        targetPanel.style.display = 'block';
+      }
+    });
+  });
 
   // Settings Accordion Logic
   const accordionHeaders = document.querySelectorAll('.accordion-header');
@@ -1412,15 +2017,15 @@ document.addEventListener('DOMContentLoaded', () => {
   window.hItemsPerPage = 50;
   window.hCurrentFilter = 'all';
   window.hSearchQuery = '';
+  window.hLocationFilter = 'ALL';
+  window.hBrandFilter = 'ALL';
 
   window.renderHealthTable = function() {
     const tbody = document.getElementById('health-table-body');
     if (!tbody) return;
     
-    // Filter the raw aggregatedParts (before requirement engine logic if we want raw data, but filteredProcessedParts has location filter applied)
-    let displayParts = [...filteredProcessedParts];
-    
-    // 1. Search Query Filter
+    // Prefer column-filtered rows, else global location-filtered data
+    let displayParts = window.tableFilterData['health-table-body'] || [...filteredProcessedParts];
     if (window.hSearchQuery) {
       const q = window.hSearchQuery.toLowerCase();
       displayParts = displayParts.filter(p => 
@@ -1439,6 +2044,88 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const totalItems = displayParts.length;
+    
+    // Update KPI metrics and Ageing Buckets for current display parts
+    const kpiTotal = document.getElementById('invh-kpi-total');
+    const kpiValue = document.getElementById('invh-kpi-value');
+    const kpiOnhand = document.getElementById('invh-kpi-onhand');
+    const kpiOnhandVal = document.getElementById('invh-kpi-onhand-val');
+    const kpiTransit = document.getElementById('invh-kpi-transit');
+    const kpiTransitVal = document.getElementById('invh-kpi-transit-val');
+    const kpiReserved = document.getElementById('invh-kpi-reserved');
+    const kpiReservedVal = document.getElementById('invh-kpi-reserved-val');
+    const kpiOos = document.getElementById('invh-kpi-oos');
+    const kpiLow = document.getElementById('invh-kpi-low');
+    const kpiLube = document.getElementById('invh-kpi-lube');
+    const kpiLubeVal = document.getElementById('invh-kpi-lube-val');
+    
+    let stats = { onhandQty: 0, onhandVal: 0, transitQty: 0, transitVal: 0, resQty: 0, resVal: 0, oos: 0, low: 0, lubeQty: 0, lubeVal: 0 };
+    displayParts.forEach(p => {
+       stats.onhandQty += p.currentStock || 0;
+       stats.onhandVal += p.stockValue || 0;
+       stats.transitQty += p.inTransit || 0;
+       stats.transitVal += (p.inTransit || 0) * (p.ndpPrice || 0);
+       stats.resQty += p.reserved || 0;
+       stats.resVal += (p.reserved || 0) * (p.ndpPrice || 0);
+       if (p.currentStock === 0) stats.oos++;
+       else if (p.currentStock < p.min) stats.low++;
+       if (p.productCategory === 'LUBRICANT') {
+          stats.lubeQty += p.currentStock || 0;
+          stats.lubeVal += p.stockValue || 0;
+       }
+    });
+
+    if (kpiTotal) kpiTotal.textContent = totalItems.toLocaleString('en-IN');
+    if (kpiValue) kpiValue.textContent = '₹' + stats.onhandVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+    if (kpiOnhand) kpiOnhand.textContent = stats.onhandQty.toLocaleString('en-IN');
+    if (kpiOnhandVal) kpiOnhandVal.textContent = '₹' + stats.onhandVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+    
+    if (kpiTransit) kpiTransit.textContent = stats.transitQty.toLocaleString('en-IN');
+    if (kpiTransitVal) kpiTransitVal.textContent = '₹' + stats.transitVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+    
+    if (kpiReserved) kpiReserved.textContent = stats.resQty.toLocaleString('en-IN');
+    if (kpiReservedVal) kpiReservedVal.textContent = '₹' + stats.resVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+    
+    if (kpiOos) kpiOos.textContent = stats.oos.toLocaleString('en-IN');
+    if (kpiLow) kpiLow.textContent = stats.low.toLocaleString('en-IN');
+    
+    if (kpiLube) kpiLube.textContent = stats.lubeQty.toLocaleString('en-IN');
+    if (kpiLubeVal) kpiLubeVal.textContent = '₹' + stats.lubeVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+
+    let age0_30 = { qty: 0, val: 0 };
+    let age31_60 = { qty: 0, val: 0 };
+    let age61_90 = { qty: 0, val: 0 };
+    let age91_180 = { qty: 0, val: 0 };
+    let age180_plus = { qty: 0, val: 0 };
+
+    displayParts.forEach(p => {
+      if (p.ageingDays >= 0) {
+        if (p.ageingDays <= 30) {
+           age0_30.qty++; age0_30.val += p.stockValue;
+        } else if (p.ageingDays <= 60) {
+           age31_60.qty++; age31_60.val += p.stockValue;
+        } else if (p.ageingDays <= 90) {
+           age61_90.qty++; age61_90.val += p.stockValue;
+        } else if (p.ageingDays <= 180) {
+           age91_180.qty++; age91_180.val += p.stockValue;
+        } else {
+           age180_plus.qty++; age180_plus.val += p.stockValue;
+        }
+      }
+    });
+
+    const setAgeDOM = (idPrefix, bucket) => {
+      const qtyEl = document.getElementById(idPrefix);
+      const valEl = document.getElementById(idPrefix.replace('aging-', 'aging-val-'));
+      if (qtyEl) qtyEl.textContent = bucket.qty;
+      if (valEl) valEl.textContent = '₹' + bucket.val.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+    };
+    
+    setAgeDOM('aging-0-30', age0_30);
+    setAgeDOM('aging-31-60', age31_60);
+    setAgeDOM('aging-61-90', age61_90);
+    setAgeDOM('aging-91-180', age91_180);
+    setAgeDOM('aging-180-plus', age180_plus);
     const totalPages = Math.ceil(totalItems / window.hItemsPerPage) || 1;
     if (window.hCurrentPage > totalPages) window.hCurrentPage = totalPages;
     
@@ -1449,17 +2136,21 @@ document.addEventListener('DOMContentLoaded', () => {
     tbody.innerHTML = '';
     
     if (paginatedParts.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px; color: var(--text-secondary);">No parts found matching criteria.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 20px; color: var(--text-secondary);">No parts found matching criteria.</td></tr>';
     } else {
       paginatedParts.forEach(part => {
         // Determine health badge
         let badgeClass = 'healthy';
         let badgeText = 'Healthy';
         if (part.currentStock === 0) {
-          badgeClass = 'critical'; badgeText = 'Out of Stock';
-        } else if (part.currentStock < 5) {
-          badgeClass = 'low'; badgeText = 'Low Stock';
+          badgeClass = 'critical';
+          badgeText = 'Out of Stock';
+        } else if (part.currentStock < part.min) {
+          badgeClass = 'low';
+          badgeText = 'Low Stock';
         }
+        
+        let ageingText = part.ageingDays >= 0 ? `${part.ageingDays} Days` : 'N/A';
         
         const tr = document.createElement('tr');
         tr.style.borderBottom = '1px solid var(--border-color)';
@@ -1467,10 +2158,11 @@ document.addEventListener('DOMContentLoaded', () => {
           <td style="padding: 8px 12px; font-weight: 500;">${part.partId}</td>
           <td style="padding: 8px 12px; color: var(--text-secondary);">${part.model}</td>
           <td style="padding: 8px 12px;">${part.location}</td>
-          <td style="padding: 8px 12px;">${part.bin || 'N/A'}</td>
           <td style="padding: 8px 12px;">${part.productCategory || 'TATA'}</td>
+          <td style="padding: 8px 12px; text-align: right; color: #10b981; font-weight: 500;">₹${(part.ndpPrice || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
           <td style="padding: 8px 12px; text-align: right; font-weight: 600;">${part.currentStock}</td>
-          <td style="padding: 8px 12px; text-align: right;">₹${(part.stockValue || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
+          <td style="padding: 8px 12px; text-align: right; font-weight: 600; color: #3b82f6;">₹${(part.stockValue || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+          <td style="padding: 8px 12px; text-align: right; color: var(--text-secondary);">${ageingText}</td>
           <td style="padding: 8px 12px; text-align: center;"><span class="h-badge ${badgeClass}">${badgeText}</span></td>
         `;
         tbody.appendChild(tr);
@@ -1504,6 +2196,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  const cardBtns = document.querySelectorAll('#view-inventory .widget-card.clickable');
   const hFilterBtns = document.querySelectorAll('.health-filter-btn');
   hFilterBtns.forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -1511,6 +2204,22 @@ document.addEventListener('DOMContentLoaded', () => {
       e.target.classList.add('active');
       window.hCurrentFilter = e.target.getAttribute('data-filter');
       window.hCurrentPage = 1;
+      cardBtns.forEach(c => c.classList.remove('active'));
+      renderHealthTable();
+    });
+  });
+
+  // KPI cards act as filters too: clicking a card filters/sorts the table beneath
+  cardBtns.forEach(card => {
+    card.addEventListener('click', () => {
+      cardBtns.forEach(c => c.classList.remove('active'));
+      card.classList.add('active');
+      window.hCurrentFilter = card.getAttribute('data-hfilter');
+      window.hCurrentPage = 1;
+      const filterName = window.hCurrentFilter === 'value' ? 'all' : window.hCurrentFilter;
+      hFilterBtns.forEach(b => {
+        b.classList.toggle('active', b.getAttribute('data-filter') === filterName);
+      });
       renderHealthTable();
     });
   });
@@ -1542,11 +2251,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const tbody = document.getElementById('demand-table-body');
     if (!tbody) return;
     
-    let displayParts = [...filteredProcessedParts];
+    let displayParts = window.tableFilterData['demand-table-body'] || [...filteredProcessedParts];
     
     // Process "needs reorder" status
     displayParts.forEach(p => {
-      p.needsReorder = (p.currentStock + p.inTransit) < (p.min + p.demand);
+      p.needsReorder = p.orderQty > 0;
     });
 
     // 1. Search Query Filter
@@ -1586,7 +2295,7 @@ document.addEventListener('DOMContentLoaded', () => {
     tbody.innerHTML = '';
     
     if (paginatedParts.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: var(--text-secondary);">No parts found matching criteria.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 20px; color: var(--text-secondary);">No parts found matching criteria.</td></tr>';
     } else {
       paginatedParts.forEach(part => {
         let actionBadgeClass = part.needsReorder ? 'critical' : 'healthy';
@@ -1597,10 +2306,12 @@ document.addEventListener('DOMContentLoaded', () => {
         tr.innerHTML = `
           <td style="padding: 8px 12px; font-weight: 500;">${part.partId}</td>
           <td style="padding: 8px 12px; color: var(--text-secondary);">${part.model}</td>
-          <td style="padding: 8px 12px; text-align: center;">${part.currentStock}</td>
-          <td style="padding: 8px 12px; text-align: center;">${part.min}</td>
-          <td style="padding: 8px 12px; text-align: center; font-weight: 600; color: ${part.demand > 0 ? 'var(--orange)' : 'inherit'};">${part.demand}</td>
-          <td style="padding: 8px 12px; text-align: center;">${part.consumption30d}</td>
+          <td style="padding: 8px 12px; text-align: center;">${part.currentStock || 0}</td>
+          <td style="padding: 8px 12px; text-align: center; color: var(--purple); font-weight: 500;">${part.inTransit || 0}</td>
+          <td style="padding: 8px 12px; text-align: center;">${Math.round((part.consumption6m || 0) / 6)}/mo</td>
+          <td style="padding: 8px 12px; text-align: center; color: var(--text-secondary);">${part.safetyStock || 0}</td>
+          <td style="padding: 8px 12px; text-align: center; font-weight: 600; color: ${part.demand > 0 ? 'var(--orange)' : 'inherit'};">${part.demand || 0}</td>
+          <td style="padding: 8px 12px; text-align: center; font-weight: bold; color: ${part.orderQty > 0 ? 'var(--red)' : 'var(--text-primary)'};">${part.orderQty || 0}</td>
           <td style="padding: 8px 12px; text-align: center;"><span class="h-badge ${actionBadgeClass}">${actionBadgeText}</span></td>
         `;
         tbody.appendChild(tr);
@@ -1628,46 +2339,345 @@ document.addEventListener('DOMContentLoaded', () => {
   window.cCurrentPage = 1;
   window.cSearchQuery = '';
 
+  window.consTrendChartInstance = null;
+  window.consCategoryChartInstance = null;
+  window.consBillingTypeChartInstance = null;
+
+  const renderConsumptionAnalytics = () => {
+    // Rely on global Chart and global ChartDataLabels from CDN
+    if (typeof Chart !== 'undefined' && typeof window.ChartDataLabels !== 'undefined') {
+      Chart.register(window.ChartDataLabels);
+      Chart.defaults.set('plugins.datalabels', { display: false });
+    }
+    
+    let cons = (window.rawInventoryData && window.rawInventoryData.consumption) || [];
+    const locationSelect = document.getElementById('location-select');
+    const selectedLoc = locationSelect ? locationSelect.value : 'ALL';
+    
+    if (selectedLoc !== 'ALL') {
+      const sLoc = (selectedLoc || '').toUpperCase().replace(/\s+/g, '');
+      const mapLocation = (d) => {
+        if (!d) return 'Narwal';
+        d = d.toLowerCase();
+        if (d.includes('channirama') || d.includes('chhanirama')) return 'Channi Rama';
+        if (d.includes('smamsamba') || d.includes('supwal')) return 'Supwal';
+        if (d.includes('smamkathua') || d.includes('kathua')) return 'Kathua';
+        return 'Narwal';
+      };
+      cons = cons.filter(r => mapLocation(r.division || r.dealer).toUpperCase().replace(/\s+/g, '') === sLoc);
+    }
+    
+    if (cons.length === 0) {
+      // Clear charts if no data
+      ['consMonthlyChart', 'consTrendChart', 'consBillingTypeChart'].forEach(id => {
+         const ctx = document.getElementById(id);
+         if (ctx) {
+           const ins = window[id + 'Instance'];
+           if (ins) ins.destroy();
+         }
+      });
+      const tvEl = document.getElementById('cons-kpi-value');
+      const upEl = document.getElementById('cons-kpi-unique');
+      const lqEl = document.getElementById('cons-kpi-total');
+      if (tvEl) tvEl.textContent = '₹0';
+      if (upEl) upEl.textContent = '0';
+      if (lqEl) lqEl.textContent = '0';
+      return;
+    }
+
+    // Aggregate by part_no to build top parts by value and unique count
+    const partAgg = {};
+    const locValues = {};
+    const catQty = {};
+    const dayQty = {};
+    const billingTypeAggLocal = {};
+    let totalValue = 0;
+
+    cons.forEach(r => {
+      const pn = r.part_no || r.part_number || 'Unknown';
+      const qty = Number(r.sold_qty) || 0;
+      const val = Number(r.value) || 0;
+      totalValue += val;
+
+      if (!partAgg[pn]) partAgg[pn] = { partId: pn, qty: 0, value: 0, desc: r.description || '' };
+      partAgg[pn].qty += qty;
+      partAgg[pn].value += val;
+
+      const cat = (r.product_category || 'Uncategorized').trim() || 'Uncategorized';
+      catQty[cat] = (catQty[cat] || 0) + qty;
+
+      const btype = (r.billing_type || 'Unknown').trim() || 'Unknown';
+      if (!window.billingTypeAgg) window.billingTypeAgg = {};
+      
+      // We must scope this to the current dataset since it recalculates
+      billingTypeAggLocal[btype] = (billingTypeAggLocal[btype] || 0) + val;
+
+      const day = (r.date || '').slice(0, 10);
+      if (day) dayQty[day] = (dayQty[day] || 0) + val;
+    });
+
+    const uniqueParts = Object.keys(partAgg).length;
+    const kpiVal = document.getElementById('cons-kpi-value');
+    const kpiUnique = document.getElementById('cons-kpi-unique');
+    if (kpiVal) kpiVal.textContent = '₹' + Math.round(totalValue).toLocaleString('en-IN');
+    if (kpiUnique) kpiUnique.textContent = uniqueParts.toLocaleString('en-IN');
+
+    // Monthly breakdown (Month/Year wise Sales Value)
+    const monthAgg = {};
+    cons.forEach(r => {
+      const val = Number(r.value) || 0;
+      let dStr = r.date || r.fetched_at || '';
+      if (!dStr) return;
+      const d = new Date(dStr);
+      if (!isNaN(d)) {
+        const key = d.toLocaleString('en-US', { month: 'short', year: 'numeric' }); // "Jan 2026"
+        monthAgg[key] = (monthAgg[key] || 0) + val;
+      }
+    });
+
+    const monthlyCanvas = document.getElementById('consMonthlyChart');
+    if (monthlyCanvas) {
+      if (window.consMonthlyChartInstance) window.consMonthlyChartInstance.destroy();
+      try {
+        const mKeys = Object.keys(monthAgg).sort((a, b) => new Date(a) - new Date(b));
+        const mData = mKeys.map(k => Number(monthAgg[k]) || 0);
+        
+        window.consMonthlyChartInstance = new Chart(monthlyCanvas.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: mKeys,
+          datasets: [{
+            label: 'Sales Value (₹)',
+            data: mData,
+            backgroundColor: mKeys.map(k => k === window.consSelectedMonth ? '#f59e0b' : '#3b82f6'),
+            hoverBackgroundColor: '#2563eb',
+            borderRadius: 4,
+            borderWidth: 0,
+            barPercentage: 0.6,
+            categoryPercentage: 0.8
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: (c) => '\u20B9' + Number(c.parsed.y).toLocaleString('en-IN', { maximumFractionDigits: 0 }) } },
+            datalabels: { display: true, color: '#2563eb', align: 'end', anchor: 'end', font: { weight: 'bold' }, formatter: (v) => '\u20B9' + (Number(v) || 0).toLocaleString('en-IN', { notation: 'compact' }) }
+          },
+          layout: { padding: { top: 20 } },
+          scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+            y: { beginAtZero: true, ticks: { font: { size: 10 }, callback: (v) => '\u20B9' + (Number(v) || 0).toLocaleString('en-IN', { notation: 'compact' }) } }
+          },
+          onClick: (e, elements) => {
+            if (elements.length > 0) {
+              const index = elements[0].index;
+              const selectedMonth = mKeys[index];
+              if (window.consSelectedMonth === selectedMonth) {
+                window.consSelectedMonth = null; // Toggle off
+              } else {
+                window.consSelectedMonth = selectedMonth; // Toggle on
+              }
+              if (typeof window.renderConsumptionTable === 'function') window.renderConsumptionTable();
+            }
+          }
+        }
+      });
+      } catch (err) {
+        monthlyCanvas.parentElement.innerHTML = `<div style="color:red; padding:10px; font-size:12px; overflow:auto;">Monthly Error: ${err.message}</div>`;
+      }
+    }
+
+    // Daily trend (Current Month)
+    const now = new Date();
+    const currentMonthPrefix = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    const sortedDays = Object.keys(dayQty).filter(d => d.startsWith(currentMonthPrefix)).sort();
+    const trendLabels = sortedDays;
+    const trendData = sortedDays.map(d => Number(dayQty[d]) || 0);
+
+    // Top 5 consumed parts by value
+    const tpKeys = Object.keys(partAgg).sort((a,b) => partAgg[b].value - partAgg[a].value).slice(0,5);
+    const tpData = tpKeys.map(k => Number(partAgg[k].value) || 0);
+
+    const trendCtx = document.getElementById('consTrendChart');
+    if (trendCtx && window.consTrendChartInstance) window.consTrendChartInstance.destroy();
+    if (trendCtx) {
+      window.consTrendChartInstance = new Chart(trendCtx.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: trendLabels,
+          datasets: [{
+            label: 'Consumption Value',
+            data: trendData,
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59,130,246,0.12)',
+            fill: true,
+            tension: 0.35,
+            pointRadius: 3,
+            pointBackgroundColor: 'transparent',
+            pointBorderColor: 'transparent',
+            pointHoverRadius: 4
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { 
+            legend: { display: false },
+            tooltip: { callbacks: { label: (c) => '\u20B9' + Number(c.parsed.y).toLocaleString('en-IN', { maximumFractionDigits: 0 }) } },
+            datalabels: { display: true, color: '#3b82f6', align: 'top', anchor: 'end', font: { weight: 'bold', size: 9 }, formatter: (v) => '\u20B9' + (Number(v) || 0).toLocaleString('en-IN', { notation: 'compact' }) }
+          },
+          layout: { padding: { top: 20 } },
+          scales: {
+            x: { 
+              ticks: { font: { size: 9, weight: 'bold' }, color: '#000000', autoSkip: false, maxRotation: 45, minRotation: 45 }, 
+              grid: { display: false } 
+            },
+            y: { beginAtZero: true, ticks: { font: { size: 10, weight: 'bold' }, color: '#000000', callback: (v) => '\u20B9' + (Number(v) || 0).toLocaleString('en-IN', { notation: 'compact' }) } }
+          }
+        }
+      });
+    }
+
+
+
+    // Billing Type Breakdown
+    const btypeCanvas = document.getElementById('consBillingTypeChart');
+    if (btypeCanvas && typeof billingTypeAggLocal !== 'undefined') {
+      if (window.consBillingTypeChartInstance) window.consBillingTypeChartInstance.destroy();
+      try {
+        const bKeys = Object.keys(billingTypeAggLocal).sort((a,b) => billingTypeAggLocal[b] - billingTypeAggLocal[a]).slice(0, 5);
+        const bData = bKeys.map(k => Number(billingTypeAggLocal[k]) || 0);
+      window.consBillingTypeChartInstance = new Chart(btypeCanvas.getContext('2d'), {
+        type: 'doughnut',
+        data: {
+          labels: bKeys,
+          datasets: [{
+            data: bData,
+            backgroundColor: ['#14b8a6', '#f59e0b', '#3b82f6', '#ec4899', '#8b5cf6'],
+            borderWidth: 2,
+            borderColor: '#ffffff'
+          }]
+        },
+        options: {
+          animation: false,
+          responsive: true, maintainAspectRatio: false, cutout: '45%', layout: { padding: 0 },
+          plugins: {
+            legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12 } },
+            tooltip: { callbacks: { label: (c) => '\u20B9' + Number(c.parsed).toLocaleString('en-IN', { maximumFractionDigits: 0 }) } },
+            datalabels: { display: 'auto', color: '#fff', font: { weight: 'bold', size: 10 }, formatter: (v) => '\u20B9' + (Number(v) || 0).toLocaleString('en-IN', { notation: 'compact' }) }
+          }
+        }
+      });
+      } catch (err) {
+        btypeCanvas.parentElement.innerHTML = `<div style="color:red; padding:10px; font-size:12px; overflow:auto;">BillingType Error: ${err.message}</div>`;
+      }
+    }
+  };
+  window.renderConsumptionAnalytics = renderConsumptionAnalytics;
+
   const renderConsumptionTable = () => {
     const tbody = document.getElementById('cons-table-body');
     if (!tbody) return;
     
-    // Filter and sort by consumption30d (descending)
-    let cParts = filteredProcessedParts.filter(p => p.consumption30d > 0);
-    
-    if (window.cSearchQuery) {
-      const q = window.cSearchQuery.toLowerCase();
-      cParts = cParts.filter(p => p.partId.toLowerCase().includes(q) || p.model.toLowerCase().includes(q));
+    let consRecords = [];
+    if (window.tableFilterData && window.tableFilterData['cons-table-body']) {
+      consRecords = [...window.tableFilterData['cons-table-body']];
+    } else {
+      consRecords = (window.rawInventoryData && window.rawInventoryData.consumption) ? [...window.rawInventoryData.consumption] : [];
     }
     
-    cParts.sort((a, b) => b.consumption30d - a.consumption30d);
+    // Filter by selected month if active
+    if (window.consSelectedMonth) {
+      consRecords = consRecords.filter(r => {
+        const dStr = r.date || r.fetched_at || '';
+        if (!dStr) return false;
+        const d = new Date(dStr);
+        if (isNaN(d)) return false;
+        const key = d.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+        return key === window.consSelectedMonth;
+      });
+    }
+
+    if (window.cSearchQuery) {
+      const q = window.cSearchQuery.toLowerCase();
+      consRecords = consRecords.filter(p => 
+        (p.part_no && p.part_no.toLowerCase().includes(q)) || 
+        (p.part_desc && p.part_desc.toLowerCase().includes(q))
+      );
+    }
     
-    const totalItems = cParts.length;
+    // Sort transactions by value descending
+    consRecords.sort((a, b) => (Number(b.value) || 0) - (Number(a.value) || 0));
+    
+    const totalItems = consRecords.length;
     const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
     if (window.cCurrentPage > totalPages) window.cCurrentPage = totalPages;
     
     const startIndex = (window.cCurrentPage - 1) * itemsPerPage;
     const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
-    const paginatedParts = cParts.slice(startIndex, endIndex);
+    const paginatedRecords = consRecords.slice(startIndex, endIndex);
     
+    // Create Price Map for NDP lookup
+    const priceMap = {};
+    if (window.rawInventoryData && window.rawInventoryData.priceList) {
+      window.rawInventoryData.priceList.forEach(p => {
+        priceMap[p.part_number] = Number(p.ndp) || 0;
+      });
+    }
+
+    // Create Velocity Map for Velocity Trend lookup
+    const velocityMap = {};
+    if (window.rawInventoryData && window.rawInventoryData.consumption) {
+      window.rawInventoryData.consumption.forEach(r => {
+        const pn = r.part_no || 'Unknown';
+        if (!velocityMap[pn]) velocityMap[pn] = 0;
+        velocityMap[pn] += (Number(r.sold_qty) || 0);
+      });
+    }
+
     tbody.innerHTML = '';
     
-    if (paginatedParts.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px;">No consumption data found.</td></tr>';
+    if (paginatedRecords.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="12" style="text-align:center; padding:20px;">No consumption data found.</td></tr>';
     } else {
-      paginatedParts.forEach((part, index) => {
+      paginatedRecords.forEach((part, index) => {
         const rank = startIndex + index + 1;
-        const trendIcon = part.consumption30d > 50 ? '<i data-lucide="trending-up" style="color:var(--green);"></i>' : '<i data-lucide="minus" style="color:var(--text-secondary);"></i>';
+        const partNo = part.part_no || 'Unknown';
+        const ndp = priceMap[partNo] || 0;
+        
+        const dStr = part.date || part.fetched_at || '';
+        const dateObj = dStr ? new Date(dStr) : null;
+        const monthYear = dateObj && !isNaN(dateObj) ? dateObj.toLocaleString('en-US', { month: 'short', year: 'numeric' }) : '-';
+        
+        const totalQty = velocityMap[partNo] || 0;
+        let trendHtml = '-';
+        if (totalQty >= 20) {
+          trendHtml = '<span style="background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16,185,129,0.2); padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 600; text-transform: uppercase;">Fast</span>';
+        } else if (totalQty >= 5) {
+          trendHtml = '<span style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245,158,11,0.2); padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 600; text-transform: uppercase;">Mid</span>';
+        } else if (totalQty > 0) {
+          trendHtml = '<span style="background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239,68,68,0.2); padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 600; text-transform: uppercase;">Slow</span>';
+        }
         
         const tr = document.createElement('tr');
         tr.style.borderBottom = '1px solid var(--border-color)';
+        tr.style.transition = 'background-color 0.2s ease';
+        tr.onmouseover = () => tr.style.backgroundColor = 'var(--bg-secondary)';
+        tr.onmouseout = () => tr.style.backgroundColor = 'transparent';
+        
         tr.innerHTML = `
-          <td style="padding: 8px 12px; font-weight: 500; text-align: center;">#${rank}</td>
-          <td style="padding: 8px 12px; font-weight: 500;">${part.partId}</td>
-          <td style="padding: 8px 12px; color: var(--text-secondary);">${part.model}</td>
-          <td style="padding: 8px 12px; text-align: center; font-weight: bold;">${part.consumption30d}</td>
-          <td style="padding: 8px 12px; text-align: center;"><span style="background:var(--bg-secondary); padding:4px 8px; border-radius:4px; font-size:0.8rem;">${part.productCategory}</span></td>
-          <td style="padding: 8px 12px; text-align: center;">${trendIcon}</td>
+          <td style="padding: 6px 8px; font-weight: 500; text-align: center; font-size: 0.7rem;">#${rank}</td>
+          <td style="padding: 6px 8px; font-weight: 600;"><span style="background: rgba(139, 92, 246, 0.1); color: #8b5cf6; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="calendar" style="width: 12px; height: 12px;"></i>${monthYear}</span></td>
+          <td style="padding: 6px 8px; font-weight: 500; white-space: nowrap; font-size: 0.7rem;">${partNo}</td>
+          <td style="padding: 6px 8px; color: var(--text-secondary); max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.7rem;" title="${part.part_desc || ''}">${part.part_desc || '-'}</td>
+          <td style="padding: 6px 8px; text-align: center; font-weight: bold; color: var(--text-primary);"><span style="background: rgba(59, 130, 246, 0.1); color: #3b82f6; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">${part.sold_qty || 0}</span></td>
+          <td style="padding: 6px 8px; text-align: right; color: var(--text-primary); font-weight: 600; font-size: 0.7rem;">₹${(Number(part.value)||0).toLocaleString('en-IN')}</td>
+          <td style="padding: 6px 8px; text-align: right; color: var(--text-secondary); font-size: 0.7rem;">₹${ndp.toLocaleString('en-IN')}</td>
+          <td style="padding: 6px 8px; text-align: right; color: var(--text-secondary); font-size: 0.7rem;">₹${(Number(part.tax_amount)||0).toLocaleString('en-IN')}</td>
+          <td style="padding: 6px 8px; text-align: center;"><span style="background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16,185,129,0.2); padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; white-space: nowrap;">${part.billing_type || '-'}</span></td>
+          <td style="padding: 6px 8px; text-align: center;"><span style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245,158,11,0.2); padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; white-space: nowrap;">${part.order_type || '-'}</span></td>
+          <td style="padding: 6px 8px; text-align: center;"><span style="color: var(--text-secondary); font-size: 0.7rem; font-weight: 500;">${part.mode_of_payment || '-'}</span></td>
+          <td style="padding: 6px 8px; text-align: center;">${trendHtml}</td>
         `;
         tbody.appendChild(tr);
       });
@@ -1675,13 +2685,44 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if(typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
     
-    // Update KPIs
-    const totalConsumed = cParts.reduce((sum, p) => sum + p.consumption30d, 0);
-    const fastMoving = cParts.filter(p => p.consumption30d > 20).length;
+    // Enable column filtering for the consumption table
+    if (typeof markFilterHeaders === 'function') markFilterHeaders(tbody);
+    
+    // Update KPIs using ALL records (ignoring current page, but using search/month filters)
+    // Wait, the KPI should probably reflect overall data not filtered data.
+    // However, if we filter by month, it's nice if KPIs update.
+    // Let's use the full `consRecords` for KPI calculations.
+    
+    // Actually, the previous implementation used `filteredProcessedParts` for Fast/Mid/Slow.
+    // That means Fast/Mid/Slow depends on aggregating total quantity per part!
+    const partAgg = {};
+    consRecords.forEach(r => {
+      const pn = r.part_no || 'Unknown';
+      if (!partAgg[pn]) partAgg[pn] = 0;
+      partAgg[pn] += (Number(r.sold_qty) || 0);
+    });
+    
+    const uniquePartsArray = Object.values(partAgg);
+    const totalConsumed = uniquePartsArray.reduce((sum, qty) => sum + qty, 0);
+    const fastMoving = uniquePartsArray.filter(qty => qty >= 20).length;
+    const midMoving = uniquePartsArray.filter(qty => qty >= 5 && qty < 20).length;
+    const slowMoving = uniquePartsArray.filter(qty => qty > 0 && qty < 5).length;
+    
     const tEl = document.getElementById('cons-kpi-total');
     if (tEl) tEl.textContent = totalConsumed;
+    
     const fEl = document.getElementById('cons-kpi-fast');
     if (fEl) fEl.textContent = fastMoving;
+    
+    const mEl = document.getElementById('cons-kpi-mid');
+    if (mEl) mEl.textContent = midMoving;
+    
+    const sEl = document.getElementById('cons-kpi-slow');
+    if (sEl) sEl.textContent = slowMoving;
+
+    // We don't call renderConsumptionAnalytics here anymore because renderConsumptionAnalytics sets up the charts,
+    // and this function is called BY the chart click. If we call it, it might re-render the chart and kill the click focus.
+    // If we want the charts to update based on search, we need a separate function.
     
     // Pagination UI
     const startEl = document.getElementById('c-page-start');
@@ -1876,6 +2917,224 @@ document.addEventListener('DOMContentLoaded', () => {
       reader.readAsArrayBuffer(file);
     });
   }
+
+  // Inventory Upload Logic
+  const inventoryUploadForm = document.getElementById('inventory-upload-form');
+  if (inventoryUploadForm) {
+    inventoryUploadForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const locationInput = document.getElementById('inventory-upload-location').value.trim();
+      const fileInput = document.getElementById('inventory-upload-file');
+      const statusDiv = document.getElementById('inventory-upload-status');
+      const btn = document.getElementById('upload-inventory-btn');
+      
+      if (!locationInput) {
+          alert('Please enter a location!');
+          return;
+      }
+      if (!fileInput.files || fileInput.files.length === 0) return;
+      const file = fileInput.files[0];
+      
+      statusDiv.style.display = 'block';
+      statusDiv.style.color = 'var(--text-color)';
+      statusDiv.textContent = 'Parsing Excel file...';
+      btn.disabled = true;
+      btn.style.opacity = '0.7';
+      
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const data = new Uint8Array(event.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+          
+          if (jsonData.length === 0) throw new Error("No data found in the Excel file.");
+          
+          statusDiv.textContent = `Found ${jsonData.length} rows. Uploading to Supabase...`;
+          
+          const formattedData = jsonData.map(row => {
+            const getVal = (possibleKeys) => {
+              for (const k of Object.keys(row)) {
+                for (const pk of possibleKeys) {
+                  if (k.toLowerCase().trim() === pk.toLowerCase().trim() || k.toLowerCase().trim().startsWith(pk.toLowerCase().trim())) {
+                    return row[k];
+                  }
+                }
+              }
+              return null;
+            };
+
+            return {
+                division: locationInput,
+                part_no: String(getVal(['Part #', 'Part Number', 'Part'])),
+                description: String(getVal(['Description', 'Descriptic', 'Descriptio'])),
+                qty: parseFloat(getVal(['Qty', 'Quantity'])) || 0,
+                total_price: parseFloat(getVal(['Total Price'])) || 0,
+                last_issue: String(getVal(['Last Issue']) || ''),
+                last_receipt: String(getVal(['Last Receipt', 'Last Recei']) || ''),
+                availability: String(getVal(['Availability', 'Availabilit']) || ''),
+                status: String(getVal(['Status']) || ''),
+                product_category: String(getVal(['Product Category', 'Product C']) || ''),
+                dealer_name: String(getVal(['Dealer Name', 'Dealer Na']) || ''),
+                hsn: String(getVal(['HSN']) || ''),
+                location_3: String(getVal(['Location 3']) || ''),
+                location_2: String(getVal(['Location 2']) || ''),
+                location_1: String(getVal(['Location 1']) || ''),
+                min: parseFloat(getVal(['Min', 'Minimum'])) || 0,
+                max: parseFloat(getVal(['Max', 'Maximum'])) || 0,
+                inventory_indicator: String(getVal(['Inventory Indicator', 'Inventory I']) || ''),
+                xyz_class: String(getVal(['XYZ Class']) || ''),
+                abc_class: String(getVal(['ABC Class']) || ''),
+                vendor: String(getVal(['Vendor']) || ''),
+                weighted_average: String(getVal(['Weighted Average', 'Weighted ']) || ''),
+                safety_stock: String(getVal(['Safety Stock', 'Safety ']) || ''),
+                tm_part_indicator: String(getVal(['TM Part Indicator', 'TM Part In']) || ''),
+                product_line: String(getVal(['Product Line', 'Product Li']) || '')
+            };
+          }).filter(row => row.part_no && row.part_no !== 'null' && row.part_no.trim() !== '');
+
+          if (formattedData.length === 0) throw new Error("Could not map rows. Ensure 'Part #' column exists.");
+
+          const { error: deleteError } = await supabase.from('tata_spare_inventory').delete().eq('division', locationInput);
+          if (deleteError) throw new Error("Failed to clear old inventory: " + deleteError.message);
+          
+          const BATCH_SIZE = 1000;
+          for (let i = 0; i < formattedData.length; i += BATCH_SIZE) {
+             const batch = formattedData.slice(i, i + BATCH_SIZE);
+             const { error } = await supabase.from('tata_spare_inventory').insert(batch);
+             if (error) throw error;
+             statusDiv.textContent = `Uploaded ${Math.min(i + BATCH_SIZE, formattedData.length)} of ${formattedData.length} rows...`;
+          }
+          
+          statusDiv.style.color = '#10b981';
+          statusDiv.innerHTML = '<i data-lucide="check"></i> Inventory uploaded successfully!';
+          btn.innerHTML = '<i data-lucide="check"></i> Done';
+          btn.style.background = '#059669';
+          lucide.createIcons();
+          
+          // Track the successful upload for the daily alert
+          localStorage.setItem('lastInventoryUploadDate', new Date().toDateString());
+          document.getElementById('missing-data-alert').style.display = 'none';
+          
+        } catch (err) {
+          console.error(err);
+          statusDiv.style.color = '#ef4444';
+          statusDiv.textContent = 'Error: ' + err.message;
+        } finally {
+          btn.disabled = false;
+          btn.style.opacity = '1';
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  // Consumption Upload Logic
+  const consumptionUploadForm = document.getElementById('consumption-upload-form');
+  if (consumptionUploadForm) {
+    consumptionUploadForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fileInput = document.getElementById('consumption-upload-file');
+      const statusDiv = document.getElementById('consumption-upload-status');
+      const btn = document.getElementById('upload-consumption-btn');
+      
+      if (!fileInput.files || fileInput.files.length === 0) return;
+      const file = fileInput.files[0];
+      
+      statusDiv.style.display = 'block';
+      statusDiv.style.color = 'var(--text-color)';
+      statusDiv.textContent = 'Parsing Excel file...';
+      btn.disabled = true;
+      btn.style.opacity = '0.7';
+      
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const data = new Uint8Array(event.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+          
+          if (jsonData.length === 0) throw new Error("No data found in the Excel file.");
+          
+          statusDiv.textContent = `Found ${jsonData.length} rows. Uploading to Supabase...`;
+          
+          const formattedData = jsonData.map(row => {
+            const getVal = (possibleKeys) => {
+              for (const k of Object.keys(row)) {
+                for (const pk of possibleKeys) {
+                  if (k.toLowerCase().trim() === pk.toLowerCase().trim() || k.toLowerCase().trim().startsWith(pk.toLowerCase().trim())) {
+                    return row[k];
+                  }
+                }
+              }
+              return null;
+            };
+
+            const firstKey = Object.keys(row)[0];
+            const divisionValue = String(getVal(['Division']) || row[firstKey]);
+
+            return {
+                division: divisionValue,
+                invoice_no: String(getVal(['Invoice Number', 'Invoice No'])),
+                invoice_status: String(getVal(['Invoice Status']) || ''),
+                mode_of_payment: String(getVal(['Mode of Payment']) || ''),
+                invoice_type: String(getVal(['Invoice Type']) || ''),
+                part_no: String(getVal(['Part No', 'Part Number', 'Part #'])),
+                part_desc: String(getVal(['Part Desc', 'Description']) || ''),
+                part_type: String(getVal(['Part Type']) || ''),
+                tm_part_indicator: String(getVal(['TM Part Indicator']) || ''),
+                product_category: String(getVal(['Product Category']) || ''),
+                date: String(getVal(['Date']) || ''),
+                category: String(getVal(['Category']) || ''),
+                order_num: String(getVal(['Order Number', 'Order Num']) || ''),
+                order_type: String(getVal(['Order Type']) || ''),
+                order_sub: String(getVal(['Order Sub-Type', 'Order Sub']) || ''),
+                rate: parseFloat(getVal(['Rate'])) || 0,
+                billing_type: String(getVal(['Billing Type']) || ''),
+                sold_qty: parseFloat(getVal(['Sold Qty', 'Qty'])) || 0,
+                value: parseFloat(getVal(['Value', 'Total'])) || 0,
+                tax_amount: parseFloat(getVal(['Tax Amount', 'Tax'])) || 0,
+                mode_of_payment: String(getVal(['Mode of Payment', 'Payment Mode']) || ''),
+                dealer: String(getVal(['Dealer', 'Dealer Name']) || '')
+            };
+          }).filter(row => row.part_no && row.part_no !== 'null' && row.part_no.trim() !== '');
+
+          if (formattedData.length === 0) throw new Error("Could not map rows. Ensure 'Part No' column exists.");
+
+          const { error: deleteError } = await supabase.from('tata_consumption_data').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+          if (deleteError) throw new Error("Failed to clear old consumption: " + deleteError.message);
+          
+          const BATCH_SIZE = 1000;
+          for (let i = 0; i < formattedData.length; i += BATCH_SIZE) {
+             const batch = formattedData.slice(i, i + BATCH_SIZE);
+             const { error } = await supabase.from('tata_consumption_data').insert(batch);
+             if (error) throw error;
+             statusDiv.textContent = `Uploaded ${Math.min(i + BATCH_SIZE, formattedData.length)} of ${formattedData.length} rows...`;
+          }
+          
+          statusDiv.style.color = '#10b981';
+          statusDiv.innerHTML = '<i data-lucide="check"></i> Consumption uploaded successfully!';
+          btn.innerHTML = '<i data-lucide="check"></i> Done';
+          btn.style.background = '#059669';
+          lucide.createIcons();
+          
+        } catch (err) {
+          console.error(err);
+          statusDiv.style.color = '#ef4444';
+          statusDiv.textContent = 'Error: ' + err.message;
+        } finally {
+          btn.disabled = false;
+          btn.style.opacity = '1';
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
   // Settings Accordion Logic
   const settingHeaders = document.querySelectorAll('.settings-header');
   settingHeaders.forEach(header => {
