@@ -1142,6 +1142,47 @@
 
             <div class="settings-card" style="background: var(--card-bg); border-radius: 8px; padding: 14px; border: 1px solid var(--border-color); max-width: 500px; margin-bottom: 20px;">
               <div class="settings-header" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
+                <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+                  <i data-lucide="calculator" style="width: 18px; height: 18px;"></i> Dashboard Calculations
+                </h3>
+                <i data-lucide="chevron-down" class="chevron"></i>
+              </div>
+              <div class="settings-content" style="display: none; margin-top: 15px; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
+                <p>This section details the logic and formulas used across the dashboard to generate metrics and insights.</p>
+                <div style="background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid var(--border-color); margin-bottom: 10px;">
+                  <h4 style="margin: 0 0 8px 0; color: #334155;">1. Inventory Valuation</h4>
+                  <ul style="margin: 0; padding-left: 20px;">
+                    <li><strong>Total Value (₹):</strong> <code>Available Stock &times; NDP (Net Dealer Price)</code></li>
+                    <li><strong>Total Tax (₹):</strong> <code>Calculated from Price List tax rates</code></li>
+                  </ul>
+                </div>
+                <div style="background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid var(--border-color); margin-bottom: 10px;">
+                  <h4 style="margin: 0 0 8px 0; color: #334155;">2. PPNI (Parts Purchased Not Installed)</h4>
+                  <ul style="margin: 0; padding-left: 20px;">
+                    <li><strong>Condition:</strong> Parts with <code>Stock &gt; 0</code> but lacking recent billing or installation activity.</li>
+                    <li><strong>Ageing (Days):</strong> <code>Current Date - Part Received Date</code></li>
+                  </ul>
+                </div>
+                <div style="background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid var(--border-color); margin-bottom: 10px;">
+                  <h4 style="margin: 0 0 8px 0; color: #334155;">3. Reorder Management (ROP)</h4>
+                  <ul style="margin: 0; padding-left: 20px;">
+                    <li><strong>Daily Consumption (ADC):</strong> <code>30-Day Consumption &divide; 30</code></li>
+                    <li><strong>Reorder Point (ROP):</strong> <code>ADC &times; Lead Time (Days) + Safety Stock</code></li>
+                    <li><strong>Recommended Order Qty:</strong> <code>Max(0, ROP - Available Stock)</code></li>
+                  </ul>
+                </div>
+                <div style="background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid var(--border-color);">
+                  <h4 style="margin: 0 0 8px 0; color: #334155;">4. Part Claims Analytics</h4>
+                  <ul style="margin: 0; padding-left: 20px;">
+                    <li><strong>Gap in Days:</strong> <code>Claim Request Date - Part Received Date</code></li>
+                    <li><strong>Contribution (%):</strong> <code>(Category Amount &divide; Total Claims Amount) &times; 100</code></li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-card" style="background: var(--card-bg); border-radius: 8px; padding: 14px; border: 1px solid var(--border-color); max-width: 500px; margin-bottom: 20px;">
+              <div class="settings-header" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
                 <h3 style="margin: 0;">Inventory Manual Upload</h3>
                 <i data-lucide="chevron-down" class="chevron"></i>
               </div>
