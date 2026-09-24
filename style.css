@@ -659,7 +659,7 @@ h2.welcome-text {
 .widget-card {
   display: flex;
   align-items: center;
-  padding: 10px 14px;
+  padding: 6px 10px;
   border-radius: 8px;
   gap: 12px;
   background: var(--card-bg);
