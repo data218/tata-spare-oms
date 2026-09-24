@@ -1679,7 +1679,8 @@ function renderRecentActivity() {
        <td style="padding:12px 16px; border-bottom:1px solid var(--border-color); font-size:0.85rem; text-align:right;">Γé╣${(Number(c.value) || 0).toLocaleString('en-IN', {maximumFractionDigits: 0})}</td>
      `;
      tbody.appendChild(tr);
-  });
+  }); 
+  setTimeout(() => { if(typeof markFilterHeaders === 'function') markFilterHeaders(); }, 500);
 }
 window.renderRecentActivity = renderRecentActivity;
 
