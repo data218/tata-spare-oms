@@ -164,6 +164,46 @@ window.tableFilterData = {};
 
 // Per-table filter config: header text -> field key, row source, and re-render callback.
 const tableFilterConfigs = {
+  
+  'reorder-table-body': {
+    getRows: () => window.reorderData || [],
+    fields: {
+      'Priority': 'priority',
+      'Part Details': 'partId', 
+      'Location / Supplier': 'location',
+      'Current Stock': 'currentStock',
+      'Min / Max': 'minStock',
+      'Avg Cons/Day': 'avgCons',
+      'Days Stock': 'daysOfStock',
+      'Order Qty': 'recQty',
+      'Reason / Risk': 'reason'
+    },
+    render: (rows) => { 
+      if (!window.tableFilterData) window.tableFilterData = {};
+      window.tableFilterData['reorder-table-body'] = rows; 
+      if(typeof window.filterReorderData === 'function') window.filterReorderData(); 
+    }
+  },
+  'movement-table-body': {
+    getRows: () => window.movementData || [],
+    fields: {
+      'Date': 'date',
+      'Direction': 'direction',
+      'Type': 'type',
+      'Part No': 'partNo',
+      'Description': 'description',
+      'Location': 'location',
+      'Qty': 'qty',
+      'Value': 'value',
+      'Reference': 'reference'
+    },
+    render: (rows) => { 
+      if (!window.tableFilterData) window.tableFilterData = {};
+      window.tableFilterData['movement-table-body'] = rows; 
+      if(typeof window.filterMovementData === 'function') window.filterMovementData(); 
+    }
+  },
+
   'recent-activity-table': {
     getRows: () => (window.rawInventoryData && window.rawInventoryData.consumption) || [],
     fields: {
