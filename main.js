@@ -2078,7 +2078,7 @@ document.addEventListener('DOMContentLoaded', () => {
        stats.resVal += (p.reserved || 0) * (p.ndpPrice || 0);
        if (p.currentStock === 0) stats.oos++;
        else if (p.currentStock < p.min) stats.low++;
-       if (p.productCategory === 'LUBRICANT') {
+       if (['LUBRICANT', 'LUBRICANTS', 'LUBE', 'LUBES', 'OIL'].includes(p.productCategory)) {
           stats.lubeQty += p.currentStock || 0;
           stats.lubeVal += p.stockValue || 0;
        }
@@ -2098,7 +2098,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (kpiOos) kpiOos.textContent = stats.oos.toLocaleString('en-IN');
     if (kpiLow) kpiLow.textContent = stats.low.toLocaleString('en-IN');
     
-    if (kpiLube) kpiLube.textContent = stats.lubeQty.toLocaleString('en-IN');
+    if (kpiLube) kpiLube.textContent = (stats.lubeQty / 1000).toLocaleString('en-IN', { maximumFractionDigits: 2 }) + ' L';
     if (kpiLubeVal) kpiLubeVal.textContent = '₹' + stats.lubeVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
 
     let age0_30 = { qty: 0, val: 0 };
