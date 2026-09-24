@@ -187,7 +187,9 @@ const tableFilterConfigs = {
       'Part No.': 'partId', 'Description': 'model', 'Location': 'location', 'Category': 'productCategory',
       'Ageing (Days)': 'ageingDays', 'Receipt Date': 'last_receipt', 'Qty': 'currentStock', 'Value (₹)': 'stockValue'
     },
-    render: (rows) => { window.tableFilterData['ppni-table-body'] = rows; window.pCurrentPage = 1; if(typeof window.renderPPNI === 'function') window.renderPPNI(); }
+    render: (rows) => { window.tableFilterData['ppni-table-body'] = rows; window.pCurrentPage = 1; if(typeof window.renderPPNI === 'function') window.renderPPNI();
+  if(typeof window.initMovementModule === 'function') window.initMovementModule();
+  if(typeof window.initReorderModule === 'function') window.initReorderModule(); }
   },
   'demand-table-body': {
     getRows: () => window.filteredProcessedParts || window.originalProcessedParts || [],
@@ -633,7 +635,9 @@ navItems.forEach(item => {
     if (targetId) {
       viewSections.forEach(view => {
         if (view.id === targetId) {
-          view.style.display = 'flex';
+          view.style.display = 'block'; // Or flex depending on view, block works for most
+          if (targetId === 'view-orders' && typeof window.initReorderModule === 'function') window.initReorderModule();
+          if (targetId === 'view-movement' && typeof window.initMovementModule === 'function') window.initMovementModule();
         } else {
           view.style.display = 'none';
         }
