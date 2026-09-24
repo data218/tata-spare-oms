@@ -1891,7 +1891,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (document.getElementById('add-user-btn')) {
-    document.getElementById('add-user-btn').addEventListener('click', () => {
+    document.getElementById('add-user-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
       addUserForm.style.display = 'block';
       changePwdForm.style.display = 'none';
     });

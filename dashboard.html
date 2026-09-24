@@ -962,10 +962,10 @@
         <i data-lucide="database" style="color: #3b82f6;"></i> Data Management
       </h3>
     <div class="settings-card" style="background: var(--card-bg); border-radius: 8px; padding: 14px; border: 1px solid var(--border-color); width: 100%; margin-bottom: 20px;">
-                  <div class="settings-header" style="display: flex; justify-content: space-between; align-items: center;">
+                  <div class="settings-header" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
                     <h3 style="margin: 0;">Upload Claims Data</h3>
-                  </div>
-                  <div class="settings-content" style="margin-top: 15px;">
+                  <i data-lucide="chevron-down" class="chevron"></i></div>
+                  <div class="settings-content" style="margin-top: 15px; display: none;">
                     <p style="color: var(--text-secondary); margin-bottom: 20px; font-size: 0.85rem;">Upload an Excel file (.xlsx) containing claims data. The data will be appended to the Supabase database.</p>
                     
                     <div style="border: 2px dashed var(--border-color); padding: 20px; text-align: center; border-radius: 8px; margin-bottom: 20px;">
@@ -1220,10 +1220,10 @@
         <i data-lucide="shield-check" style="color: #10b981;"></i> Security &amp; Access
       </h3>
     <div class="settings-card" style="background: white; border-radius: 12px; padding: 16px; border: 1px solid var(--border-color); margin-bottom: 20px; width: 100%;">
-              <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 20px;">
-                <h3 style="margin: 0; color: var(--text-primary);">Dashboard User Management</h3>
+              <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 20px; cursor: pointer;" class="settings-header">
+                <div style="display: flex; align-items: center; gap: 8px;"><h3 style="margin: 0; color: var(--text-primary);">Dashboard User Management</h3><i data-lucide="chevron-down" class="chevron"></i></div>
                 <button id="add-user-btn" class="btn-primary" style="display: flex; align-items: center; gap: 6px; padding: 8px 16px; font-size: 0.85rem;"><i data-lucide="user-plus"></i> Add User</button>
-              </div>
+              </div><div class="settings-content" style="display: none;">
               
               <!-- Add User Form (Hidden by default) -->
               <form id="add-user-form" style="display: none; background: #f8fafc; padding: 16px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border-color);">
@@ -1287,7 +1287,7 @@
                   </tbody>
                 </table>
               </div>
-            </div></div></div> <!-- End of Grid -->
+            </div></div></div></div> <!-- End of Grid -->
         </div>
         </div> <!-- End of view-settings -->
       </main>
