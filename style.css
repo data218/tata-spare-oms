@@ -808,3 +808,8 @@ h2.welcome-text {
   to { transform: translateX(0); opacity: 1; }
 }
 
+
+.claims-table thead th {
+  top: 51px;
+}
+

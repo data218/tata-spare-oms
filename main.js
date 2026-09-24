@@ -1,4 +1,5 @@
 import { supabase } from './supabase.js';
+import { initClaims } from './claims.js';
 
 // Initialize Lucide Icons
 lucide.createIcons();
@@ -172,7 +173,7 @@ const tableFilterConfigs = {
     render: (rows) => { window.tableFilterData['recent-activity-table'] = rows; renderRecentActivity(); }
   },
   'health-table-body': {
-    getRows: () => window.originalProcessedParts || [],
+    getRows: () => window.filteredProcessedParts || window.originalProcessedParts || [],
     fields: {
       'Part No.': 'partId', 'Description': 'model', 'Location': 'location',
       'Category': 'productCategory', 'Stock': 'currentStock',
@@ -180,10 +181,18 @@ const tableFilterConfigs = {
     },
     render: (rows) => { window.tableFilterData['health-table-body'] = rows; window.hCurrentPage = 1; window.renderHealthTable(); }
   },
-  'demand-table-body': {
-    getRows: () => window.originalProcessedParts || [],
+  'ppni-table-body': {
+    getRows: () => window.filteredProcessedParts || window.originalProcessedParts || [],
     fields: {
-      'Part No.': 'partId', 'Description': 'model', 'Curr. Stock': 'currentStock',
+      'Part No.': 'partId', 'Description': 'model', 'Location': 'location', 'Category': 'productCategory',
+      'Ageing (Days)': 'ageingDays', 'Receipt Date': 'last_receipt', 'Qty': 'currentStock', 'Value (₹)': 'stockValue'
+    },
+    render: (rows) => { window.tableFilterData['ppni-table-body'] = rows; window.pCurrentPage = 1; if(typeof window.renderPPNI === 'function') window.renderPPNI(); }
+  },
+  'demand-table-body': {
+    getRows: () => window.filteredProcessedParts || window.originalProcessedParts || [],
+    fields: {
+      'Part No.': 'partId', 'Description': 'model', 'Location': 'location', 'Curr. Stock': 'currentStock',
       'In-Transit': 'inTransit', '6-Mth Avg Cons.': 'consumption6m', 'Safety Stock': 'safetyStock',
       'Open Demand': 'demand', 'Reorder Qty': 'orderQty', 'Status': 'statusText'
     },
@@ -230,12 +239,10 @@ const tableFilterConfigs = {
 function getFieldValue(obj, key, tableId) {
   if (key === 'statusText') {
     if (tableId === 'demand-table-body') {
-      const needsReorder = (obj.currentStock + obj.inTransit) < (obj.min + obj.demand);
-      return needsReorder ? 'REORDER' : 'SUFFICIENT';
+      return (obj.orderQty || 0) > 0 ? 'REORDER' : 'SUFFICIENT';
     } else if (tableId === 'health-table-body') {
       if (obj.currentStock === 0) return 'Out of Stock';
-      const t = (Number(obj.demand) || 0) >= 1 ? (Number(obj.demand) || 0) : 5;
-      if (obj.currentStock < t) return 'Low Stock';
+      if (obj.currentStock < obj.min) return 'Low Stock';
       return 'Healthy';
     } else {
       const text = obj.status?.text || '';
@@ -1388,6 +1395,7 @@ function renderDashboard() {
   if(typeof window.renderDemandTable === 'function') window.renderDemandTable();
   if(typeof window.renderConsumptionTable === 'function') window.renderConsumptionTable();
   if(typeof window.renderConsumptionAnalytics === 'function') window.renderConsumptionAnalytics();
+  if(typeof window.renderPPNI === 'function') window.renderPPNI();
   
   lucide.createIcons();
   if (typeof renderTablePage === 'function') renderTablePage();
@@ -2295,7 +2303,7 @@ document.addEventListener('DOMContentLoaded', () => {
     tbody.innerHTML = '';
     
     if (paginatedParts.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 20px; color: var(--text-secondary);">No parts found matching criteria.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 20px; color: var(--text-secondary);">No parts found matching criteria.</td></tr>';
     } else {
       paginatedParts.forEach(part => {
         let actionBadgeClass = part.needsReorder ? 'critical' : 'healthy';
@@ -2306,6 +2314,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tr.innerHTML = `
           <td style="padding: 8px 12px; font-weight: 500;">${part.partId}</td>
           <td style="padding: 8px 12px; color: var(--text-secondary);">${part.model}</td>
+          <td style="padding: 8px 12px;">${part.location || 'Narwal'}</td>
           <td style="padding: 8px 12px; text-align: center;">${part.currentStock || 0}</td>
           <td style="padding: 8px 12px; text-align: center; color: var(--purple); font-weight: 500;">${part.inTransit || 0}</td>
           <td style="padding: 8px 12px; text-align: center;">${Math.round((part.consumption6m || 0) / 6)}/mo</td>
@@ -3157,3 +3166,239 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 });
+
+// --- PPNI Logic ---
+window.pCurrentPage = 1;
+window.pItemsPerPage = 100;
+window.pSearchQuery = '';
+
+window.ppniAgeingChartInstance = null;
+window.ppniMonthChartInstance = null;
+window.ppniCategoryChartInstance = null;
+
+window.renderPPNI = function() {
+  const tbody = document.getElementById('ppni-table-body');
+  if (!tbody) return;
+
+  // Filter to parts that are actually in stock
+  const allParts = window.filteredProcessedParts || window.originalProcessedParts || [];
+  let ppniParts = allParts.filter(p => p.currentStock > 0);
+
+  // Apply column filters if any
+  if (window.tableFilterData['ppni-table-body']) {
+    // Intersect the column filtered data with the in-stock restriction
+    const allowedIds = new Set(window.tableFilterData['ppni-table-body'].map(p => p.partId));
+    ppniParts = ppniParts.filter(p => allowedIds.has(p.partId));
+  }
+
+  if (window.pSearchQuery) {
+    const q = window.pSearchQuery.toLowerCase();
+    ppniParts = ppniParts.filter(p => 
+      (p.partId && p.partId.toLowerCase().includes(q)) || 
+      (p.model && p.model.toLowerCase().includes(q))
+    );
+  }
+
+  // Calculate KPIs
+  let totalValue = 0;
+  let maxAge = 0;
+  let catSums = {};
+  
+  let locationSums = {};
+  let yearSums = {};
+  let monthSums = {}; // Format: "YYYY-MM"
+
+  ppniParts.forEach(p => {
+    totalValue += (p.stockValue || 0);
+    if (p.ageingDays > maxAge) maxAge = p.ageingDays;
+    
+    let cat = p.productCategory || 'Uncategorized';
+    catSums[cat] = (catSums[cat] || 0) + (p.stockValue || 0);
+    
+    let loc = p.location || 'Unknown';
+    locationSums[loc] = (locationSums[loc] || 0) + (p.stockValue || 0);
+
+    // Month & Year Wise
+    if (p.last_receipt) {
+      let d = new Date(p.last_receipt);
+      if (!isNaN(d)) {
+        let yr = d.getFullYear();
+        yearSums[yr] = (yearSums[yr] || 0) + (p.stockValue || 0);
+        let ym = yr + '-' + String(d.getMonth()+1).padStart(2, '0');
+        monthSums[ym] = (monthSums[ym] || 0) + (p.stockValue || 0);
+      }
+    }
+  });
+
+  // Find top category
+  let topCat = '-';
+  let topCatVal = 0;
+  for (const [c, val] of Object.entries(catSums)) {
+    if (val > topCatVal) {
+      topCatVal = val;
+      topCat = c;
+    }
+  }
+
+  // Render KPIs
+  const elVal = document.getElementById('ppni-kpi-value');
+  const elCount = document.getElementById('ppni-kpi-count');
+  const elCat = document.getElementById('ppni-kpi-category');
+  const elMaxAge = document.getElementById('ppni-kpi-max-age');
+
+  if (elVal) elVal.textContent = '₹' + totalValue.toLocaleString('en-IN', {maximumFractionDigits: 0});
+  if (elCount) elCount.textContent = ppniParts.length.toLocaleString('en-IN');
+  if (elCat) elCat.textContent = topCat;
+  if (elMaxAge) elMaxAge.textContent = maxAge + ' Days';
+
+  // Render Charts
+  renderPPNICharts(locationSums, yearSums, monthSums);
+
+  // Pagination
+  const totalItems = ppniParts.length;
+  const totalPages = Math.ceil(totalItems / window.pItemsPerPage) || 1;
+  if (window.pCurrentPage > totalPages) window.pCurrentPage = totalPages;
+  const startIndex = (window.pCurrentPage - 1) * window.pItemsPerPage;
+  const endIndex = Math.min(startIndex + window.pItemsPerPage, totalItems);
+  const paginated = ppniParts.slice(startIndex, endIndex);
+
+  tbody.innerHTML = '';
+  if (paginated.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px; color: var(--text-secondary);">No parts found.</td></tr>';
+  } else {
+    paginated.forEach(part => {
+      let lrText = part.last_receipt ? new Date(part.last_receipt).toLocaleDateString('en-IN') : 'N/A';
+      let ageText = part.ageingDays >= 0 ? `${part.ageingDays} Days` : 'N/A';
+      let badgeClass = part.ageingDays > 180 ? 'critical' : (part.ageingDays > 90 ? 'low' : 'healthy');
+      
+      const tr = document.createElement('tr');
+      tr.style.borderBottom = '1px solid var(--border-color)';
+      tr.innerHTML = `
+        <td style="padding: 4px 8px; font-size: 0.85rem; font-weight: 500;">${part.partId}</td>
+        <td style="padding: 4px 8px; font-size: 0.85rem; color: var(--text-secondary);">${part.model}</td>
+        <td style="padding: 4px 8px; font-size: 0.85rem;">${part.location || 'Narwal'}</td>
+        <td style="padding: 4px 8px; font-size: 0.85rem;">${part.productCategory || 'N/A'}</td>
+        <td style="padding: 4px 8px; font-size: 0.85rem;"><span class="h-badge ${badgeClass}">${ageText}</span></td>
+        <td style="padding: 4px 8px; font-size: 0.85rem;">${lrText}</td>
+        <td style="padding: 4px 8px; font-size: 0.85rem; text-align: center; font-weight: bold;">${part.currentStock}</td>
+        <td style="padding: 4px 8px; font-size: 0.85rem; text-align: right; color: var(--text-primary); font-weight: 500;">₹${(part.stockValue||0).toLocaleString('en-IN')}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  // Update Pagination UI
+  const startEl = document.getElementById('p-page-start');
+  const endEl = document.getElementById('p-page-end');
+  const totalEl = document.getElementById('p-total-parts');
+  const prevBtn = document.getElementById('p-prev-page-btn');
+  const nextBtn = document.getElementById('p-next-page-btn');
+  const pageNumContainer = document.getElementById('p-page-numbers');
+
+  if(startEl) startEl.textContent = totalItems === 0 ? 0 : startIndex + 1;
+  if(endEl) endEl.textContent = endIndex;
+  if(totalEl) totalEl.textContent = totalItems;
+  if(prevBtn) prevBtn.disabled = window.pCurrentPage === 1;
+  if(nextBtn) nextBtn.disabled = window.pCurrentPage === totalPages;
+  if(pageNumContainer) pageNumContainer.innerHTML = `<span style="font-size: 0.85rem; font-weight: 500;">Page ${window.pCurrentPage} of ${totalPages}</span>`;
+};
+
+
+window.ppniLocationChartInstance = null;
+window.ppniYearChartInstance = null;
+window.ppniMonthChartInstance = null;
+
+
+window.ppniLocationChartInstance = null;
+window.ppniYearChartInstance = null;
+window.ppniMonthChartInstance = null;
+
+function renderPPNICharts(locationSums, yearSums, monthSums) {
+  if (typeof Chart === 'undefined') return;
+  Chart.defaults.set('plugins.datalabels', { display: false });
+
+  const formatCurrency = (val) => {
+    if (val >= 10000000) return '₹' + (val/10000000).toFixed(1) + 'Cr';
+    if (val >= 100000) return '₹' + (val/100000).toFixed(1) + 'L';
+    if (val >= 1000) return '₹' + (val/1000).toFixed(1) + 'K';
+    return '₹' + val.toLocaleString('en-IN');
+  };
+
+  const locCtx = document.getElementById('ppni-location-chart');
+  if (locCtx) {
+    if (window.ppniLocationChartInstance) window.ppniLocationChartInstance.destroy();
+    const sortedLocs = Object.entries(locationSums).sort((a,b) => b[1] - a[1]);
+    const labels = sortedLocs.map(l => l[0].length > 15 ? l[0].substring(0, 15)+'...' : l[0]);
+    const data = sortedLocs.map(l => l[1]);
+
+    window.ppniLocationChartInstance = new Chart(locCtx, {
+      type: 'bar',
+      data: { labels: labels, datasets: [{ label: 'Value (₹)', data: data, backgroundColor: '#3b82f6', borderRadius: 4 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { datalabels: { display: true, align: 'end', anchor: 'end', formatter: formatCurrency, font: {size: 10, weight: 'bold'}, color: '#64748b', offset: -4 }, legend: { display: false }, tooltip: { callbacks: { label: function(ctx) { return '₹' + ctx.raw.toLocaleString('en-IN', {maximumFractionDigits:0}); } } } }, scales: { y: { beginAtZero: true, ticks: { callback: formatCurrency } } } }
+    });
+  }
+
+  const yrCtx = document.getElementById('ppni-year-chart');
+  if (yrCtx) {
+    if (window.ppniYearChartInstance) window.ppniYearChartInstance.destroy();
+    const sortedYrs = Object.keys(yearSums).sort();
+    const data = sortedYrs.map(y => yearSums[y]);
+
+    window.ppniYearChartInstance = new Chart(yrCtx, {
+      type: 'bar',
+      data: { labels: sortedYrs, datasets: [{ label: 'Value (₹)', data: data, backgroundColor: '#10b981', borderRadius: 4 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { datalabels: { display: true, align: 'end', anchor: 'end', formatter: formatCurrency, font: {size: 10, weight: 'bold'}, color: '#64748b', offset: -4 }, legend: { display: false }, tooltip: { callbacks: { label: function(ctx) { return '₹' + ctx.raw.toLocaleString('en-IN', {maximumFractionDigits:0}); } } } }, scales: { y: { beginAtZero: true, ticks: { callback: formatCurrency } } } }
+    });
+  }
+
+  const monthCtx = document.getElementById('ppni-month-chart');
+  if (monthCtx) {
+    if (window.ppniMonthChartInstance) window.ppniMonthChartInstance.destroy();
+    let sortedMonths = Object.keys(monthSums).sort();
+    if (sortedMonths.length > 12) sortedMonths = sortedMonths.slice(sortedMonths.length - 12);
+    const mData = sortedMonths.map(m => monthSums[m]);
+    const mLabels = sortedMonths.map(m => { const parts = m.split('-'); const d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, 1); return d.toLocaleDateString('en-IN', {month: 'short', year: '2-digit'}); });
+
+    window.ppniMonthChartInstance = new Chart(monthCtx, {
+      type: 'line',
+      data: { labels: mLabels, datasets: [{ label: 'Value (₹)', data: mData, borderColor: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.1)', borderWidth: 2, fill: true, tension: 0.3, pointBackgroundColor: '#f59e0b' }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { datalabels: { display: true, align: 'top', anchor: 'center', formatter: formatCurrency, font: {size: 10, weight: 'bold'}, color: '#64748b' }, legend: { display: false }, tooltip: { callbacks: { label: function(ctx) { return '₹' + ctx.raw.toLocaleString('en-IN', {maximumFractionDigits:0}); } } } }, scales: { y: { beginAtZero: true, ticks: { callback: formatCurrency } } } }
+    });
+  }
+}
+
+// Attach Pagination Events
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    const pPrevBtn = document.getElementById('p-prev-page-btn');
+    const pNextBtn = document.getElementById('p-next-page-btn');
+    const pSearchInput = document.getElementById('ppni-search-input');
+    
+    if (pSearchInput) {
+      pSearchInput.addEventListener('input', (e) => {
+        window.pSearchQuery = e.target.value;
+        window.pCurrentPage = 1;
+        if(typeof window.renderPPNI === 'function') window.renderPPNI();
+      });
+    }
+
+    if (pPrevBtn) {
+      pPrevBtn.addEventListener('click', () => {
+        if (window.pCurrentPage > 1) {
+          window.pCurrentPage--;
+          if(typeof window.renderPPNI === 'function') window.renderPPNI();
+        }
+      });
+    }
+
+    if (pNextBtn) {
+      pNextBtn.addEventListener('click', () => {
+        window.pCurrentPage++;
+        if(typeof window.renderPPNI === 'function') window.renderPPNI();
+      });
+    }
+  }, 1000);
+});
+
+// Initialize Claims section
+initClaims();

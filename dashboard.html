@@ -34,9 +34,13 @@
             <i data-lucide="clipboard-list"></i>
             <span>Reorder Management</span>
           </a>
-          <a href="#" class="nav-item" data-target="view-purchase">
+          <a href="#" class="nav-item" data-target="view-ppni">
             <i data-lucide="shopping-bag"></i>
-            <span>Purchase</span>
+            <span>PPNI</span>
+          </a>
+          <a href="#" class="nav-item" data-target="view-claims">
+            <i data-lucide="file-spreadsheet"></i>
+            <span>Part Claim Data</span>
           </a>
           <a href="#" class="nav-item" data-target="view-reporting">
             <i data-lucide="bar-chart-2"></i>
@@ -436,6 +440,7 @@
                   <tr>
                     <th>Part No.</th>
                     <th>Description</th>
+                    <th>Location</th>
                     <th>Curr. Stock</th>
                     <th>In-Transit</th>
                     <th>6-Mth Avg Cons.</th>
@@ -458,9 +463,339 @@
           </div>
         </div>
 
-        <!-- PURCHASE VIEW -->
-        <div id="view-purchase" class="view-section" style="display: none;">
-          <div class="dashboard-content"><h2 class="welcome-text">Purchase View</h2><p>Coming soon...</p></div>
+        <!-- PPNI VIEW -->
+        <div id="view-ppni" class="view-section" style="display: none; padding: 0 20px 20px 20px; overflow-y: auto; overflow-x: auto;">
+          <div class="dashboard-content" style="max-width: 1400px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; min-height: min-content; padding-top: 20px; min-width: 1200px; overflow: visible;">
+            <h2 class="welcome-text">Parts Purchased Not Installed (PPNI)</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">Analysis of parts currently in stock (Not Installed).</p>
+            
+            <div class="kpi-grid" style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+              <div class="kpi-card" style="padding: 10px 14px; flex: 1 1 0; min-width: 150px; background: white; border-radius: 8px; border: 1px solid var(--border-color); box-shadow: none;">
+                <div class="kpi-title" style="font-size: 0.75rem; margin-bottom: 4px; color: var(--text-secondary); text-transform: uppercase;">Total PPNI Value</div>
+                <div class="kpi-value" id="ppni-kpi-value" style="font-size: 1.1rem; color: var(--text-primary); font-weight: bold;">₹0</div>
+              </div>
+              <div class="kpi-card" style="padding: 10px 14px; flex: 1 1 0; min-width: 150px; background: white; border-radius: 8px; border: 1px solid var(--border-color); box-shadow: none;">
+                <div class="kpi-title" style="font-size: 0.75rem; margin-bottom: 4px; color: var(--text-secondary); text-transform: uppercase;">Total Parts</div>
+                <div class="kpi-value" id="ppni-kpi-count" style="font-size: 1.1rem; color: var(--text-primary); font-weight: bold;">0</div>
+              </div>
+              <div class="kpi-card" style="padding: 10px 14px; flex: 1 1 0; min-width: 150px; background: white; border-radius: 8px; border: 1px solid var(--border-color); box-shadow: none;">
+                <div class="kpi-title" style="font-size: 0.75rem; margin-bottom: 4px; color: var(--text-secondary); text-transform: uppercase;">Highest Value Category</div>
+                <div class="kpi-value" id="ppni-kpi-category" style="font-size: 1rem; color: var(--text-primary); font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</div>
+              </div>
+              <div class="kpi-card" style="padding: 10px 14px; flex: 1 1 0; min-width: 150px; background: white; border-radius: 8px; border: 1px solid var(--border-color); box-shadow: none;">
+                <div class="kpi-title" style="font-size: 0.75rem; margin-bottom: 4px; color: var(--text-secondary); text-transform: uppercase;">Max Ageing (Days)</div>
+                <div class="kpi-value" id="ppni-kpi-max-age" style="font-size: 1.1rem; color: #ef4444; font-weight: bold;">0</div>
+              </div>
+            </div>
+
+            <!-- PPNI CHARTS ROW -->
+            <div style="display: flex; gap: 15px; margin-bottom: 20px;">
+              <!-- Location Wise -->
+              <div class="card" style="flex: 1; padding: 15px; min-width: 0; background: white; border-radius: 8px; border: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                <h3 style="margin-top: 0; margin-bottom: 10px; font-size: 0.9rem; color: var(--text-primary);">Location Wise PPNI Value (₹)</h3>
+                <div style="height: 200px;">
+                  <canvas id="ppni-location-chart"></canvas>
+                </div>
+              </div>
+              <!-- Year Wise -->
+              <div class="card" style="flex: 1; padding: 15px; min-width: 0; background: white; border-radius: 8px; border: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                <h3 style="margin-top: 0; margin-bottom: 10px; font-size: 0.9rem; color: var(--text-primary);">Year Wise PPNI Value (₹)</h3>
+                <div style="height: 200px;">
+                  <canvas id="ppni-year-chart"></canvas>
+                </div>
+              </div>
+              <!-- Month Wise -->
+              <div class="card" style="flex: 1; padding: 15px; min-width: 0; background: white; border-radius: 8px; border: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                <h3 style="margin-top: 0; margin-bottom: 10px; font-size: 0.9rem; color: var(--text-primary);">Month Wise PPNI Value (₹)</h3>
+                <div style="height: 200px;">
+                  <canvas id="ppni-month-chart"></canvas>
+                </div>
+              </div>
+            </div>
+
+            <div class="table-container" style="display: flex; flex-direction: column; background: white; border: 1px solid var(--border-color); border-radius: 6px; overflow: visible;">
+              <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border-color); flex-shrink: 0; position: sticky; top: 0; background: white; z-index: 60; border-top-left-radius: 6px; border-top-right-radius: 6px;">
+                <h3 style="margin: 0;">PPNI Part Details</h3>
+                <input type="text" id="ppni-search-input" placeholder="Search Part No..." style="padding: 6px 12px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.8rem;">
+              </div>
+              <div style="overflow: visible;">
+              <table class="control-tower-table claims-table" style="margin: 0; border: none;">
+                <thead>
+                  <tr>
+                    <th>Part No.</th>
+                    <th>Description</th>
+                    <th>Location</th>
+                    <th>Category</th>
+                    <th>Ageing (Days)</th>
+                    <th>Receipt Date</th>
+                    <th>Qty</th>
+                    <th>Value (₹)</th>
+                  </tr>
+                </thead>
+                <tbody id="ppni-table-body">
+                  <!-- Data will be populated via main.js -->
+                </tbody>
+              </table>
+              </div>
+              <div class="pagination-controls" style="display: flex; justify-content: space-between; align-items: center; padding: 15px 0;">
+                <span style="font-size: 0.85rem; color: var(--text-secondary);">Showing <span id="p-page-start">0</span>-<span id="p-page-end">0</span> of <span id="p-total-parts">0</span></span>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                  <button id="p-prev-page-btn" class="secondary-btn" disabled><i data-lucide="chevron-left" style="width:16px;height:16px;"></i> Prev</button>
+                  <div id="p-page-numbers" style="display:flex; gap:4px;"></div>
+                  <button id="p-next-page-btn" class="secondary-btn" disabled>Next <i data-lucide="chevron-right" style="width:16px;height:16px;"></i></button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CLAIMS VIEW -->
+        <div id="view-claims" class="view-section" style="display: none; padding: 0 20px 20px 20px; overflow-y: auto; overflow-x: auto;">
+          <div class="dashboard-content" style="max-width: 1400px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; min-height: min-content; padding-top: 20px; min-width: 1200px; overflow: visible;">
+            
+            <!-- HEADER -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+              <h2 class="welcome-text" style="margin: 0;">Part Claim Analytics</h2>
+              <button id="btn-new-claim" class="primary-btn" style="font-size: 1rem; padding: 10px 20px; display: flex; align-items: center; gap: 8px;">
+                <i data-lucide="plus-circle"></i> New Claim Form
+              </button>
+            </div>
+            <!-- FILTERS -->
+            <div id="claims-filters" style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center; background: white; padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <label for="filter-location" style="font-weight: 500; font-size: 0.9rem; color: var(--text-secondary);">Location:</label>
+                <select id="filter-location" style="width: 220px; padding: 8px 12px; font-size: 0.9rem; border: 1px solid var(--border-color); border-radius: 6px; outline: none; background: #f8fafc;">
+                  <option value="">All Locations</option>
+                </select>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <label for="filter-month" style="font-weight: 500; font-size: 0.9rem; color: var(--text-secondary);">Month & Year:</label>
+                <select id="filter-month" style="width: 200px; padding: 8px 12px; font-size: 0.9rem; border: 1px solid var(--border-color); border-radius: 6px; outline: none; background: #f8fafc;">
+                  <option value="">All Time</option>
+                </select>
+              </div>
+            </div>
+            
+            <!-- TOGGLEABLE FORM CONTAINER -->
+            <div id="claim-form-container" style="display: none; background: white; border-radius: 8px; padding: 24px; border: 1px solid var(--border-color); margin-bottom: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px;">
+                <h3 style="margin: 0;">Submit New Claim</h3>
+                <button id="btn-close-claim-form" style="background: none; border: none; cursor: pointer; color: var(--text-secondary);">
+                  <i data-lucide="x" style="width: 24px; height: 24px;"></i>
+                </button>
+              </div>
+              <form id="claim-manual-form" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label style="font-size: 0.85rem; font-weight: 500;">Dealer / Branch Name *</label>
+                  <select id="cf-dealer" required style="padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: white;">
+                    <option value="">Select a branch...</option>
+                    <option value="AM-TATA-NARWAL">AM-TATA-NARWAL</option>
+                    <option value="AM-TATA-KATHUA">AM-TATA-KATHUA</option>
+                    <option value="AM-TATA-SUPWAL">AM-TATA-SUPWAL</option>
+                    <option value="AM-TATA-CHANNIRAMA">AM-TATA-CHANNIRAMA</option>
+                  </select>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label style="font-size: 0.85rem; font-weight: 500;">Submitted By (Your Name) *</label>
+                  <input type="text" id="cf-submitted-by" required style="padding: 10px; border: 1px solid var(--border-color); border-radius: 6px;">
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label style="font-size: 0.85rem; font-weight: 500;">Designation / Department</label>
+                  <input type="text" id="cf-designation" style="padding: 10px; border: 1px solid var(--border-color); border-radius: 6px;">
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label style="font-size: 0.85rem; font-weight: 500;">Invoice Number *</label>
+                  <input type="text" id="cf-invoice" required style="padding: 10px; border: 1px solid var(--border-color); border-radius: 6px;">
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label style="font-size: 0.85rem; font-weight: 500;">Part Number *</label>
+                  <input type="text" id="cf-part-number" required style="padding: 10px; border: 1px solid var(--border-color); border-radius: 6px;">
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label style="font-size: 0.85rem; font-weight: 500;">Part Description</label>
+                  <input type="text" id="cf-part-desc" style="padding: 10px; border: 1px solid var(--border-color); border-radius: 6px;">
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label style="font-size: 0.85rem; font-weight: 500;">Quantity *</label>
+                  <input type="number" id="cf-qty" required style="padding: 10px; border: 1px solid var(--border-color); border-radius: 6px;">
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label style="font-size: 0.85rem; font-weight: 500;">Amount (₹) *</label>
+                  <input type="number" step="0.01" id="cf-amount" required style="padding: 10px; border: 1px solid var(--border-color); border-radius: 6px;">
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label style="font-size: 0.85rem; font-weight: 500;">Type of Issue *</label>
+                  <select id="cf-issue-type" required style="padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: white;">
+                    <option value="">Select an issue...</option>
+                    <option value="Damaged Part">Damaged Part</option>
+                    <option value="Missing Part">Missing Part</option>
+                    <option value="Wrong Part Received">Wrong Part Received</option>
+                    <option value="Quality Issue">Quality Issue</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label style="font-size: 0.85rem; font-weight: 500;">If Other, please specify</label>
+                  <input type="text" id="cf-other-issue" style="padding: 10px; border: 1px solid var(--border-color); border-radius: 6px;">
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 6px; grid-column: 1 / -1;">
+                  <label style="font-size: 0.85rem; font-weight: 500;">Detailed Description of the Issue</label>
+                  <textarea id="cf-detailed-desc" rows="2" style="padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; font-family: inherit;"></textarea>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label style="font-size: 0.85rem; font-weight: 500;">Part Received Date</label>
+                  <input type="date" id="cf-received-date" style="padding: 10px; border: 1px solid var(--border-color); border-radius: 6px;">
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label style="font-size: 0.85rem; font-weight: 500;">Claim Request Date *</label>
+                  <input type="date" id="cf-claim-date" required style="padding: 10px; border: 1px solid var(--border-color); border-radius: 6px;">
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label style="font-size: 0.85rem; font-weight: 500;">Claim Number</label>
+                  <input type="text" id="cf-claim-number" style="padding: 10px; border: 1px solid var(--border-color); border-radius: 6px;">
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                  <label style="font-size: 0.85rem; font-weight: 500;">Requested Action</label>
+                  <select id="cf-requested-action" style="padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: white;">
+                    <option value="">Select action...</option>
+                    <option value="Replacement Requested">Replacement Requested</option>
+                    <option value="Payment pending -Under Process">Payment pending -Under Process</option>
+                    <option value="Return to Supplier">Return to Supplier</option>
+                    <option value="Credit Note received / Payment Recevied">Credit Note received / Payment Recevied</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 6px; grid-column: 1 / -1;">
+                  <label style="font-size: 0.85rem; font-weight: 500;">Remarks / Additional Comments</label>
+                  <textarea id="cf-remarks" rows="2" style="padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; font-family: inherit;"></textarea>
+                </div>
+
+                <div style="grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 12px; margin-top: 10px; border-top: 1px solid var(--border-color); padding-top: 20px;">
+                  <button type="button" class="secondary-btn" id="cf-reset-btn">Clear Form</button>
+                  <button type="submit" class="primary-btn" id="cf-submit-btn">Submit Claim</button>
+                </div>
+              </form>
+              <div id="cf-status-message" style="margin-top: 15px; font-weight: 500; display: none;"></div>
+            </div>
+
+            <!-- ANALYTICS SECTION -->
+            <div id="claims-analytics" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; flex-shrink: 0;">
+              <!-- Pivot 1: Dealer -->
+              <div style="background: white; border-radius: 8px; border: 1px solid var(--border-color); display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                <div style="background: #f8fafc; border-bottom: 1px solid var(--border-color); display: grid; grid-template-columns: 2fr 1fr 1.2fr; font-weight: 600; font-size: 0.8rem; text-align: center;">
+                  <div style="text-align: left; padding: 8px 12px; border-right: 1px solid var(--border-color);">Dealer / Branch Name</div>
+                  <div style="padding: 8px 12px; border-right: 1px solid var(--border-color);">Claims</div>
+                  <div style="padding: 8px 12px;">Amount (₹)</div>
+                </div>
+                <div id="pivot-dealer" style="overflow-y: auto; max-height: 180px; background: white;">
+                  <!-- Rendered via JS -->
+                </div>
+                <div id="pivot-dealer-total" style="background: #f8fafc; border-top: 1px solid var(--border-color); display: grid; grid-template-columns: 2fr 1fr 1.2fr; font-weight: bold; font-size: 0.85rem; text-align: center;">
+                  <div style="text-align: left; padding: 8px 12px; border-right: 1px solid var(--border-color);">Grand total</div>
+                  <div id="pd-count" style="padding: 8px 12px; border-right: 1px solid var(--border-color);">0</div>
+                  <div id="pd-amount" style="padding: 8px 12px;">0.00</div>
+                </div>
+              </div>
+
+              <!-- Pivot 2: Issue Type -->
+              <div style="background: white; border-radius: 8px; border: 1px solid var(--border-color); display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                <div style="background: #f8fafc; border-bottom: 1px solid var(--border-color); display: grid; grid-template-columns: 2fr 1fr 1.2fr; font-weight: 600; font-size: 0.8rem; text-align: center;">
+                  <div style="text-align: left; padding: 8px 12px; border-right: 1px solid var(--border-color);">Type of Issue</div>
+                  <div style="padding: 8px 12px; border-right: 1px solid var(--border-color);">Claims</div>
+                  <div style="padding: 8px 12px;">Amount (₹)</div>
+                </div>
+                <div id="pivot-issue" style="overflow-y: auto; max-height: 180px; background: white;">
+                  <!-- Rendered via JS -->
+                </div>
+                <div id="pivot-issue-total" style="background: #f8fafc; border-top: 1px solid var(--border-color); display: grid; grid-template-columns: 2fr 1fr 1.2fr; font-weight: bold; font-size: 0.85rem; text-align: center;">
+                  <div style="text-align: left; padding: 8px 12px; border-right: 1px solid var(--border-color);">Grand total</div>
+                  <div id="pi-count" style="padding: 8px 12px; border-right: 1px solid var(--border-color);">0</div>
+                  <div id="pi-amount" style="padding: 8px 12px;">0.00</div>
+                </div>
+              </div>
+
+              <!-- Pivot 3: Requested Action (Spans full width) -->
+              <div style="grid-column: 1 / -1; background: white; border-radius: 8px; border: 1px solid var(--border-color); display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                <div style="background: #f8fafc; border-bottom: 1px solid var(--border-color); display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; font-weight: 600; font-size: 0.8rem; text-align: center;">
+                  <div style="text-align: left; padding: 8px 12px; border-right: 1px solid var(--border-color);">Requested Action</div>
+                  <div style="padding: 8px 12px; border-right: 1px solid var(--border-color);">Claims</div>
+                  <div style="padding: 8px 12px; border-right: 1px solid var(--border-color);">Contribution</div>
+                  <div style="padding: 8px 12px; border-right: 1px solid var(--border-color);">Amount (₹)</div>
+                  <div style="padding: 8px 12px;">Amount Contribution</div>
+                </div>
+                <div id="pivot-action" style="overflow-y: auto; max-height: 150px; background: white;">
+                  <!-- Rendered via JS -->
+                </div>
+                <div id="pivot-action-total" style="background: #f8fafc; border-top: 1px solid var(--border-color); display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; font-weight: bold; font-size: 0.85rem; text-align: center;">
+                  <div style="text-align: left; padding: 8px 12px; border-right: 1px solid var(--border-color);">Grand total</div>
+                  <div id="pa-count" style="padding: 8px 12px; border-right: 1px solid var(--border-color);">0</div>
+                  <div id="pa-contrib" style="padding: 8px 12px; border-right: 1px solid var(--border-color);">100%</div>
+                  <div id="pa-amount" style="padding: 8px 12px; border-right: 1px solid var(--border-color);">0.00</div>
+                  <div id="pa-amt-contrib" style="padding: 8px 12px;">100%</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- DETAILED DATA TABLE -->
+            <div style="background: white; border-radius: 8px; border: 1px solid var(--border-color); display: flex; flex-direction: column; margin-bottom: 40px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+              <div style="position: sticky; top: 0; z-index: 60; padding: 12px 15px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-radius: 8px 8px 0 0;">
+                <h3 style="margin: 0; font-size: 1rem;">Detailed Claim Records</h3>
+                <div style="display: flex; gap: 10px;">
+                  <button id="btn-refresh-claims" class="secondary-btn" style="padding: 6px 12px; font-size: 0.85rem;"><i data-lucide="refresh-cw" style="width: 14px; height: 14px;"></i> Refresh</button>
+                  <input type="text" id="claims-search-input" placeholder="Search claims..." style="padding: 6px 12px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.85rem;">
+                </div>
+              </div>
+              <div style="width: 100%;">
+                <table class="control-tower-table claims-table" style="min-width: 1200px;">
+                  <thead>
+                    <tr>
+                      <th data-col="dealer_name">Branch</th>
+                      <th data-col="invoice_number">Invoice No</th>
+                      <th data-col="requested_action">Requested Action</th>
+                      <th data-col="part_number">Part Number</th>
+                      <th data-col="part_description">Part Description</th>
+                      <th data-col="type_of_issue">Type of Issue</th>
+                      <th data-col="issue_desc">Issue Desc</th>
+                      <th data-col="remarks">Remarks</th>
+                      <th data-col="part_received_date">Part Received Date</th>
+                      <th data-col="claim_request_date">Claim Request Date</th>
+                      <th data-col="claim_number">Claim Number</th>
+                      <th data-col="gap_in_days">Gap in days</th>
+                      <th data-col="amount">Amount (₹)</th>
+                      <th>Update Records</th>
+                    </tr>
+                  </thead>
+                  <tbody id="claims-table-body">
+                    <!-- JS populated -->
+                  </tbody>
+                </table>
+              </div>
+              <div style="padding: 10px 15px; border-top: 1px solid var(--border-color); background: #f8fafc; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+                <span id="claims-page-info" style="font-size: 0.85rem; color: var(--text-secondary);">Showing 0 of 0 claims</span>
+                <div style="display: flex; gap: 8px;">
+                  <button id="claims-prev-btn" class="secondary-btn" style="padding: 4px 10px; font-size: 0.85rem;" disabled>Previous</button>
+                  <button id="claims-next-btn" class="secondary-btn" style="padding: 4px 10px; font-size: 0.85rem;" disabled>Next</button>
+                </div>
+              </div>
+            </div>
+
+          </div>
         </div>
 
         <!-- REPORTING VIEW -->
@@ -514,7 +849,7 @@
                 <div style="background: linear-gradient(135deg, #64748b 0%, #475569 100%); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 10px 15px -3px rgba(100, 116, 139, 0.3); color: white;">
                   <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                     <div style="display: flex; flex-direction: column;">
-                      <span style="font-size: 0.75rem; color: rgba(255,255,255,0.8); font-weight: 500;">Slow-Moving (<5)</span>
+                      <span style="font-size: 0.75rem; color: rgba(255,255,255,0.8); font-weight: 500;">Slow-Moving (&lt;5)</span>
                       <span class="widget-value" id="cons-kpi-slow" style="font-size: 1.2rem; font-weight: 700; color: white; margin-top: 4px;">0</span>
                     </div>
                     <div style="background: rgba(255,255,255,0.2); color: white; padding: 8px; border-radius: 8px;">
@@ -630,6 +965,29 @@
               <div>
                 <h3 style="margin-top: 0; margin-bottom: 16px; color: var(--text-primary);">Data Fetching & Configurations</h3>
                 
+                <div class="settings-card" style="background: var(--card-bg); border-radius: 8px; padding: 14px; border: 1px solid var(--border-color); width: 100%; margin-bottom: 20px;">
+                  <div class="settings-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin: 0;">Upload Claims Data</h3>
+                  </div>
+                  <div class="settings-content" style="margin-top: 15px;">
+                    <p style="color: var(--text-secondary); margin-bottom: 20px; font-size: 0.85rem;">Upload an Excel file (.xlsx) containing claims data. The data will be appended to the Supabase database.</p>
+                    
+                    <div style="border: 2px dashed var(--border-color); padding: 20px; text-align: center; border-radius: 8px; margin-bottom: 20px;">
+                      <i data-lucide="upload-cloud" style="width: 32px; height: 32px; color: var(--text-secondary); margin-bottom: 10px;"></i>
+                      <h4 style="margin-bottom: 10px;">Drag & Drop or Click to Upload</h4>
+                      <input type="file" id="claims-file-input" accept=".xlsx, .xls, .csv" style="display: none;">
+                      <button class="primary-btn" onclick="document.getElementById('claims-file-input').click()">Select Excel File</button>
+                      <p id="claims-file-name" style="margin-top: 10px; color: var(--text-secondary); font-size: 0.8rem;"></p>
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end;">
+                      <button id="claims-upload-btn" class="primary-btn" disabled style="opacity: 0.5;">Upload & Save</button>
+                    </div>
+                    
+                    <div id="claims-upload-status" style="margin-top: 15px; font-size: 0.85rem; font-weight: bold; display: none;"></div>
+                  </div>
+                </div>
+
                 <div class="settings-card" style="background: var(--card-bg); border-radius: 8px; padding: 14px; border: 1px solid var(--border-color); width: 100%; margin-bottom: 20px;">
                   <div class="settings-header" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
                     <h3 style="margin: 0;">Tata BI Portal Credentials</h3>
@@ -911,10 +1269,12 @@
           
           </div> <!-- End of Grid -->
         </div>
+        </div> <!-- End of view-settings -->
       </main>
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
   <script type="module" src="/tables.js"></script>
   <script type="module" src="/main.js"></script>
 </body>
