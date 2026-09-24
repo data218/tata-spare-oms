@@ -635,7 +635,7 @@ navItems.forEach(item => {
     if (targetId) {
       viewSections.forEach(view => {
         if (view.id === targetId) {
-          view.style.display = 'block'; // Or flex depending on view, block works for most
+          view.style.display = 'flex';
           if (targetId === 'view-orders' && typeof window.initReorderModule === 'function') window.initReorderModule();
           if (targetId === 'view-movement' && typeof window.initMovementModule === 'function') window.initMovementModule();
         } else {
