@@ -978,10 +978,11 @@ if (fetchForm) {
       
       await supabase.from('tata_bot_settings').upsert({ key: 'fetch_job', value: JSON.stringify(job) }, { onConflict: 'key' });
       
-      let fetchChannel = supabase.channel('fetch_job_updates')
-          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tata_bot_settings', filter: 'key=eq.fetch_job' }, async (payload) => {
-              try {
-                  const updatedJob = JSON.parse(payload.new.value);
+      let pollInterval = setInterval(async () => {
+          try {
+              const { data } = await supabase.from('tata_bot_settings').select('value').eq('key', 'fetch_job');
+              if (data && data.length > 0) {
+                  const updatedJob = JSON.parse(data[0].value);
                   statusDiv.innerHTML = updatedJob.logs || 'Processing...';
                   
                   const plain = (statusDiv.textContent || '').replace(/\s+/g, ' ').trim();
@@ -1001,6 +1002,7 @@ if (fetchForm) {
                   }
 
                   if (updatedJob.status === 'completed' || updatedJob.status === 'failed') {
+                      clearInterval(pollInterval);
                       if (updatedJob.status === 'completed') {
                           statusDiv.style.color = '#059669';
                           btn.innerHTML = '<i data-lucide="check"></i> Done!';
@@ -1021,11 +1023,11 @@ if (fetchForm) {
                           statusDiv.style.color = '#ef4444';
                       }
                       
-                      fetchChannel.unsubscribe();
                       setTimeout(() => resetBtn(), 5000);
                   }
-              } catch(e) { console.error('Error processing realtime payload', e); }
-          }).subscribe();
+              }
+          } catch(e) { console.error('Polling error', e); }
+      }, 1000);
           
     } catch (err) {
       console.error('Error fetching data:', err);
