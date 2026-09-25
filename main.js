@@ -1057,7 +1057,7 @@ async function fetchTableData(tableName, locationFilter = null, columns = '*') {
   
   // 1. Get exact row count first (fast, head-only)
   let countQuery = supabase.from(tableName).select('id', { count: 'exact', head: true });
-  if (locationFilter) countQuery = countQuery.eq('division', locationFilter);
+  
   const { count, error: countErr } = await countQuery;
   if (countErr) {
     console.error(`Error counting ${tableName}:`, countErr);
@@ -1070,7 +1070,7 @@ async function fetchTableData(tableName, locationFilter = null, columns = '*') {
   const queries = [];
   for (let page = 0; page < totalPages; page++) {
     let query = supabase.from(tableName).select(columns).range(page * pageSize, (page + 1) * pageSize - 1);
-    if (locationFilter) query = query.eq('division', locationFilter);
+    
     queries.push(query);
   }
   
