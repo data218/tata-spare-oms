@@ -1478,7 +1478,7 @@ function renderDashboard() {
 window.locationChartInstance = null;
 window.topPartsChartInstance = null;
 
-window.renderDashboardAnalytics = function() {
+window.oldRenderDashboardAnalytics = function() {
   if (!window.originalProcessedParts || window.originalProcessedParts.length === 0) return;
   
   // 1. Process data for charts & KPIs
