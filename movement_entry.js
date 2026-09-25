@@ -230,18 +230,18 @@ document.addEventListener('DOMContentLoaded', () => {
   function refreshAllDashboards() {
     // Re-render inventory view
     if (typeof window.renderInventoryTable === 'function') {
-      window.renderInventoryTable();
+      try { window.renderInventoryTable(); } catch(e) { console.warn(e); }
     }
     // Re-render movement view
     if (typeof window.renderMovementTable === 'function') {
-      window.renderMovementTable();
+      try { window.renderMovementTable(); } catch(e) { console.warn(e); }
     }
     // Re-render management dashboard
     if (typeof window.oldRenderDashboardAnalytics === 'function') {
-      window.oldRenderDashboardAnalytics(); // The old one we renamed
+      try { window.oldRenderDashboardAnalytics(); } catch(e) { console.warn(e); }
     }
     if (typeof window.renderDashboardAnalytics === 'function') {
-      window.renderDashboardAnalytics(); // The new one from management_dashboard.js
+      try { window.renderDashboardAnalytics(); } catch(e) { console.warn(e); }
     }
   }
 
