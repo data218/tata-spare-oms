@@ -73,7 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ensureSpin();
       } catch (err) {
         console.error('Connection check failed:', err);
-        alert('Database connection failed. Please check your internet or Supabase configuration.');
+        alert('Database connection failed: ' + (err.message || err.toString() || JSON.stringify(err)));
       }
       
       // Always show spinning for at least 1.5s so a long refresh keeps the spinner visible
