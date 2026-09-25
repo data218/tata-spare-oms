@@ -1109,7 +1109,7 @@ async function fetchInventoryData() {
   }
 }
 
-function processRawData({ inventory, consumption, priceList = [] }) {
+function processRawData({ inventory, consumption, priceList = [], movementLogs = [] }) {
   const grouped = new Map();
   
   // Pre-process price list data

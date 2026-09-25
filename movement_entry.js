@@ -206,15 +206,9 @@ document.addEventListener('DOMContentLoaded', () => {
     btnSubmit.textContent = 'Saving...';
     
     try {
-      // 1. Update inventory
-      const { error: invErr } = await supabase
-        .from('tata_spare_inventory')
-        .update({ qty: item.currentStock })
-        .eq('part_no', part)
-        .eq('division', loc);
-      if (invErr) throw invErr;
+      // (Inventory is calculated dynamically based on movement_logs now, so we don't update tata_spare_inventory directly)
 
-      // 2. Insert into movement_logs
+      // Insert into movement_logs
       const { error: movErr } = await supabase
         .from('tata_movement_logs')
         .insert({
