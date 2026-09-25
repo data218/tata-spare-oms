@@ -12,7 +12,7 @@
       "src": "server.js",
       "use": "@vercel/node",
       "config": {
-        "includeFiles": "node_modules/puppeteer-extra-plugin-stealth/evasions/**/*.js"
+        "includeFiles": "node_modules/puppeteer-extra-plugin-stealth/evasions/**/*"
       }
     }
   ],
