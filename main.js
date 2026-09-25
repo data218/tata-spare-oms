@@ -1435,8 +1435,7 @@ async function checkMissingDataAlerts() {
 
 async function loadDataAndRender() {
   const tbody = document.getElementById('inventory-table-body');
-  if(tbody) tbody.innerHTML = '<tr><td colspan="12" style="text-align:center; padding: 40px; color: var(--text-secondary);"><i data-lucide="loader" class="lucide-spin" style="display:inline-block; margin-right:12px; width: 24px; height: 24px; vertical-align:middle; color: var(--primary-color);"></i><span style="font-size: 1.1rem; vertical-align:middle;">Loading live data from Supabase...</span></td></tr>';
-  if(typeof lucide !== 'undefined') lucide.createIcons();
+  if(tbody) tbody.innerHTML = '<tr><td colspan="12" style="text-align:center; padding: 40px; color: var(--text-secondary);"><div class="spin-animation" style="display:inline-block; margin-right:12px; width:24px; height:24px; border:3px solid #e2e8f0; border-top-color:#3b82f6; border-radius:50%; vertical-align:middle;"></div><span style="font-size: 1.1rem; vertical-align:middle;">Loading live data from Supabase...</span></td></tr>';
   
   rawInventoryData = await fetchInventoryData();
   window.rawInventoryData = rawInventoryData;

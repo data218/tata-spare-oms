@@ -14,7 +14,7 @@ window.initMovementModule = async function() {
   
   console.log('[Movement] Init started');
   const tbody = document.getElementById('movement-table-body');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 30px;">Loading movement data... Please wait...</td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 40px; color: var(--text-secondary);"><div class="spin-animation" style="display:inline-block; margin-right:12px; width:24px; height:24px; border:3px solid #e2e8f0; border-top-color:#3b82f6; border-radius:50%; vertical-align:middle;"></div><span style="font-size: 1.1rem; vertical-align:middle;">Loading movement data... Please wait...</span></td></tr>';
   
   // Use setTimeout to allow UI to update the loading message before heavy processing
   setTimeout(async () => {
