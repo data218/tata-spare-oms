@@ -967,73 +967,71 @@ if (fetchForm) {
     }
     
     try {
-      const eventSource = new EventSource('/api/status');
-      
-      eventSource.onmessage = async function(event) {
-        const data = JSON.parse(event.data);
-        statusDiv.innerHTML = data.message;
-        
-        // Toast-style alert with location name on success/failure (each message once)
-        if (!window.__tataLocationAlerts) window.__tataLocationAlerts = new Set();
-        const plain = (data.message || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-        const sig = plain.slice(0, 90);
-        if (plain && !window.__tataLocationAlerts.has(sig)) {
-          window.__tataLocationAlerts.add(sig);
-          if (plain.includes('ERROR:') || plain.includes('FATAL ERROR:')) {
-            showLocationAlert('error', plain.replace(/^FATAL ERROR:\s*/, '').replace(/^ERROR:\s*/, ''));
-          } else if (/UPLOADED \d+ ROWS/i.test(plain)) {
-            const loc = (plain.match(/^(.+?)\s+(?:CONSUMPTION|INVENTORY)?\s*DATA/i) || [])[1] || plain.split(' ')[0];
-            showLocationAlert('success', `${loc.trim().replace(/\s+$/, '')} data fetched successfully`);
-          } else if (plain.includes('successfully')) {
-            showLocationAlert('success', 'All requested scrapers finished successfully');
-          }
-        }
-        
-        if (data.message.includes('FATAL ERROR:')) {
-          statusDiv.style.color = '#ef4444';
-          eventSource.close();
-          resetBtn();
-        } else if (data.message.includes('ERROR:')) {
-          statusDiv.style.color = '#ef4444';
-          // Do not close connection for individual location errors
-        } else if (data.message.includes('successfully!')) {
-          statusDiv.style.color = '#059669';
-          btn.innerHTML = '<i data-lucide="check"></i> Done!';
-          btn.style.background = '#059669';
-          lucide.createIcons();
-          
-          const newDateStr = new Date().toLocaleString();
-          await supabase.from('tata_bot_settings').upsert({ key: 'last_sync', value: newDateStr }, { onConflict: 'key' });
-          loadLastSync();
-          
-          // Force update the UI immediately in case RLS blocked the upsert
-          const syncText = document.getElementById('last-updated-text');
-          if (syncText && typeof formatBeautifulDate === 'function') {
-            syncText.textContent = formatBeautifulDate(newDateStr);
-          }
-          
-          setTimeout(() => loadDataAndRender(), 1000);
-          
-          eventSource.close();
-          setTimeout(() => resetBtn(), 5000);
-        }
+      const job = {
+          status: 'pending',
+          type,
+          fromDate,
+          toDate,
+          targetLocation,
+          logs: '<div>Starting background scraper... please wait and do not close this page.</div>'
       };
-
-      const response = await fetch('/api/fetch-data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fromDate, toDate, type, targetLocation })
-      });
       
-      const result = await response.json();
-      if (!result.success) {
-        throw new Error(result.error);
-      }
+      await supabase.from('tata_bot_settings').upsert({ key: 'fetch_job', value: JSON.stringify(job) }, { onConflict: 'key' });
+      
+      let fetchChannel = supabase.channel('fetch_job_updates')
+          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tata_bot_settings', filter: 'key=eq.fetch_job' }, async (payload) => {
+              try {
+                  const updatedJob = JSON.parse(payload.new.value);
+                  statusDiv.innerHTML = updatedJob.logs || 'Processing...';
+                  
+                  const plain = (statusDiv.textContent || '').replace(/\s+/g, ' ').trim();
+                  
+                  if (!window.__tataLocationAlerts) window.__tataLocationAlerts = new Set();
+                  const sig = plain.slice(0, 90);
+                  if (plain && !window.__tataLocationAlerts.has(sig)) {
+                    window.__tataLocationAlerts.add(sig);
+                    if (plain.includes('ERROR:') || plain.includes('FATAL ERROR:')) {
+                      showLocationAlert('error', plain.replace(/^FATAL ERROR:\s*/, '').replace(/^ERROR:\s*/, ''));
+                    } else if (/UPLOADED \d+ ROWS/i.test(plain)) {
+                      const loc = (plain.match(/^(.+?)\s+(?:CONSUMPTION|INVENTORY)?\s*DATA/i) || [])[1] || plain.split(' ')[0];
+                      showLocationAlert('success', `${loc.trim().replace(/\s+$/, '')} data fetched successfully`);
+                    } else if (plain.includes('successfully')) {
+                      showLocationAlert('success', 'All requested scrapers finished successfully');
+                    }
+                  }
+
+                  if (updatedJob.status === 'completed' || updatedJob.status === 'failed') {
+                      if (updatedJob.status === 'completed') {
+                          statusDiv.style.color = '#059669';
+                          btn.innerHTML = '<i data-lucide="check"></i> Done!';
+                          btn.style.background = '#059669';
+                          lucide.createIcons();
+                          
+                          const newDateStr = new Date().toLocaleString();
+                          await supabase.from('tata_bot_settings').upsert({ key: 'last_sync', value: newDateStr }, { onConflict: 'key' });
+                          loadLastSync();
+                          
+                          const syncText = document.getElementById('last-updated-text');
+                          if (syncText && typeof formatBeautifulDate === 'function') {
+                            syncText.textContent = formatBeautifulDate(newDateStr);
+                          }
+                          
+                          setTimeout(() => loadDataAndRender(), 1000);
+                      } else {
+                          statusDiv.style.color = '#ef4444';
+                      }
+                      
+                      fetchChannel.unsubscribe();
+                      setTimeout(() => resetBtn(), 5000);
+                  }
+              } catch(e) { console.error('Error processing realtime payload', e); }
+          }).subscribe();
+          
     } catch (err) {
       console.error('Error fetching data:', err);
       btn.innerHTML = '<i data-lucide="alert-triangle"></i> Error';
       statusDiv.style.color = '#ef4444';
-      statusDiv.textContent = 'Error: ' + err.message;
+      statusDiv.textContent = 'Failed to submit job to Supabase: ' + err.message;
       resetBtn();
     }
   };

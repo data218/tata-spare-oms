@@ -1,84 +1,73 @@
-import express from 'express';
-import cors from 'cors';
 import cron from 'node-cron';
 import { fetchConsumptionData } from './src/consumption_scraper.js';
 import { fetchInventoryData } from './src/inventory_scraper.js';
+import { createClient } from '@supabase/supabase-js';
+import * as dotenv from 'dotenv';
+dotenv.config();
 
-const app = express();
-const PORT = 3000;
+const SUPABASE_URL = 'https://crreoeautoqzcgtlwlsd.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNycmVvZWF1dG9xemNndGx3bHNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0NzU1OTAsImV4cCI6MjA5NDA1MTU5MH0.AvHLX1piSZMGwb1qjgJ1xuBtL_F-nToQo4ClHmsHNG8';
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-app.use(cors());
-app.use(express.json());
+console.log('Background worker starting...');
+console.log('Automated 10 AM background cron job is scheduled.');
 
-// SSE Clients list
-let clients = [];
+let isProcessing = false;
 
-// Helper to broadcast status to all connected frontend clients
-function broadcastStatus(message) {
-  const data = JSON.stringify({ message, timestamp: new Date().toISOString() });
-  clients.forEach(client => client.res.write(`data: ${data}\n\n`));
-}
-
-// SSE Endpoint
-app.get('/api/status', (req, res) => {
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.flushHeaders();
-
-  const clientId = Date.now();
-  const newClient = { id: clientId, res };
-  clients.push(newClient);
-  
-  // Send an initial connected message
-  res.write(`data: ${JSON.stringify({ message: "Connected to live status stream...", timestamp: new Date().toISOString() })}\n\n`);
-
-  req.on('close', () => {
-    clients = clients.filter(client => client.id !== clientId);
-  });
-});
-
-app.post('/api/fetch-data', async (req, res) => {
-  const { fromDate, toDate, type, targetLocation } = req.body;
-  
-  if (type === 'consumption' && (!fromDate || !toDate)) {
-    return res.status(400).json({ success: false, error: 'fromDate and toDate are required (format MM/DD/YYYY)' });
-  }
-
-  broadcastStatus(`Received manual fetch request for: ${type || 'all'}`);
-  
-  try {
-    // Send immediate response so the frontend doesn't timeout while scraping happens in the background
-    res.json({ success: true, message: 'Background fetch started. Listening for live updates.' });
-    
-    // Fire and forget
-    let tasks = [];
-    if (type === 'consumption' || type === 'all') {
-        tasks.push(fetchConsumptionData(fromDate, toDate, broadcastStatus));
+// Job Polling Loop
+setInterval(async () => {
+    if (isProcessing) return;
+    try {
+        const { data } = await supabase.from('tata_bot_settings').select('*').eq('key', 'fetch_job');
+        if (data && data.length > 0) {
+            const job = JSON.parse(data[0].value);
+            if (job.status === 'pending') {
+                isProcessing = true;
+                console.log(`Starting job: ${job.type}`);
+                
+                job.status = 'processing';
+                job.logs = '';
+                await supabase.from('tata_bot_settings').upsert({ key: 'fetch_job', value: JSON.stringify(job) }, { onConflict: 'key' });
+                
+                const broadcastStatus = async (msg) => {
+                    console.log(msg);
+                    const timestamp = new Date().toISOString();
+                    job.logs += `<div>${timestamp} - ${msg}</div>`;
+                    await supabase.from('tata_bot_settings').upsert({ key: 'fetch_job', value: JSON.stringify(job) }, { onConflict: 'key' });
+                };
+                
+                try {
+                    let tasks = [];
+                    if (job.type === 'consumption' || job.type === 'all') {
+                        tasks.push(fetchConsumptionData(job.fromDate, job.toDate, broadcastStatus));
+                    }
+                    if (job.type === 'inventory' || job.type === 'all') {
+                        tasks.push(fetchInventoryData(broadcastStatus, job.targetLocation));
+                    }
+                    
+                    const results = await Promise.all(tasks);
+                    const allMessages = results.flat().filter(Boolean).join('<br>');
+                    await broadcastStatus(`<strong>All requested scrapers finished successfully!</strong><br><br>${allMessages}`);
+                    job.status = 'completed';
+                    await supabase.from('tata_bot_settings').upsert({ key: 'fetch_job', value: JSON.stringify(job) }, { onConflict: 'key' });
+                } catch (err) {
+                    await broadcastStatus(`FATAL ERROR: ${err.message}`);
+                    job.status = 'failed';
+                    await supabase.from('tata_bot_settings').upsert({ key: 'fetch_job', value: JSON.stringify(job) }, { onConflict: 'key' });
+                }
+                isProcessing = false;
+            }
+        }
+    } catch (e) {
+        console.error('Polling error:', e);
+        isProcessing = false;
     }
-    if (type === 'inventory' || type === 'all') {
-        tasks.push(fetchInventoryData(broadcastStatus, targetLocation));
-    }
-
-    Promise.all(tasks).then((results) => {
-        const allMessages = results.flat().filter(Boolean).join('<br>');
-        broadcastStatus(`<strong>All requested scrapers finished successfully!</strong><br><br>${allMessages}`);
-    }).catch(error => {
-        console.error('Error during fetch operation:', error);
-        broadcastStatus(`FATAL ERROR: ${error.message}`);
-    });
-  } catch (error) {
-    console.error('Error initiating fetch:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+}, 3000);
 
 // Setup Automated Cron Job (10:00 AM every day)
 cron.schedule('0 10 * * *', async () => {
   console.log('Running automated 10 AM data fetch...');
-  broadcastStatus("Starting automated 10 AM data fetch...");
   
-  // Calculate dates: Jan 1st 2026 to D-1 (yesterday)
   const today = new Date();
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
@@ -88,19 +77,15 @@ cron.schedule('0 10 * * *', async () => {
   const fromDate = '01/01/2026';
   const toDate = format(yesterday);
   
-  try {
-    await Promise.all([
-      fetchConsumptionData(fromDate, toDate, broadcastStatus),
-      fetchInventoryData(broadcastStatus)
-    ]);
-    broadcastStatus("Automated 10 AM fetch completed successfully!");
-  } catch (error) {
-    console.error('Automated fetch failed:', error);
-    broadcastStatus(`Automated fetch ERROR: ${error.message}`);
-  }
-});
-
-app.listen(PORT, () => {
-  console.log(`Backend API Server running at http://localhost:${PORT}`);
-  console.log('Automated 10 AM background cron job is scheduled.');
+  // Submit job to queue
+  const job = {
+    status: 'pending',
+    type: 'all',
+    fromDate,
+    toDate,
+    targetLocation: 'ALL',
+    logs: ''
+  };
+  await supabase.from('tata_bot_settings').upsert({ key: 'fetch_job', value: JSON.stringify(job) }, { onConflict: 'key' });
+  console.log('Automated job added to queue.');
 });
