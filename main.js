@@ -1,3 +1,4 @@
+import './management_dashboard.js';
 import { supabase } from './supabase.js';
 import { initClaims } from './claims.js';
 
