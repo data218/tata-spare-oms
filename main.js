@@ -363,7 +363,7 @@ document.addEventListener('click', (e) => {
   if (!th) return;
 
   const table = th.closest('table');
-  if (!table || !table.classList.contains('control-tower-table')) return;
+  if (!table) return;
 
   const tbody = table.querySelector('tbody');
   if (!tbody) return;
