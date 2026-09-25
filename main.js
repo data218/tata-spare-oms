@@ -1098,7 +1098,7 @@ async function fetchInventoryData() {
       fetchTableData('tata_spare_inventory', filter, 'part_no, division, qty, availability, product_category, description, last_receipt, fetched_at'),
       fetchTableData('tata_consumption_data', filter, '*'),
       fetchTableData('tata_price_list', null, 'part_number, ndp, description, category'),
-      window.supabase ? window.supabase.from('tata_movement_logs').select('*') : { data: [] }
+      supabase.from('tata_movement_logs').select('*')
     ]);
     
     let movementLogs = movementLogsData.data || [];
