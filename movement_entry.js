@@ -1,4 +1,5 @@
-import { supabase } from './supabase.js';\ndocument.addEventListener('DOMContentLoaded', () => {
+import { supabase } from './supabase.js';
+document.addEventListener('DOMContentLoaded', () => {
   // Elements
   const btnOpenModal = document.getElementById('btn-open-inout-modal');
   const btnCloseModal = document.getElementById('btn-close-inout-modal');
@@ -25,7 +26,8 @@ import { supabase } from './supabase.js';\ndocument.addEventListener('DOMContent
   // Bulk Upload Elements
   const btnDownloadTemplate = document.getElementById('btn-download-inout-template');
   const btnSubmitBulk = document.getElementById('btn-submit-bulk-inout');
-  const bulkFileInput = document.getElementById('inout-bulk-file');\n  const btnSubmitBulk = document.getElementById('btn-submit-bulk-inout');
+  const bulkFileInput = document.getElementById('inout-bulk-file');
+  const btnSubmitBulk = document.getElementById('btn-submit-bulk-inout');
   const bulkError = document.getElementById('inout-bulk-error');
   const bulkSuccess = document.getElementById('inout-bulk-success');
 
