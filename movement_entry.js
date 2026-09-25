@@ -1,15 +1,16 @@
-// movement_entry.js
-
 document.addEventListener('DOMContentLoaded', () => {
   // Elements
   const btnOpenModal = document.getElementById('btn-open-inout-modal');
   const btnCloseModal = document.getElementById('btn-close-inout-modal');
   const modal = document.getElementById('inout-entry-modal');
   
-  const btnOpenBulk = document.getElementById('btn-open-bulk-inout');
-  const btnCloseBulk = document.getElementById('btn-close-bulk-modal');
-  const bulkModal = document.getElementById('inout-bulk-modal');
+  // Tabs
+  const tabSingle = document.getElementById('tab-single-entry');
+  const tabBulk = document.getElementById('tab-bulk-upload');
+  const secSingle = document.getElementById('inout-single-section');
+  const secBulk = document.getElementById('inout-bulk-section');
   
+  // Single Entry Elements
   const locSelect = document.getElementById('inout-location');
   const partSelect = document.getElementById('inout-part');
   const typeSelect = document.getElementById('inout-type');
@@ -19,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const errorMsg = document.getElementById('inout-error-msg');
   const btnSubmit = document.getElementById('btn-submit-inout');
   
+  // Bulk Upload Elements
   const btnDownloadTemplate = document.getElementById('btn-download-inout-template');
   const btnSubmitBulk = document.getElementById('btn-submit-bulk-inout');
   const bulkFileInput = document.getElementById('inout-bulk-file');
@@ -30,13 +32,37 @@ document.addEventListener('DOMContentLoaded', () => {
     dateInput.valueAsDate = new Date();
   }
 
-  // Event Listeners for Single Entry Modal
+  // Tab switching logic
+  if (tabSingle && tabBulk) {
+    tabSingle.addEventListener('click', () => {
+      secSingle.style.display = 'grid';
+      secBulk.style.display = 'none';
+      tabSingle.style.borderBottom = '2px solid #3b82f6';
+      tabSingle.style.color = '#3b82f6';
+      tabBulk.style.borderBottom = '2px solid transparent';
+      tabBulk.style.color = '#64748b';
+    });
+    
+    tabBulk.addEventListener('click', () => {
+      secSingle.style.display = 'none';
+      secBulk.style.display = 'block';
+      tabBulk.style.borderBottom = '2px solid #3b82f6';
+      tabBulk.style.color = '#3b82f6';
+      tabSingle.style.borderBottom = '2px solid transparent';
+      tabSingle.style.color = '#64748b';
+    });
+  }
+
+  // Event Listeners for Modal
   if (btnOpenModal) {
     btnOpenModal.addEventListener('click', () => {
       populateLocations();
       modal.style.display = 'flex';
       errorMsg.style.display = 'none';
+      bulkError.style.display = 'none';
+      bulkSuccess.style.display = 'none';
       availQtySpan.textContent = '-';
+      if (tabSingle) tabSingle.click(); // Reset to single tab
     });
   }
 
@@ -60,22 +86,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (btnSubmit) {
     btnSubmit.addEventListener('click', submitMovement);
-  }
-
-  // Event Listeners for Bulk Modal
-  if (btnOpenBulk) {
-    btnOpenBulk.addEventListener('click', () => {
-      bulkModal.style.display = 'flex';
-      bulkError.style.display = 'none';
-      bulkSuccess.style.display = 'none';
-      bulkFileInput.value = '';
-    });
-  }
-
-  if (btnCloseBulk) {
-    btnCloseBulk.addEventListener('click', () => {
-      bulkModal.style.display = 'none';
-    });
   }
 
   if (btnDownloadTemplate) {
@@ -338,7 +348,7 @@ document.addEventListener('DOMContentLoaded', () => {
            bulkSuccess.textContent = `Successfully processed ${successCount} movements!`;
            bulkSuccess.style.display = 'block';
            setTimeout(() => {
-             bulkModal.style.display = 'none';
+             modal.style.display = 'none';
            }, 2000);
         } else {
            bulkError.innerHTML = `Processed ${successCount} movements. Failed on ${errorCount} rows:<br>` + errors.join('<br>');
