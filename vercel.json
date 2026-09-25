@@ -10,17 +10,16 @@
     },
     {
       "src": "server.js",
-      "use": "@vercel/node"
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": "node_modules/puppeteer-extra-plugin-stealth/evasions/**/*.js"
+      }
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
       "dest": "/server.js"
-  ],
-  "functions": {
-    "server.js": {
-      "includeFiles": "node_modules/puppeteer-extra-plugin-stealth/evasions/**/*.js"
     }
-  }
+  ]
 }
