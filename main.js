@@ -3054,7 +3054,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
           if (formattedData.length === 0) throw new Error("Could not map rows. Ensure 'Part #' column exists.");
 
-          const { error: deleteError } = await supabase.from('tata_spare_inventory').delete().eq('division', locationInput);\n          await supabase.from('tata_movement_logs').delete().eq('location', locationInput);\n
+          const { error: deleteError } = await supabase.from('tata_spare_inventory').delete().eq('division', locationInput);
+          await supabase.from('tata_movement_logs').delete().eq('location', locationInput);
+
           if (deleteError) throw new Error("Failed to clear old inventory: " + deleteError.message);
           
           const BATCH_SIZE = 1000;
