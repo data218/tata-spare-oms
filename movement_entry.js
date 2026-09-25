@@ -259,8 +259,11 @@ document.addEventListener('DOMContentLoaded', () => {
     partSelect.value = '';
     if (partNameInput) partNameInput.value = '';
     availQtySpan.textContent = '-';
-    // Show success toast or alert
-    alert(`Successfully logged ${type} for ${qty}x ${part} at ${loc}.`);
+    
+    // Show success toast or alert after giving browser time to hide the modal
+    setTimeout(() => {
+      alert(`Successfully logged ${type} for ${qty}x ${part} at ${loc}.`);
+    }, 50);
   }
 
   function refreshAllDashboards() {
