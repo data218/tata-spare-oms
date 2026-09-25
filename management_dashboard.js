@@ -66,17 +66,18 @@ window.renderDashboardAnalytics = function() {
   });
 
   // 1. Update Executive KPI Strip
-  document.getElementById('mgmt-kpi-inv-value').textContent = '₹' + Math.round(totalInvValue).toLocaleString('en-IN');
-  document.getElementById('mgmt-kpi-avail-stock').textContent = availableStock.toLocaleString('en-IN');
-  document.getElementById('mgmt-kpi-transit').textContent = inTransit.toLocaleString('en-IN');
-  document.getElementById('mgmt-kpi-crit-stock').textContent = criticalStockCount.toLocaleString('en-IN');
-  document.getElementById('mgmt-kpi-non-moving').textContent = '₹' + Math.round(nonMovingValue).toLocaleString('en-IN');
+  if (document.getElementById('mgmt-kpi-inv-value')) document.getElementById('mgmt-kpi-inv-value').textContent = '₹' + Math.round(totalInvValue).toLocaleString('en-IN');
+  if (document.getElementById('mgmt-kpi-avail-stock')) document.getElementById('mgmt-kpi-avail-stock').textContent = availableStock.toLocaleString('en-IN');
+  if (document.getElementById('mgmt-kpi-transit')) document.getElementById('mgmt-kpi-transit').textContent = inTransit.toLocaleString('en-IN');
+  if (document.getElementById('mgmt-kpi-crit-stock')) document.getElementById('mgmt-kpi-crit-stock').textContent = criticalStockCount.toLocaleString('en-IN');
+  if (document.getElementById('mgmt-kpi-non-moving')) document.getElementById('mgmt-kpi-non-moving').textContent = '₹' + Math.round(nonMovingValue).toLocaleString('en-IN');
   
   // 3. Update Inventory Position
-  document.getElementById('mgmt-pos-total').textContent = '₹' + Math.round(totalInvValue).toLocaleString('en-IN');
-  document.getElementById('mgmt-pos-avail').textContent = '₹' + Math.round(totalInvValue).toLocaleString('en-IN'); // Assuming all available
-  document.getElementById('mgmt-pos-reserved').textContent = '₹0';
-  document.getElementById('mgmt-pos-nonmoving').textContent = '₹' + Math.round(nonMovingValue).toLocaleString('en-IN');
+  if (document.getElementById('mgmt-pos-total')) document.getElementById('mgmt-pos-total').textContent = '₹' + Math.round(totalInvValue).toLocaleString('en-IN');
+  if (document.getElementById('mgmt-pos-avail')) document.getElementById('mgmt-pos-avail').textContent = '₹' + Math.round(totalInvValue).toLocaleString('en-IN'); // Assuming all available
+  if (document.getElementById('mgmt-pos-reserved')) document.getElementById('mgmt-pos-reserved').textContent = '₹0';
+  if (document.getElementById('mgmt-pos-nonmoving')) document.getElementById('mgmt-pos-nonmoving').textContent = '₹' + Math.round(nonMovingValue).toLocaleString('en-IN');
+
 
   // Populate Location Table
   const locTable = document.querySelector('#mgmt-location-table tbody');
@@ -174,8 +175,8 @@ window.renderDashboardAnalytics = function() {
            roValue += r.recQty * (parseFloat(r.cost) || 0);
         }
      });
-     document.getElementById('mgmt-ro-critical').textContent = roCount;
-     document.getElementById('mgmt-ro-value').textContent = '₹' + Math.round(roValue).toLocaleString('en-IN');
+     if (document.getElementById('mgmt-ro-critical')) document.getElementById('mgmt-ro-critical').textContent = roCount;
+     if (document.getElementById('mgmt-ro-value')) document.getElementById('mgmt-ro-value').textContent = '₹' + Math.round(roValue).toLocaleString('en-IN');
   }
 
   // Management Insights
