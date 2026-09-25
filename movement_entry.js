@@ -92,10 +92,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!window.originalProcessedParts) return;
     const locations = [...new Set(window.originalProcessedParts.map(p => p.location))].sort();
     
-    locSelect.innerHTML = '<option value="">Select Location</option>';
+    let htmlStr = '<option value="">Select Location</option>';
     locations.forEach(loc => {
-      if (loc) locSelect.innerHTML += `<option value="${loc}">${loc}</option>`;
+      if (loc) htmlStr += `<option value="${loc}">${loc}</option>`;
     });
+    locSelect.innerHTML = htmlStr;
+    
     partSelect.innerHTML = '<option value="">Select Location First</option>';
     partSelect.disabled = true;
     availQtySpan.textContent = '-';
@@ -114,10 +116,12 @@ document.addEventListener('DOMContentLoaded', () => {
       .map(p => p.partId)
       .sort();
 
-    partSelect.innerHTML = '<option value="">Select Part Number</option>';
+    let htmlStr = '<option value="">Select Part Number</option>';
     parts.forEach(part => {
-      partSelect.innerHTML += `<option value="${part}">${part}</option>`;
+      htmlStr += `<option value="${part}">${part}</option>`;
     });
+    partSelect.innerHTML = htmlStr;
+    
     partSelect.disabled = false;
     availQtySpan.textContent = '-';
   }
