@@ -73,7 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ensureSpin();
       } catch (err) {
         console.error('Connection check failed:', err);
-        alert('Database connection failed: ' + (err.message || err.toString() || JSON.stringify(err)));
+        alert('Database connection failed. Please check your internet or Supabase configuration.');
       }
       
       // Always show spinning for at least 1.5s so a long refresh keeps the spinner visible
@@ -967,73 +967,73 @@ if (fetchForm) {
     }
     
     try {
-      const job = {
-          status: 'pending',
-          type,
-          fromDate,
-          toDate,
-          targetLocation,
-          logs: '<div>Starting background scraper... please wait and do not close this page.</div>'
-      };
+      const eventSource = new EventSource('/api/status');
       
-      await supabase.from('tata_bot_settings').upsert({ key: 'fetch_job', value: JSON.stringify(job) }, { onConflict: 'key' });
-      
-      let pollInterval = setInterval(async () => {
-          try {
-              const { data } = await supabase.from('tata_bot_settings').select('value').eq('key', 'fetch_job');
-              if (data && data.length > 0) {
-                  const updatedJob = JSON.parse(data[0].value);
-                  statusDiv.innerHTML = updatedJob.logs || 'Processing...';
-                  
-                  const plain = (statusDiv.textContent || '').replace(/\s+/g, ' ').trim();
-                  
-                  if (!window.__tataLocationAlerts) window.__tataLocationAlerts = new Set();
-                  const sig = plain.slice(0, 90);
-                  if (plain && !window.__tataLocationAlerts.has(sig)) {
-                    window.__tataLocationAlerts.add(sig);
-                    if (plain.includes('ERROR:') || plain.includes('FATAL ERROR:')) {
-                      showLocationAlert('error', plain.replace(/^FATAL ERROR:\s*/, '').replace(/^ERROR:\s*/, ''));
-                    } else if (/UPLOADED \d+ ROWS/i.test(plain)) {
-                      const loc = (plain.match(/^(.+?)\s+(?:CONSUMPTION|INVENTORY)?\s*DATA/i) || [])[1] || plain.split(' ')[0];
-                      showLocationAlert('success', `${loc.trim().replace(/\s+$/, '')} data fetched successfully`);
-                    } else if (plain.includes('successfully')) {
-                      showLocationAlert('success', 'All requested scrapers finished successfully');
-                    }
-                  }
-
-                  if (updatedJob.status === 'completed' || updatedJob.status === 'failed') {
-                      clearInterval(pollInterval);
-                      if (updatedJob.status === 'completed') {
-                          statusDiv.style.color = '#059669';
-                          btn.innerHTML = '<i data-lucide="check"></i> Done!';
-                          btn.style.background = '#059669';
-                          lucide.createIcons();
-                          
-                          const newDateStr = new Date().toLocaleString();
-                          await supabase.from('tata_bot_settings').upsert({ key: 'last_sync', value: newDateStr }, { onConflict: 'key' });
-                          loadLastSync();
-                          
-                          const syncText = document.getElementById('last-updated-text');
-                          if (syncText && typeof formatBeautifulDate === 'function') {
-                            syncText.textContent = formatBeautifulDate(newDateStr);
-                          }
-                          
-                          setTimeout(() => loadDataAndRender(), 1000);
-                      } else {
-                          statusDiv.style.color = '#ef4444';
-                      }
-                      
-                      setTimeout(() => resetBtn(), 5000);
-                  }
-              }
-          } catch(e) { console.error('Polling error', e); }
-      }, 1000);
+      eventSource.onmessage = async function(event) {
+        const data = JSON.parse(event.data);
+        statusDiv.innerHTML = data.message;
+        
+        // Toast-style alert with location name on success/failure (each message once)
+        if (!window.__tataLocationAlerts) window.__tataLocationAlerts = new Set();
+        const plain = (data.message || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+        const sig = plain.slice(0, 90);
+        if (plain && !window.__tataLocationAlerts.has(sig)) {
+          window.__tataLocationAlerts.add(sig);
+          if (plain.includes('ERROR:') || plain.includes('FATAL ERROR:')) {
+            showLocationAlert('error', plain.replace(/^FATAL ERROR:\s*/, '').replace(/^ERROR:\s*/, ''));
+          } else if (/UPLOADED \d+ ROWS/i.test(plain)) {
+            const loc = (plain.match(/^(.+?)\s+(?:CONSUMPTION|INVENTORY)?\s*DATA/i) || [])[1] || plain.split(' ')[0];
+            showLocationAlert('success', `${loc.trim().replace(/\s+$/, '')} data fetched successfully`);
+          } else if (plain.includes('successfully')) {
+            showLocationAlert('success', 'All requested scrapers finished successfully');
+          }
+        }
+        
+        if (data.message.includes('FATAL ERROR:')) {
+          statusDiv.style.color = '#ef4444';
+          eventSource.close();
+          resetBtn();
+        } else if (data.message.includes('ERROR:')) {
+          statusDiv.style.color = '#ef4444';
+          // Do not close connection for individual location errors
+        } else if (data.message.includes('successfully!')) {
+          statusDiv.style.color = '#059669';
+          btn.innerHTML = '<i data-lucide="check"></i> Done!';
+          btn.style.background = '#059669';
+          lucide.createIcons();
           
+          const newDateStr = new Date().toLocaleString();
+          await supabase.from('tata_bot_settings').upsert({ key: 'last_sync', value: newDateStr }, { onConflict: 'key' });
+          loadLastSync();
+          
+          // Force update the UI immediately in case RLS blocked the upsert
+          const syncText = document.getElementById('last-updated-text');
+          if (syncText && typeof formatBeautifulDate === 'function') {
+            syncText.textContent = formatBeautifulDate(newDateStr);
+          }
+          
+          setTimeout(() => loadDataAndRender(), 1000);
+          
+          eventSource.close();
+          setTimeout(() => resetBtn(), 5000);
+        }
+      };
+
+      const response = await fetch('/api/fetch-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fromDate, toDate, type, targetLocation })
+      });
+      
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error);
+      }
     } catch (err) {
       console.error('Error fetching data:', err);
       btn.innerHTML = '<i data-lucide="alert-triangle"></i> Error';
       statusDiv.style.color = '#ef4444';
-      statusDiv.textContent = 'Failed to submit job to Supabase: ' + err.message;
+      statusDiv.textContent = 'Error: ' + err.message;
       resetBtn();
     }
   };
@@ -1053,9 +1053,11 @@ let currentPage = 1;
 const itemsPerPage = 50;
 
 async function fetchTableData(tableName, locationFilter = null, columns = '*') {
+  const pageSize = 1000;
+  
   // 1. Get exact row count first (fast, head-only)
   let countQuery = supabase.from(tableName).select('id', { count: 'exact', head: true });
-  
+  if (locationFilter) countQuery = countQuery.eq('division', locationFilter);
   const { count, error: countErr } = await countQuery;
   if (countErr) {
     console.error(`Error counting ${tableName}:`, countErr);
@@ -1063,49 +1065,24 @@ async function fetchTableData(tableName, locationFilter = null, columns = '*') {
   }
   if (!count) return [];
 
-  // 2. Fetch first chunk (asking for 100,000 rows) to detect Supabase's max-rows limit
-  let firstQuery = supabase.from(tableName).select(columns).range(0, 99999);
-  const { data: firstData, error: firstErr } = await firstQuery;
-  
-  if (firstErr) {
-    console.error(`Error fetching first chunk of ${tableName}:`, firstErr);
-    return [];
-  }
-  if (!firstData || firstData.length === 0) return [];
-  
-  const tableData = [...firstData];
-  const detectedLimit = firstData.length;
-  
-  // If we got everything, or if the count is within what we got, we are done! 100x faster!
-  if (tableData.length >= count || detectedLimit < 1000) {
-    return tableData;
-  }
-
-  // If Supabase truncated our request to its max-rows limit (e.g., 1000), we must paginate the rest
-  const pageSize = detectedLimit;
-  const remainingPages = Math.ceil((count - pageSize) / pageSize);
-  
+  // 2. Fetch every page in parallel
+  const totalPages = Math.ceil(count / pageSize);
   const queries = [];
-  for (let page = 1; page <= remainingPages; page++) {
+  for (let page = 0; page < totalPages; page++) {
     let query = supabase.from(tableName).select(columns).range(page * pageSize, (page + 1) * pageSize - 1);
+    if (locationFilter) query = query.eq('division', locationFilter);
     queries.push(query);
   }
   
-  if (queries.length > 0) {
-    // Process in batches of 6 to avoid browser connection limit exhaustion
-    for (let i = 0; i < queries.length; i += 6) {
-      const batch = queries.slice(i, i + 6);
-      const results = await Promise.all(batch);
-      for (const { data, error } of results) {
-        if (error) {
-          console.error(`Error fetching ${tableName}:`, error);
-          continue;
-        }
-        if (data && data.length) tableData.push(...data);
-      }
+  const results = await Promise.all(queries);
+  const tableData = [];
+  for (const { data, error } of results) {
+    if (error) {
+      console.error(`Error fetching ${tableName}:`, error);
+      continue;
     }
+    if (data && data.length) tableData.push(...data);
   }
-  
   return tableData;
 }
 
@@ -1117,24 +1094,15 @@ async function fetchInventoryData() {
     const isAdmin = currentUser.role === 'Super Admin' || currentUser.role === 'Admin' || userLocation === 'ALL';
     const filter = isAdmin ? null : userLocation;
 
-    const [inventoryData, consumptionData, priceListData, movementLogsData] = await Promise.all([
+    const [inventoryData, consumptionData, priceListData] = await Promise.all([
       fetchTableData('tata_spare_inventory', filter, 'part_no, division, qty, availability, product_category, description, last_receipt, fetched_at'),
       fetchTableData('tata_consumption_data', filter, '*'),
-      fetchTableData('tata_price_list', null, 'part_number, ndp, description, category'),
-      supabase.from('tata_movement_logs').select('*')
+      fetchTableData('tata_price_list', null, 'part_number, ndp, description, category')
     ]);
     
-    let movementLogs = movementLogsData.data || [];
-    if (filter) {
-      movementLogs = movementLogs.filter(l => {
-         if (!l.location) return false;
-         const d1 = l.location.toLowerCase().replace(/\s+/g, '');
-         const d2 = filter.toLowerCase().replace(/\s+/g, '');
-         return d1 === d2;
-      });
-    }
+    // Removed debug UI
     
-    return { inventory: inventoryData, consumption: consumptionData, priceList: priceListData, movementLogs: movementLogs };
+    return { inventory: inventoryData, consumption: consumptionData, priceList: priceListData };
   } catch (err) {
     console.error('Network error fetching from Supabase:', err);
     return { inventory: [], consumption: [], priceList: [] };
@@ -1157,7 +1125,7 @@ function processRawData({ inventory, consumption, priceList = [], movementLogs =
   // Helper to map raw dealer names to our standard locations
   const mapLocation = (dealerName) => {
     if (!dealerName) return 'Narwal';
-    const d = dealerName.toLowerCase().replace(/\s+/g, '');
+    const d = dealerName.toLowerCase();
     if (d.includes('channirama') || d.includes('chhanirama')) return 'Channi Rama';
     if (d.includes('smamsamba') || d.includes('supwal')) return 'Supwal';
     if (d.includes('smamkathua') || d.includes('kathua')) return 'Kathua';
@@ -1182,7 +1150,7 @@ function processRawData({ inventory, consumption, priceList = [], movementLogs =
   
   inventory.forEach(row => {
     const pn = row.part_no || row.part_number;
-    const loc = row.division || row.location_1 || 'Narwal';
+    const loc = row.location_1 || row.division || 'Narwal';
     const standardLoc = mapLocation(loc);
     const consKey = pn + '_' + standardLoc; const key = row.id ? row.id : (consKey + '_' + Math.random());
     
@@ -1251,42 +1219,6 @@ function processRawData({ inventory, consumption, priceList = [], movementLogs =
         demand: Math.ceil(consQty / 4), 
         consumption30d: consQty,
         last_receipt: '',
-        ageingDays: -1
-      });
-    }
-  });
-
-  // Apply manual movement logs
-  movementLogs.forEach(log => {
-    const loc = mapLocation(log.location);
-    const key = log.part_id + '_' + loc;
-    const existing = grouped.get(key);
-    if (existing) {
-      if (log.movement_type === 'IN') {
-        existing.currentStock += Number(log.qty) || 0;
-      } else if (log.movement_type === 'OUT') {
-        existing.currentStock -= Number(log.qty) || 0;
-      }
-    } else {
-      // Create it if it doesn't exist
-      const parts = key.split('_');
-      const pn = parts[0];
-      const priceData = priceByPart.get(pn) || {};
-      
-      grouped.set(key, {
-        partId: pn,
-        model: priceData.description || 'Unknown',
-        location: loc,
-        productCategory: (priceData.category || 'Uncategorized').trim().toUpperCase(),
-        currentStock: log.movement_type === 'IN' ? (Number(log.qty) || 0) : -(Number(log.qty) || 0),
-        reserved: 0,
-        inTransit: 0,
-        stockValue: 0,
-        ndpPrice: priceData.ndp || 0,
-        min: 5,
-        demand: 0, 
-        consumption30d: 0,
-        last_receipt: log.date || '',
         ageingDays: -1
       });
     }

@@ -4,42 +4,68 @@
 window.movementData = [];
 window.movementFiltered = [];
 window.movCurrentPage = 1;
+window.movDateFilter = 'today'; // Default to today
+let isMovementInitialized = false;
 const MOV_ITEMS_PER_PAGE = 50;
 
 window.initMovementModule = async function() {
-  await generateMovementData();
-  attachMovementListeners();
-  filterMovementData();
-  setTimeout(() => { if(typeof markFilterHeaders === 'function') markFilterHeaders(); }, 500);
+  if (isMovementInitialized) return;
+  isMovementInitialized = true;
+  
+  console.log('[Movement] Init started');
+  const tbody = document.getElementById('movement-table-body');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 30px;">Loading movement data... Please wait...</td></tr>';
+  
+  // Use setTimeout to allow UI to update the loading message before heavy processing
+  setTimeout(async () => {
+    try {
+      console.log('[Movement] Generating data...');
+      await generateMovementData();
+      console.log('[Movement] Attaching listeners...');
+      attachMovementListeners();
+      console.log('[Movement] Filtering data...');
+      filterMovementData();
+      setTimeout(() => { if(typeof markFilterHeaders === 'function') markFilterHeaders(); }, 500);
+      console.log('[Movement] Init complete');
+    } catch (e) {
+      console.error('[Movement] Error:', e);
+      if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 30px; color: red;">Error loading movement data: ${e.message}</td></tr>`;
+      alert("Error loading movement data: " + e.message);
+      isMovementInitialized = false; // Reset so they can try again
+    }
+  }, 50);
 };
 
 async function generateMovementData() {
   const transactions = [];
   const outSumByPartLoc = {};
 
-  // Fetch locations from DB to dynamically map
-  let dbLocations = [];
-  try {
-    const { data } = await window.supabase.from('tata_locations').select('location_name');
-    if (data) dbLocations = data.map(d => d.location_name);
-  } catch(e) {
-    console.error("Error fetching locations for movement", e);
-  }
-  // Fallback defaults
-  if (dbLocations.length === 0) dbLocations = ['NARWAL', 'CHANNIRAMA', 'SUPWAL', 'KATHUA'];
+  const cleanLocs = ['NARWAL', 'CHANNIRAMA', 'SUPWAL', 'KATHUA'];
 
   const mapLocation = (rawStr) => {
     if (!rawStr) return 'NARWAL';
-    const str = rawStr.toUpperCase().replace(/\s+/g, '');
-    for (const loc of dbLocations) {
-      if (str.includes(loc.toUpperCase().replace(/\s+/g, ''))) return loc.toUpperCase();
+    const str = String(rawStr).toUpperCase();
+    
+    // Fast path: direct includes
+    for (const loc of cleanLocs) {
+      if (str.includes(loc)) return loc;
     }
-    // Specific hardcoded fallbacks based on existing logic
+    
+    // Specific hardcoded fallbacks
     if (str.includes('SMAMSAMBA')) return 'SUPWAL';
     if (str.includes('SMAMKATHUA')) return 'KATHUA';
     if (str.includes('JAMMU') || str.includes('NARVAL')) return 'NARWAL';
     return 'NARWAL';
   };
+
+  // Pre-compute originalProcessedParts map for O(1) lookups
+  const invPartMap = new Map();
+  if (window.originalProcessedParts && window.originalProcessedParts.length > 0) {
+    window.originalProcessedParts.forEach(p => {
+      const pLoc = mapLocation(p.location);
+      invPartMap.set(`${p.partId}_${pLoc}`, p);
+    });
+  }
 
   // 1. Process all OUT transactions (Consumption Data)
   const consumptionData = window.rawInventoryData?.consumption || window.consumptionData;
@@ -52,7 +78,7 @@ async function generateMovementData() {
       const partKey = `${c.part_no}_${loc}`;
       outSumByPartLoc[partKey] = (outSumByPartLoc[partKey] || 0) + qtyRaw;
 
-      const invPart = window.originalProcessedParts?.find(p => p.partId === c.part_no && mapLocation(p.location) === loc);
+      const invPart = invPartMap.get(partKey);
       const isLube = invPart?.productCategory?.toUpperCase().includes('LUB') || false;
       const ndpPrice = invPart?.ndpPrice || 0;
 
@@ -83,7 +109,8 @@ async function generateMovementData() {
     manualLogs.forEach((log, index) => {
       let qtyRaw = parseFloat(log.qty) || 0;
       const isLube = false; // We can't know for sure without looking up, let's look it up
-      const invPart = window.originalProcessedParts?.find(p => p.partId === log.part_id && mapLocation(p.location) === mapLocation(log.location));
+      const partKey = `${log.part_id}_${mapLocation(log.location)}`;
+      const invPart = invPartMap.get(partKey);
       const isLubeFinal = invPart?.productCategory?.toUpperCase().includes('LUB') || false;
       const ndpPrice = invPart?.ndpPrice || 0;
       
