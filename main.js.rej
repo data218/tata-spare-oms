@@ -1,0 +1,219 @@
+diff a/main.js b/main.js	(rejected hunks)
+@@ -97,24 +278,14 @@ document.addEventListener('click', (e) => {
+   if (!tbody) return;
+   const tableId = tbody.id;
+ 
+-  const text = th.textContent.trim();
+-  const keyMap = {
+-    'Part': 'partId', 'Part No.': 'partId',
+-    'Part Name': 'model', 'Description': 'model',
+-    'Stock': 'currentStock', 'Quantity': 'currentStock',
+-    'Reserved': 'reserved', 'Available': 'available',
+-    'In Transit': 'inTransit', 'Min': 'min', 'Safety Min': 'min',
+-    'Demand': 'demand', 'Pending': 'demand', 'Req': 'netRequirement',
+-    'Order Qty': 'orderQty', 'Suggested': 'suggestedOrder',
+-    'Status': 'statusText', 'Health Status': 'statusText', 'Forecast Action': 'statusText',
+-    'Location': 'location', 'Bin Location': 'binLocation', 'Category': 'productCategory',
+-    'Total Price (Γé╣)': 'stockValue', '30D Cons.': 'avgConsumption'
+-  };
+-  
+-  const key = keyMap[text];
+-  if (!key) return; // Action columns
++  const text = th.textContent.replace('Γû╛', '').trim();
++  const cfg = tableFilterConfigs[tableId];
++  if (!cfg) return;
++  const key = cfg.fields[text];
++  if (!key) return; // Action / non-filterable columns
+ 
+-  if (!window.originalProcessedParts || window.originalProcessedParts.length === 0) return;
++  const sourceRows = cfg.getRows();
++  if (!sourceRows || sourceRows.length === 0) return;
+   
+   // Ensure table filters exist
+   if (!window.activeFilters.has(tableId)) window.activeFilters.set(tableId, {});
+@@ -444,12 +621,31 @@ async function loadLocations() {
+       row.innerHTML = `
+         <div style="flex: 1; font-weight: 500;">${loc.location_name}</div>
+         <div style="flex: 1; color: #475569;">${loc.username}</div>
+-        <div style="flex: 1; color: #475569;">ΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇó</div>
+-        <button class="delete-loc-btn" data-id="${loc.id}" style="background: none; border: none; color: #ef4444; cursor: pointer; padding: 4px;">
++        <div style="flex: 1; color: #475569; position: relative; display: flex; align-items: center; max-width: 150px;">
++          <input type="password" class="saved-loc-password" value="${loc.password}" style="width: 100%; border: none; background: transparent; padding-right: 24px; color: inherit; font-size: inherit; outline: none; pointer-events: none;" readonly>
++          <button class="toggle-saved-pass-btn" type="button" style="position: absolute; right: 0; background: transparent; border: none; cursor: pointer; color: #94a3b8; display: flex; padding: 2px;">
++            <i data-lucide="eye" style="width: 16px; height: 16px;"></i>
++          </button>
++        </div>
++        <button class="delete-loc-btn" data-id="${loc.id}" style="background: none; border: none; color: #ef4444; cursor: pointer; padding: 4px; margin-left: 10px;">
+           <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
+         </button>
+       `;
+       locList.appendChild(row);
++      
++      const passInput = row.querySelector('.saved-loc-password');
++      const toggleBtn = row.querySelector('.toggle-saved-pass-btn');
++      
++      toggleBtn.addEventListener('click', () => {
++        if (passInput.type === 'password') {
++          passInput.type = 'text';
++          toggleBtn.innerHTML = '<i data-lucide="eye-off" style="width: 16px; height: 16px;"></i>';
++        } else {
++          passInput.type = 'password';
++          toggleBtn.innerHTML = '<i data-lucide="eye" style="width: 16px; height: 16px;"></i>';
++        }
++        lucide.createIcons();
++      });
+     });
+     
+     lucide.createIcons();
+@@ -1428,70 +1932,95 @@ document.addEventListener('DOMContentLoaded', () => {
+         (p.model && p.model.toLowerCase().includes(q))
+       );
+     }
++    const searchBase = displayParts;
+     
+-    // 2. Health Filter
+-    if (window.hCurrentFilter === 'critical') {
++    // Health / card filter (threshold = weekly demand from sold qty, min 5)
++    const f = window.hCurrentFilter;
++    const reorderThreshold = (p) => {
++      const d = Number(p.demand) || 0;
++      return d >= 1 ? d : 5;
++    };
++    if (f === 'value') {
++      displayParts = [...displayParts].sort((a, b) => (Number(b.stockValue) || 0) - (Number(a.stockValue) || 0));
++    } else if (f === 'critical') {
+       displayParts = displayParts.filter(p => p.currentStock === 0);
+-    } else if (window.hCurrentFilter === 'low') {
+-      displayParts = displayParts.filter(p => p.currentStock > 0 && p.currentStock < 5);
+-    } else if (window.hCurrentFilter === 'healthy') {
+-      displayParts = displayParts.filter(p => p.currentStock >= 5);
++    } else if (f === 'low') {
++      displayParts = displayParts.filter(p => p.currentStock > 0 && p.currentStock < reorderThreshold(p));
++    } else if (f === 'healthy') {
++      displayParts = displayParts.filter(p => p.currentStock >= reorderThreshold(p));
++    } else if (f === 'onhand') {
++      displayParts = displayParts.filter(p => (Number(p.currentStock) || 0) > 0);
++    } else if (f === 'transit') {
++      displayParts = displayParts.filter(p => (Number(p.inTransit) || 0) > 0);
++    } else if (f === 'reserved') {
++      displayParts = displayParts.filter(p => (Number(p.reserved) || 0) > 0);
++    } else if (f === 'lube') {
++      displayParts = displayParts.filter(p => /OIL|LUBRICANT|GREASE|GEAR OIL|ENGINE OIL/i.test(p.model || ''));
+     }
+ 
+     const totalItems = displayParts.length;
+     const totalPages = Math.ceil(totalItems / window.hItemsPerPage) || 1;
+     if (window.hCurrentPage > totalPages) window.hCurrentPage = totalPages;
+-    
+-    const startIndex = (window.hCurrentPage - 1) * window.hItemsPerPage;
+-    const endIndex = Math.min(startIndex + window.hItemsPerPage, totalItems);
+-    const paginatedParts = displayParts.slice(startIndex, endIndex);
+ 
+-    tbody.innerHTML = '';
+-    
+-    if (paginatedParts.length === 0) {
+-      tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px; color: var(--text-secondary);">No parts found matching criteria.</td></tr>';
+-    } else {
+-      paginatedParts.forEach(part => {
+-        // Determine health badge
+-        let badgeClass = 'healthy';
+-        let badgeText = 'Healthy';
+-        if (part.currentStock === 0) {
+-          badgeClass = 'critical'; badgeText = 'Out of Stock';
+-        } else if (part.currentStock < 5) {
+-          badgeClass = 'low'; badgeText = 'Low Stock';
+-        }
+-        
+-        const tr = document.createElement('tr');
+-        tr.style.borderBottom = '1px solid var(--border-color)';
+-        tr.innerHTML = `
+-          <td style="padding: 8px 12px; font-weight: 500;">${part.partId}</td>
+-          <td style="padding: 8px 12px; color: var(--text-secondary);">${part.model}</td>
+-          <td style="padding: 8px 12px;">${part.location}</td>
+-          <td style="padding: 8px 12px;">${part.bin || 'N/A'}</td>
+-          <td style="padding: 8px 12px;">${part.productCategory || 'TATA'}</td>
+-          <td style="padding: 8px 12px; text-align: right; font-weight: 600;">${part.currentStock}</td>
+-          <td style="padding: 8px 12px; text-align: right;">Γé╣${(part.stockValue || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
+-          <td style="padding: 8px 12px; text-align: center;"><span class="h-badge ${badgeClass}">${badgeText}</span></td>
+-        `;
+-        tbody.appendChild(tr);
+-      });
+-    }
+-    
+-    // Update Pagination UI
+-    const startEl = document.getElementById('h-page-start');
+-    const endEl = document.getElementById('h-page-end');
+-    const totalEl = document.getElementById('h-total-parts');
+-    const prevBtn = document.getElementById('h-prev-page-btn');
+-    const nextBtn = document.getElementById('h-next-page-btn');
+-    const pageNumContainer = document.getElementById('h-page-numbers');
+-    
+-    if(startEl) startEl.textContent = totalItems === 0 ? 0 : startIndex + 1;
+-    if(endEl) endEl.textContent = endIndex;
+-    if(totalEl) totalEl.textContent = totalItems;
+-    
+-    if(prevBtn) prevBtn.disabled = window.hCurrentPage === 1;
+-    if(nextBtn) nextBtn.disabled = window.hCurrentPage === totalPages;
+-    if(pageNumContainer) pageNumContainer.innerHTML = `<span style="font-size: 0.85rem; font-weight: 500;">Page ${window.hCurrentPage} of ${totalPages}</span>`;
++    // KPIs reflect location + search scope (stable regardless of which card is active)
++    const healthBase = searchBase;
++    const thresholdFor = (p) => {
++      const d = Number(p.demand) || 0;
++      return d >= 1 ? d : 5;
++    };
++    const hKpiTotal = healthBase.length;
++    const hKpiValue = healthBase.reduce((s, p) => s + (Number(p.stockValue) || 0), 0);
++    const hKpiOos = healthBase.filter(p => Number(p.currentStock) === 0).length;
++    const hKpiLow = healthBase.filter(p => Number(p.currentStock) > 0 && Number(p.currentStock) < thresholdFor(p)).length;
++    const hKpiTransit = healthBase.reduce((s, p) => s + (Number(p.inTransit) || 0), 0);
++    const hKpiReserved = healthBase.reduce((s, p) => s + (Number(p.reserved) || 0), 0);
++    const hKpiOnHandQty = healthBase.reduce((s, p) => s + (Number(p.currentStock) || 0), 0);
++    const hKpiOnHandVal = hKpiValue;
++    const hKpiTransitVal = healthBase.reduce((s, p) => s + (Number(p.ndpPrice) || 0) * (Number(p.inTransit) || 0), 0);
++    const hKpiReservedVal = healthBase.reduce((s, p) => s + (Number(p.ndpPrice) || 0) * (Number(p.reserved) || 0), 0);
++    const kpiCardTotal = healthBase.length;
++    const kpiCardTotalStock = hKpiOnHandQty + hKpiReserved + hKpiTransit;
++    const lubeParts = healthBase.filter(p => /OIL|LUBRICANT|GREASE|GEAR OIL|ENGINE OIL/i.test(p.model || ''));
++    const hKpiLubeQty = lubeParts.reduce((s, p) => s + (Number(p.currentStock) || 0), 0);
++    const hKpiLubeVal = lubeParts.reduce((s, p) => s + (Number(p.ndpPrice) || 0) * (Number(p.currentStock) || 0), 0);
++
++    const upd = (id, val, isMoney) => {
++      const el = document.getElementById(id);
++      if (el) el.textContent = isMoney ? 'Γé╣' + Math.round(val).toLocaleString('en-IN') : Math.round(val).toLocaleString('en-IN');
++    const agingLabels = ['0-30', '31-60', '61-90', '91-120+'];
++    const agingQty = [0,0,0,0];
++    const agingVal = [0,0,0,0];
++    const now = new Date();
++    const parts = window.originalProcessedParts || [];
++
++    parts.forEach(p => {
++      const receiptStr = p.last_receipt || p.fetched_at;
++      if (!receiptStr) return;
++      const receiptDate = new Date(receiptStr);
++      if (isNaN(receiptDate)) return;
++      const msDiff = now - receiptDate;
++      const daysDiff = msDiff / (1000 * 60 * 60 * 24);
++      let bucket = 3;
++      if (daysDiff <= 30) bucket = 0;
++      else if (daysDiff <= 60) bucket = 1;
++      else if (daysDiff <= 90) bucket = 2;
++      else bucket = 3;
++      agingQty[bucket] += Number(p.currentStock) || 0;
++      agingVal[bucket] += Number(p.stockValue) || 0;
++    });
++
++    const updateAgeing = (id, val) => {
++      const el = document.getElementById(id);
++      if (el) el.textContent = val.toLocaleString('en-IN', { maximumFractionDigits: 0 });
++    };
++    updateAgeing('aging-0-30', agingQty[0]);
++    updateAgeing('aging-val-0-30', 'Γé╣' + agingVal[0].toLocaleString('en-IN'));
++    updateAgeing('aging-31-60', agingQty[1]);
++    updateAgeing('aging-val-31-60', 'Γé╣' + agingVal[1].toLocaleString('en-IN'));
++    updateAgeing('aging-61-90', agingQty[2]);
++    updateAgeing('aging-val-61-90', 'Γé╣' + agingVal[2].toLocaleString('en-IN'));
++    updateAgeing('aging-91-120', agingQty[3]);
++    updateAgeing('aging-val-91-120', 'Γé╣' + agingVal[3].toLocaleString('en-IN'));
+   };
+ 
+   // Inventory Health Event Listeners
