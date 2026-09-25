@@ -1675,9 +1675,13 @@
         
         <div>
           <label style="display: block; font-weight: 500; margin-bottom: 6px;">Part Number</label>
-          <select id="inout-part" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" disabled>
-            <option value="">Select Location First</option>
-          </select>
+          <input type="text" list="part-list" id="inout-part" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;" disabled placeholder="Select Location First" autocomplete="off">
+          <datalist id="part-list"></datalist>
+        </div>
+        
+        <div>
+          <label style="display: block; font-weight: 500; margin-bottom: 6px;">Part Name</label>
+          <input type="text" id="inout-part-name" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; background-color: #f8fafc; color: #64748b;" readonly placeholder="-">
         </div>
         
         <div style="display: flex; gap: 16px;">

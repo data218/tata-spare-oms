@@ -13,6 +13,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Single Entry Elements
   const locSelect = document.getElementById('inout-location');
   const partSelect = document.getElementById('inout-part');
+  const partList = document.getElementById('part-list');
+  const partNameInput = document.getElementById('inout-part-name');
   const typeSelect = document.getElementById('inout-type');
   const qtyInput = document.getElementById('inout-qty');
   const dateInput = document.getElementById('inout-date');
@@ -79,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (partSelect) {
-    partSelect.addEventListener('change', () => {
+    partSelect.addEventListener('input', () => {
       updateAvailableQty();
     });
   }
@@ -108,15 +110,19 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     locSelect.innerHTML = htmlStr;
     
-    partSelect.innerHTML = '<option value="">Select Location First</option>';
+    partSelect.value = '';
+    partSelect.placeholder = 'Select Location First';
     partSelect.disabled = true;
+    if (partNameInput) partNameInput.value = '';
     availQtySpan.textContent = '-';
   }
 
   function populateParts(location) {
     if (!location) {
-      partSelect.innerHTML = '<option value="">Select Location First</option>';
+      partSelect.value = '';
+      partSelect.placeholder = 'Select Location First';
       partSelect.disabled = true;
+      if (partNameInput) partNameInput.value = '';
       availQtySpan.textContent = '-';
       return;
     }
@@ -126,13 +132,17 @@ document.addEventListener('DOMContentLoaded', () => {
       .map(p => p.partId)
       .sort();
 
-    let htmlStr = '<option value="">Select Part Number</option>';
+    let htmlStr = '';
     parts.forEach(part => {
-      htmlStr += `<option value="${part}">${part}</option>`;
+      htmlStr += `<option value="${part}">`;
     });
-    partSelect.innerHTML = htmlStr;
     
+    if (partList) partList.innerHTML = htmlStr;
+    
+    partSelect.value = '';
+    partSelect.placeholder = 'Type to search...';
     partSelect.disabled = false;
+    if (partNameInput) partNameInput.value = '';
     availQtySpan.textContent = '-';
   }
 
@@ -141,14 +151,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const part = partSelect.value;
     if (!loc || !part) {
       availQtySpan.textContent = '-';
+      if (partNameInput) partNameInput.value = '';
       return;
     }
 
     const item = window.originalProcessedParts.find(p => p.location === loc && p.partId === part);
     if (item) {
       availQtySpan.textContent = item.currentStock;
+      if (partNameInput) partNameInput.value = item.description || 'N/A';
     } else {
       availQtySpan.textContent = '0';
+      if (partNameInput) partNameInput.value = '';
     }
   }
 
@@ -207,6 +220,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Close and reset
     modal.style.display = 'none';
     qtyInput.value = 1;
+    partSelect.value = '';
+    if (partNameInput) partNameInput.value = '';
+    availQtySpan.textContent = '-';
     // Show success toast or alert
     alert(`Successfully logged ${type} for ${qty}x ${part} at ${loc}.`);
   }
