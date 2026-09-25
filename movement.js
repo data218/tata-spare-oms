@@ -46,11 +46,20 @@ async function generateMovementData() {
   if (consumptionData && consumptionData.length > 0) {
     consumptionData.forEach((c, index) => {
       const loc = mapLocation(c.division || c.dealer);
-      const qty = parseFloat(c.sold_qty) || 0;
-      if (qty <= 0) return;
+      const qtyRaw = parseFloat(c.sold_qty) || 0;
+      if (qtyRaw <= 0) return;
 
       const partKey = `${c.part_no}_${loc}`;
-      outSumByPartLoc[partKey] = (outSumByPartLoc[partKey] || 0) + qty;
+      outSumByPartLoc[partKey] = (outSumByPartLoc[partKey] || 0) + qtyRaw;
+
+      const invPart = window.originalProcessedParts?.find(p => p.partId === c.part_no && mapLocation(p.location) === loc);
+      const isLube = invPart?.productCategory?.toUpperCase().includes('LUB') || false;
+      const ndpPrice = invPart?.ndpPrice || 0;
+
+      let finalQty = qtyRaw;
+      if (isLube) finalQty = finalQty / 1000;
+
+      const value = ndpPrice > 0 ? (finalQty * ndpPrice) : (parseFloat(c.value) || 0);
 
       transactions.push({
         id: `OUT-${c.id || index}`,
@@ -60,9 +69,10 @@ async function generateMovementData() {
         partNo: c.part_no,
         description: c.part_desc,
         location: loc,
-        qty: qty,
-        value: parseFloat(c.value) || 0,
-        reference: c.invoice_no || c.order_num || '-'
+        qty: finalQty,
+        value: value,
+        reference: c.invoice_no || c.order_num || '-',
+        isLube: isLube
       });
     });
   }
@@ -72,12 +82,16 @@ async function generateMovementData() {
     window.originalProcessedParts.forEach((p, index) => {
       const pLoc = mapLocation(p.location);
       const partKey = `${p.partId}_${pLoc}`;
-      const totalOut = outSumByPartLoc[partKey] || 0;
-      const currentStock = p.currentStock || 0;
+      const totalOutRaw = outSumByPartLoc[partKey] || 0;
+      const currentStockRaw = p.currentStock || 0;
       
-      const totalIn = currentStock + totalOut;
+      const totalInRaw = currentStockRaw + totalOutRaw;
       
-      if (totalIn > 0) {
+      const isLube = p.productCategory?.toUpperCase().includes('LUB') || false;
+      let finalInQty = totalInRaw;
+      if (isLube) finalInQty = finalInQty / 1000;
+      
+      if (finalInQty > 0) {
         let d = new Date();
         if (p.last_receipt && p.last_receipt !== '-') {
           d = new Date(p.last_receipt);
@@ -92,9 +106,10 @@ async function generateMovementData() {
           partNo: p.partId,
           description: p.model,
           location: pLoc,
-          qty: totalIn,
-          value: totalIn * (p.ndpPrice || 0),
-          reference: 'SYS-REC-001'
+          qty: finalInQty,
+          value: finalInQty * (p.ndpPrice || 0),
+          reference: 'SYS-REC-001',
+          isLube: isLube
         });
       }
     });
@@ -265,6 +280,10 @@ function renderMovementTable() {
 
       const tr = document.createElement('tr');
       tr.style.borderBottom = '1px solid #f1f5f9';
+      
+      const qtyStr = `${isOut ? '-' : '+'}${t.qty.toLocaleString('en-IN')}`;
+      const qtyLabel = t.isLube ? `<span style="font-size:0.55rem;color:var(--text-secondary);margin-left:2px;">Ltr</span>` : '';
+      
       tr.innerHTML = `
         <td style="padding: 2px 4px; font-size: 0.65rem; font-size: 0.65rem; color: var(--text-secondary);">${dateStr}</td>
         <td style="padding: 2px 4px; font-size: 0.65rem;"><span style="display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.65rem; font-weight: 700; background: ${dirBg}; color: ${dirColor};">${t.direction}</span></td>
@@ -272,7 +291,7 @@ function renderMovementTable() {
         <td style="padding: 2px 4px; font-size: 0.65rem; font-size: 0.65rem; font-weight: 600;">${t.partNo}</td>
         <td style="padding: 2px 4px; font-size: 0.65rem; font-size: 0.65rem; color: var(--text-secondary); max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${t.description}">${t.description}</td>
         <td style="padding: 2px 4px; font-size: 0.65rem; font-size: 0.65rem;">${t.location}</td>
-        <td style="padding: 2px 4px; font-size: 0.65rem; text-align: right; font-weight: 700; color: ${dirColor};">${isOut ? '-' : '+'}${t.qty.toLocaleString('en-IN')}</td>
+        <td style="padding: 2px 4px; font-size: 0.65rem; text-align: right; font-weight: 700; color: ${dirColor};">${qtyStr}${qtyLabel}</td>
         <td style="padding: 2px 4px; font-size: 0.65rem; text-align: right; font-weight: 500; font-size: 0.65rem;">₹${t.value.toLocaleString('en-IN', {maximumFractionDigits:0})}</td>
         <td style="padding: 2px 4px; font-size: 0.65rem; font-size: 0.65rem; color: var(--text-secondary);">${t.reference}</td>
       `;
