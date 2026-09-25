@@ -158,7 +158,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const item = window.originalProcessedParts.find(p => p.location === loc && p.partId === part);
     if (item) {
       availQtySpan.textContent = item.currentStock;
-      if (partNameInput) partNameInput.value = item.description || 'N/A';
+      if (partNameInput) partNameInput.value = item.model || 'N/A';
     } else {
       availQtySpan.textContent = '0';
       if (partNameInput) partNameInput.value = '';
