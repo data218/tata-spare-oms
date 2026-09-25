@@ -575,8 +575,10 @@ let botUser = location.username;
         notify(`ERROR: ${location.location_name} failed due to: ${error.message}`);
         // Do NOT throw error, so it can continue to the next location
     } finally {
-        console.log('Closing browser...');
-        await browser.close();
+        if (browser) {
+            console.log('Closing browser...');
+            await browser.close();
+        }
     }
     } // End of locations loop
     return summaryMessages;

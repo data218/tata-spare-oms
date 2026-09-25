@@ -421,8 +421,10 @@ async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
         console.error('An error occurred during scraping:', error);
         throw error;
     } finally {
-        console.log('Closing browser...');
-        await browser.close();
+        if (browser) {
+            console.log('Closing browser...');
+            await browser.close();
+        }
     }
     return [`ALL LOCATIONS CONSUMPTION DATA UPLOADED ${totalRowsInserted} ROWS`];
 }
