@@ -225,10 +225,23 @@ document.addEventListener('DOMContentLoaded', () => {
       alert("Excel library is still loading, please try again in a moment.");
       return;
     }
+    let samplePart1 = "PART-123";
+    let sampleLoc1 = "Main Warehouse";
+    let samplePart2 = "PART-456";
+    let sampleLoc2 = "Service Center North";
+
+    // Try to get real examples from the system data
+    if (window.originalProcessedParts && window.originalProcessedParts.length > 1) {
+      samplePart1 = window.originalProcessedParts[0].partId;
+      sampleLoc1 = window.originalProcessedParts[0].location;
+      samplePart2 = window.originalProcessedParts[1].partId;
+      sampleLoc2 = window.originalProcessedParts[1].location;
+    }
+
     const ws_data = [
-      ["Date", "MovementType", "Part ID", "Location", "Qty", "Reference"],
-      ["2024-05-15", "IN", "PART-123", "Main Warehouse", 50, "PO-8823"],
-      ["2024-05-16", "OUT", "PART-456", "Service Center North", 5, "WO-1099"]
+      ["Date", "Movement", "Part ID", "Location", "Qty", "Reference"],
+      ["2024-05-15", "IN", samplePart1, sampleLoc1, 50, "PO-8823"],
+      ["2024-05-16", "OUT", samplePart2, sampleLoc2, 5, "WO-1099"]
     ];
     const ws = XLSX.utils.aoa_to_sheet(ws_data);
     const wb = XLSX.utils.book_new();
@@ -268,7 +281,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         rows.forEach((row, index) => {
           const date = row['Date'] || new Date().toISOString().split('T')[0];
-          const type = row['MovementType'] ? row['MovementType'].toString().toUpperCase() : null;
+          const type = row['Movement'] ? row['Movement'].toString().toUpperCase() : null;
           const part = row['Part ID'];
           const loc = row['Location'];
           const qty = parseInt(row['Qty'], 10);
