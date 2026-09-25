@@ -1094,15 +1094,24 @@ async function fetchInventoryData() {
     const isAdmin = currentUser.role === 'Super Admin' || currentUser.role === 'Admin' || userLocation === 'ALL';
     const filter = isAdmin ? null : userLocation;
 
-    const [inventoryData, consumptionData, priceListData] = await Promise.all([
+    const [inventoryData, consumptionData, priceListData, movementLogsData] = await Promise.all([
       fetchTableData('tata_spare_inventory', filter, 'part_no, division, qty, availability, product_category, description, last_receipt, fetched_at'),
       fetchTableData('tata_consumption_data', filter, '*'),
-      fetchTableData('tata_price_list', null, 'part_number, ndp, description, category')
+      fetchTableData('tata_price_list', null, 'part_number, ndp, description, category'),
+      window.supabase ? window.supabase.from('tata_movement_logs').select('*') : { data: [] }
     ]);
     
-    // Removed debug UI
+    let movementLogs = movementLogsData.data || [];
+    if (filter) {
+      movementLogs = movementLogs.filter(l => {
+         if (!l.location) return false;
+         const d1 = l.location.toLowerCase().replace(/\s+/g, '');
+         const d2 = filter.toLowerCase().replace(/\s+/g, '');
+         return d1 === d2;
+      });
+    }
     
-    return { inventory: inventoryData, consumption: consumptionData, priceList: priceListData };
+    return { inventory: inventoryData, consumption: consumptionData, priceList: priceListData, movementLogs: movementLogs };
   } catch (err) {
     console.error('Network error fetching from Supabase:', err);
     return { inventory: [], consumption: [], priceList: [] };
