@@ -27,7 +27,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnDownloadTemplate = document.getElementById('btn-download-inout-template');
   const btnSubmitBulk = document.getElementById('btn-submit-bulk-inout');
   const bulkFileInput = document.getElementById('inout-bulk-file');
-  const btnSubmitBulk = document.getElementById('btn-submit-bulk-inout');
   const bulkError = document.getElementById('inout-bulk-error');
   const bulkSuccess = document.getElementById('inout-bulk-success');
 
