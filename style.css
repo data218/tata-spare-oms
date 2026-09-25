@@ -813,3 +813,12 @@ h2.welcome-text {
   top: 51px;
 }
 
+
+/* Management Dashboard Styles */
+.mgmt-kpi-card {
+  transition: all 0.2s ease-in-out;
+}
+.mgmt-kpi-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 12px rgba(0,0,0,0.1) !important;
+}
