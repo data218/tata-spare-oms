@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', () => {
+import { supabase } from './supabase.js';\ndocument.addEventListener('DOMContentLoaded', () => {
   // Elements
   const btnOpenModal = document.getElementById('btn-open-inout-modal');
   const btnCloseModal = document.getElementById('btn-close-inout-modal');
@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Bulk Upload Elements
   const btnDownloadTemplate = document.getElementById('btn-download-inout-template');
   const btnSubmitBulk = document.getElementById('btn-submit-bulk-inout');
-  const bulkFileInput = document.getElementById('inout-bulk-file');
+  const bulkFileInput = document.getElementById('inout-bulk-file');\n  const btnSubmitBulk = document.getElementById('btn-submit-bulk-inout');
   const bulkError = document.getElementById('inout-bulk-error');
   const bulkSuccess = document.getElementById('inout-bulk-success');
 
@@ -165,7 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function submitMovement() {
+  async function submitMovement() {
     const loc = locSelect.value;
     const part = partSelect.value;
     const type = typeSelect.value;
@@ -194,13 +194,50 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Execute logic
+    const oldStock = item.currentStock;
     if (type === 'IN') {
       item.currentStock += qty;
     } else {
       item.currentStock -= qty;
     }
 
-    // Create synthetic movement record for the Movement Table
+    btnSubmit.disabled = true;
+    btnSubmit.textContent = 'Saving...';
+    
+    try {
+      // 1. Update inventory
+      const { error: invErr } = await supabase
+        .from('tata_spare_inventory')
+        .update({ qty: item.currentStock })
+        .eq('part_no', part)
+        .eq('division', loc);
+      if (invErr) throw invErr;
+
+      // 2. Insert into movement_logs
+      const { error: movErr } = await supabase
+        .from('tata_movement_logs')
+        .insert({
+          part_id: part,
+          location: loc,
+          movement_type: type,
+          qty: qty,
+          reference: "Manual Entry"
+        });
+      if (movErr) throw movErr;
+    } catch (e) {
+      console.error(e);
+      errorMsg.textContent = 'Failed to save to database: ' + e.message;
+      errorMsg.style.display = 'block';
+      item.currentStock = oldStock; // Revert local
+      btnSubmit.disabled = false;
+      btnSubmit.textContent = 'Submit Movement';
+      return;
+    }
+    
+    btnSubmit.disabled = false;
+    btnSubmit.textContent = 'Submit Movement';
+
+    // Create synthetic movement record for the UI temporarily so it shows up instantly
     if (!window.consumptionData) window.consumptionData = [];
     const newRecord = {
       Date: date,
@@ -210,8 +247,6 @@ document.addEventListener('DOMContentLoaded', () => {
       Qty: qty,
       Reference: "Manual Entry"
     };
-    
-    // Add to the front so it shows up at the top
     window.consumptionData.unshift(newRecord);
 
     // Refresh UI
@@ -293,7 +328,7 @@ document.addEventListener('DOMContentLoaded', () => {
     bulkSuccess.style.display = 'none';
 
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = async function(e) {
       try {
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, {type: 'array'});
