@@ -1,8 +1,10 @@
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-// Imported explicitly so Vercel's dependency tracer bundles it. Stealth's
-// user-agent-override evasion loads this plugin through a dynamic require()
-// (puppeteer-extra/dist/index.cjs.js) that the tracer cannot follow.
+// These plugins are all loaded at runtime through a dynamic `require(name)` in
+// puppeteer-extra/dist/index.cjs.js, which Vercel's dependency tracer cannot
+// follow. Importing them statically keeps them (and their own dependencies) in
+// the bundle. Chain: stealth -> user-preferences -> user-data-dir.
+import 'puppeteer-extra-plugin-user-data-dir';
 import 'puppeteer-extra-plugin-user-preferences';
 import * as dotenv from 'dotenv';
 import fs from 'fs';
