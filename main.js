@@ -1160,7 +1160,9 @@ function processRawData({ inventory, consumption, priceList = [], movementLogs =
   // Pre-process price list data
   const priceByPart = new Map();
   priceList.forEach(row => {
-    priceByPart.set(row.part_number, {
+    const pn = String(row.part_number || '').trim().toUpperCase();
+    if (!pn) return;
+    priceByPart.set(pn, {
       ndp: parseFloat(row.ndp) || 0,
       description: row.description || '',
       category: row.category || ''
@@ -1181,7 +1183,7 @@ function processRawData({ inventory, consumption, priceList = [], movementLogs =
   // Pre-process consumption data grouped by Part + Location
   const consumptionByPartLoc = new Map();
   consumption.forEach(row => {
-    const pn = row.part_no || row.part_number; 
+    const pn = String(row.part_no || row.part_number || '').trim().toUpperCase(); 
     const loc = mapLocation(row.dealer);
     const key = pn + '_' + loc;
     
@@ -1194,7 +1196,7 @@ function processRawData({ inventory, consumption, priceList = [], movementLogs =
   });
   
   inventory.forEach(row => {
-    const pn = row.part_no || row.part_number;
+    const pn = String(row.part_no || row.part_number || '').trim().toUpperCase();
     const loc = row.division || row.location_1 || 'Narwal';
     const standardLoc = mapLocation(loc);
     const consKey = pn + '_' + standardLoc; const key = row.id ? row.id : (consKey + '_' + Math.random());
@@ -1272,7 +1274,8 @@ function processRawData({ inventory, consumption, priceList = [], movementLogs =
   // Apply manual movement logs
   movementLogs.forEach(log => {
     const loc = mapLocation(log.location);
-    const key = log.part_id + '_' + loc;
+    const pn = String(log.part_id || '').trim().toUpperCase();
+    const key = pn + '_' + loc;
     const existing = grouped.get(key);
     if (existing) {
       if (log.movement_type === 'IN') {

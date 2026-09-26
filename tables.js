@@ -105,7 +105,7 @@ window.renderConsumptionTable = function() {
   const consMap = new Map();
   if (window.rawInventoryData && window.rawInventoryData.consumption) {
      window.rawInventoryData.consumption.forEach(row => {
-        const pn = row.part_no || row.part_number;
+        const pn = String(row.part_no || row.part_number || '').trim().toUpperCase();
         const qty = parseInt(row.sold_qty) || 0;
         if (consMap.has(pn)) {
           consMap.get(pn).qty += qty;
@@ -118,7 +118,8 @@ window.renderConsumptionTable = function() {
   // Try to enrich with description from priceList or inventory
   if (window.rawInventoryData && window.rawInventoryData.priceList) {
      window.rawInventoryData.priceList.forEach(p => {
-        if (consMap.has(p.part_number)) consMap.get(p.part_number).desc = p.description || 'Unknown';
+        const pNum = String(p.part_number || '').trim().toUpperCase();
+        if (consMap.has(pNum)) consMap.get(pNum).desc = p.description || 'Unknown';
      });
   }
   
