@@ -415,7 +415,7 @@ document.addEventListener('click', (e) => {
   
   if (!key) return; // Action columns
 
-  if (!window.originalProcessedParts || window.originalProcessedParts.length === 0) return;
+  if (!sourceRows || sourceRows.length === 0) return;
   
   // Ensure table filters exist
   if (!window.activeFilters.has(tableId)) window.activeFilters.set(tableId, {});
