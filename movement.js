@@ -226,6 +226,18 @@ function attachMovementListeners() {
 }
 
 function filterMovementData() {
+  const overlay = document.getElementById('loading-overlay');
+  if (overlay) overlay.style.display = 'flex';
+  setTimeout(() => {
+    try {
+      _filterMovementData_internal();
+    } finally {
+      if (overlay) overlay.style.display = 'none';
+    }
+  }, 50);
+}
+
+function _filterMovementData_internal() {
   window.movCurrentPage = 1;
   let filtered = [...window.movementData];
 

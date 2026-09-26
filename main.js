@@ -1476,6 +1476,18 @@ async function loadDataAndRender() {
 }
 
 function renderDashboard() {
+  const overlay = document.getElementById('loading-overlay');
+  if (overlay) overlay.style.display = 'flex';
+  setTimeout(() => {
+    try {
+      _renderDashboard_internal();
+    } finally {
+      if (overlay) overlay.style.display = 'none';
+    }
+  }, 50);
+}
+
+function _renderDashboard_internal() {
   const locationSelect = document.getElementById('location-select');
   const selectedLoc = locationSelect ? locationSelect.value : 'ALL';
   
@@ -1768,6 +1780,18 @@ function renderRecentActivity() {
 window.renderRecentActivity = renderRecentActivity;
 
 function renderTablePage() {
+  const overlay = document.getElementById('loading-overlay');
+  if (overlay) overlay.style.display = 'flex';
+  setTimeout(() => {
+    try {
+      _renderTablePage_internal();
+    } finally {
+      if (overlay) overlay.style.display = 'none';
+    }
+  }, 50);
+}
+
+function _renderTablePage_internal() {
   const tbody = document.getElementById('inventory-table-body');
   if(!tbody) return;
   tbody.innerHTML = '';
@@ -2385,6 +2409,17 @@ document.addEventListener('DOMContentLoaded', () => {
   window.dSearchQuery = '';
 
   window.renderDemandTable = function() {
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) overlay.style.display = 'flex';
+    setTimeout(() => {
+      try {
+        _renderDemandTable_internal();
+      } finally {
+        if (overlay) overlay.style.display = 'none';
+      }
+    }, 50);
+  };
+  const _renderDemandTable_internal = function() {
     const tbody = document.getElementById('demand-table-body');
     if (!tbody) return;
     
@@ -2714,6 +2749,17 @@ document.addEventListener('DOMContentLoaded', () => {
   window.renderConsumptionAnalytics = renderConsumptionAnalytics;
 
   const renderConsumptionTable = () => {
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) overlay.style.display = 'flex';
+    setTimeout(() => {
+      try {
+        _renderConsumptionTable_internal();
+      } finally {
+        if (overlay) overlay.style.display = 'none';
+      }
+    }, 50);
+  };
+  const _renderConsumptionTable_internal = () => {
     const tbody = document.getElementById('cons-table-body');
     if (!tbody) return;
     
@@ -3308,12 +3354,24 @@ window.ppniMonthChartInstance = null;
 window.ppniCategoryChartInstance = null;
 
 window.renderPPNI = function() {
+  const overlay = document.getElementById('loading-overlay');
+  if (overlay) overlay.style.display = 'flex';
+  setTimeout(() => {
+    try {
+      window._renderPPNI_internal();
+    } finally {
+      if (overlay) overlay.style.display = 'none';
+    }
+  }, 50);
+};
+
+window._renderPPNI_internal = function() {
   const tbody = document.getElementById('ppni-table-body');
   if (!tbody) return;
 
-  // Filter to parts that are actually in stock
+  // Filter to parts that are actually in stock and older than 180 days (PPNI)
   const allParts = window.filteredProcessedParts || window.originalProcessedParts || [];
-  let ppniParts = allParts.filter(p => p.currentStock > 0);
+  let ppniParts = allParts.filter(p => p.currentStock > 0 && p.ageingDays > 180);
 
   // Apply column filters if any
   if (window.tableFilterData['ppni-table-body']) {
