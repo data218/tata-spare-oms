@@ -461,3 +461,5 @@ function renderTopParts() {
     });
   }
 }
+
+window.filterMovementData = filterMovementData;
