@@ -3351,8 +3351,8 @@ window.renderPPNI = function() {
 
     // Month & Year Wise
     if (p.last_receipt) {
-      let d = new Date(p.last_receipt);
-      if (!isNaN(d)) {
+      let d = window.parseTataDate ? window.parseTataDate(p.last_receipt) : new Date(p.last_receipt);
+      if (d && !isNaN(d)) {
         let yr = d.getFullYear();
         yearSums[yr] = (yearSums[yr] || 0) + (p.stockValue || 0);
         let ym = yr + '-' + String(d.getMonth()+1).padStart(2, '0');
