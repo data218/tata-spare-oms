@@ -337,6 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let successCount = 0;
         let errorCount = 0;
         const errors = [];
+        const logsToInsert = [];
 
         rows.forEach((row, index) => {
           const date = row['Date'] || new Date().toISOString().split('T')[0];
@@ -387,9 +388,27 @@ document.addEventListener('DOMContentLoaded', () => {
             Qty: qty,
             Reference: ref
           });
+          
+          logsToInsert.push({
+            part_id: part,
+            location: loc,
+            movement_type: type,
+            qty: qty,
+            reference: ref,
+            date: date
+          });
 
           successCount++;
         });
+
+        if (logsToInsert.length > 0) {
+          const { error } = await supabase.from('tata_movement_logs').insert(logsToInsert);
+          if (error) {
+            bulkError.textContent = "Error saving to database: " + error.message;
+            bulkError.style.display = 'block';
+            return;
+          }
+        }
 
         refreshAllDashboards();
 

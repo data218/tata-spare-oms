@@ -239,7 +239,9 @@ function filterMovementData() {
 
 function _filterMovementData_internal() {
   window.movCurrentPage = 1;
-  let filtered = [...window.movementData];
+  let filtered = (window.tableFilterData && window.tableFilterData['movement-table-body']) 
+    ? [...window.tableFilterData['movement-table-body']] 
+    : [...window.movementData];
 
   const globalLoc = document.getElementById('location-select')?.value;
   if (globalLoc && globalLoc !== 'ALL') {
