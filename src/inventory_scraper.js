@@ -1,17 +1,13 @@
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-import { createClient } from '@supabase/supabase-js';
 import * as dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import csv from 'csv-parser';
 import { Readable } from 'stream';
+import { supabase } from './server-config.js';
 dotenv.config();
 puppeteer.use(StealthPlugin());
-
-const SUPABASE_URL = 'https://crreoeautoqzcgtlwlsd.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNycmVvZWF1dG9xemNndGx3bHNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0NzU1OTAsImV4cCI6MjA5NDA1MTU5MH0.AvHLX1piSZMGwb1qjgJ1xuBtL_F-nToQo4ClHmsHNG8';
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 async function fetchInventoryData(onProgress = null, targetLocation = 'ALL') {
     let summaryMessages = [];
@@ -33,26 +29,15 @@ async function fetchInventoryData(onProgress = null, targetLocation = 'ALL') {
         throw new Error(`No locations found for ${targetLocation}. Please add a location in Settings.`);
     }
 
-    notify(`Clearing old data from Supabase for ${targetLocation}...`);
-    let deleteQuery = supabase.from('tata_spare_inventory').delete();
-    if (targetLocation && targetLocation !== 'ALL') {
-        deleteQuery = deleteQuery.eq('division', targetLocation);
-    } else {
-        deleteQuery = deleteQuery.neq('division', 'DELETE_ALL');
-    }
-    
-    const { error: deleteError } = await deleteQuery;
-    if (deleteError) {
-        console.error('Warning: Failed to delete old data.', deleteError.message);
-    } else {
-        notify('Old data removed successfully.');
-    }
+    notify(`Starting inventory refresh for ${targetLocation} (existing rows are kept until new data is parsed).`);
 
     for (const location of locations) {
         notify(`Starting automated bot for Inventory Data (Location: ${location.location_name})...`);
         const browser = await puppeteer.launch({
-            headless: false,
-            channel: 'chrome',
+            headless: process.env.SCRAPER_HEADLESS === 'false' ? false : 'new',
+            // Vercel has no system Chrome; leaving this unset uses the bundled Chromium.
+            ...(process.env.SCRAPER_CHANNEL ? { channel: process.env.SCRAPER_CHANNEL } : {}),
+            protocolTimeout: Number(process.env.SCRAPER_PROTOCOL_TIMEOUT || 180000),
             userDataDir: path.resolve('./chrome-profile'),
             args: [
                 '--no-sandbox',
@@ -502,7 +487,23 @@ let botUser = location.username;
                     })
                     .on('end', async () => {
                         try {
-                            notify(`Finished parsing CSV for ${location.location_name}. Found ${results.length} rows. Uploading to database...`);
+                            if (!results.length) {
+                                notify(`No rows parsed for ${location.location_name}. Keeping existing data untouched.`);
+                                return resolve(0);
+                            }
+
+                            notify(`Finished parsing CSV for ${location.location_name}. Found ${results.length} rows. Replacing existing rows for this location...`);
+
+                            // Only clear this location's rows now that we know we have real
+                            // replacement data, so a failed download can never wipe the table.
+                            const { error: deleteError } = await supabase
+                                .from('tata_spare_inventory')
+                                .delete()
+                                .eq('division', location.location_name);
+                            if (deleteError) {
+                                throw new Error('Failed to clear old rows for ' + location.location_name + ': ' + deleteError.message);
+                            }
+
                             const BATCH_SIZE = 1000;
                             console.log(`Starting upload to Supabase in batches of ${BATCH_SIZE}...`);
                             

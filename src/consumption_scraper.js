@@ -1,16 +1,12 @@
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-import { createClient } from '@supabase/supabase-js';
 import * as dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import csv from 'csv-parser';
+import { supabase } from './server-config.js';
 dotenv.config();
 puppeteer.use(StealthPlugin());
-
-const SUPABASE_URL = 'https://crreoeautoqzcgtlwlsd.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNycmVvZWF1dG9xemNndGx3bHNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0NzU1OTAsImV4cCI6MjA5NDA1MTU5MH0.AvHLX1piSZMGwb1qjgJ1xuBtL_F-nToQo4ClHmsHNG8';
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
     let totalRowsInserted = 0;
@@ -35,17 +31,14 @@ async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
     
     const location = { location_name: 'Master', username: uRow.value, password: pRow.value };
 
-    notify('Clearing old data from Supabase once before processing locations...');
-    const { error: deleteError } = await supabase.from('tata_consumption_data').delete().neq('division', 'DELETE_ALL');
-    if (deleteError) {
-        console.error('Warning: Failed to delete old data.', deleteError.message);
-    } else {
-        notify('Old data removed successfully.');
-    }
+    notify('Consumption refresh starting (existing rows are kept until new data is parsed).');
 
     notify(`Starting automated bot for Consumption Data (Date Range: ${fromDate} to ${toDate})...`);
         const browser = await puppeteer.launch({ 
-            headless: 'new',
+            headless: process.env.SCRAPER_HEADLESS === 'false' ? false : 'new',
+            // Vercel has no system Chrome; leaving this unset uses the bundled Chromium.
+            ...(process.env.SCRAPER_CHANNEL ? { channel: process.env.SCRAPER_CHANNEL } : {}),
+            protocolTimeout: Number(process.env.SCRAPER_PROTOCOL_TIMEOUT || 180000),
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -387,7 +380,23 @@ async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
                     })
                     .on('end', async () => {
                         try {
-                            notify(`Finished parsing CSV. Found ${results.length} rows. Uploading to database...`);
+                            if (!results.length) {
+                                notify('No rows parsed. Keeping existing consumption data untouched.');
+                                return resolve(0);
+                            }
+
+                            notify(`Finished parsing CSV. Found ${results.length} rows. Replacing existing rows...`);
+
+                            // Clear only after we hold real replacement rows, so a failed
+                            // download can never leave the table empty.
+                            const { error: deleteError } = await supabase
+                                .from('tata_consumption_data')
+                                .delete()
+                                .neq('division', 'DELETE_ALL');
+                            if (deleteError) {
+                                throw new Error('Failed to clear old consumption rows: ' + deleteError.message);
+                            }
+
                             const BATCH_SIZE = 1000;
                             console.log(`Starting upload to Supabase in batches of ${BATCH_SIZE}...`);
                             

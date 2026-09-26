@@ -1518,7 +1518,16 @@
                       <span id="sync-text">Quick Sync Dashboards</span>
                     </button>
                   </div>
-                  <div id="fetch-status" style="margin-top: 15px; font-size: 0.9rem; font-weight: 500; display: none;"></div>
+                    <div id="fetch-progress-wrap" style="display: none; margin-top: 12px;">
+                      <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 4px;">
+                        <span id="fetch-progress-label">Preparing...</span>
+                        <span id="fetch-progress-pct">0%</span>
+                      </div>
+                      <div style="height: 8px; background: var(--border-color); border-radius: 4px; overflow: hidden;">
+                        <div id="fetch-progress-bar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #0ea5e9, #10b981); transition: width 0.4s ease;"></div>
+                      </div>
+                    </div>
+                    <div id="fetch-status" style="margin-top: 15px; font-size: 0.9rem; font-weight: 500; display: none;"></div>
                 </form>
               </div>
             </div><div class="settings-card" style="background: var(--card-bg); border-radius: 8px; padding: 14px; border: 1px solid var(--border-color); max-width: 500px; margin-bottom: 20px;">

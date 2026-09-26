@@ -1,108 +1,227 @@
-import cron from 'node-cron';
 import { fetchConsumptionData } from './src/consumption_scraper.js';
 import { fetchInventoryData } from './src/inventory_scraper.js';
-import { createClient } from '@supabase/supabase-js';
-import * as dotenv from 'dotenv';
-dotenv.config();
+import { supabase } from './src/server-config.js';
 
-const SUPABASE_URL = 'https://crreoeautoqzcgtlwlsd.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNycmVvZWF1dG9xemNndGx3bHNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0NzU1OTAsImV4cCI6MjA5NDA1MTU5MH0.AvHLX1piSZMGwb1qjgJ1xuBtL_F-nToQo4ClHmsHNG8';
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const JOB_KEY = 'fetch_job';
+const MAX_LOG_CHARS = 40000;
 
-console.log('Background worker starting...');
-console.log('Automated 10 AM background cron job is scheduled.');
+const pad = (n) => n.toString().padStart(2, '0');
+const formatDate = (d) => `${pad(d.getMonth() + 1)}/${pad(d.getDate())}/${d.getFullYear()}`;
 
-let isProcessing = false;
+async function readJob() {
+  const { data, error } = await supabase
+    .from('tata_bot_settings')
+    .select('value')
+    .eq('key', JOB_KEY)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  try {
+    return JSON.parse(data.value);
+  } catch {
+    return null;
+  }
+}
 
-// Job Polling Loop
-setInterval(async () => {
-    if (isProcessing) return;
-    try {
-        const { data } = await supabase.from('tata_bot_settings').select('*').eq('key', 'fetch_job');
-        if (data && data.length > 0) {
-            const job = JSON.parse(data[0].value);
-            if (job.status === 'pending') {
-                isProcessing = true;
-                console.log(`Starting job: ${job.type}`);
-                
-                job.status = 'processing';
-                // Do not clear logs so the initial 'Starting...' message remains
-                await supabase.from('tata_bot_settings').upsert({ key: 'fetch_job', value: JSON.stringify(job) }, { onConflict: 'key' });
-                
-                const broadcastStatus = async (msg) => {
-                    console.log(msg);
-                    const timestamp = new Date().toISOString();
-                    try {
-                        const { data } = await supabase.from('tata_bot_settings').select('value').eq('key', 'fetch_job');
-                        if (data && data.length > 0) {
-                            const currentJob = JSON.parse(data[0].value);
-                            currentJob.logs = (currentJob.logs || '') + `<div>${timestamp} - ${msg}</div>`;
-                            await supabase.from('tata_bot_settings').upsert({ key: 'fetch_job', value: JSON.stringify(currentJob) }, { onConflict: 'key' });
-                        }
-                    } catch(e) { console.error('Log sync error:', e); }
-                };
-                
-                try {
-                    let tasks = [];
-                    if (job.type === 'consumption' || job.type === 'all') {
-                        tasks.push(fetchConsumptionData(job.fromDate, job.toDate, broadcastStatus));
-                    }
-                    if (job.type === 'inventory' || job.type === 'all') {
-                        tasks.push(fetchInventoryData(broadcastStatus, job.targetLocation));
-                    }
-                    
-                    const results = await Promise.all(tasks);
-                    const allMessages = results.flat().filter(Boolean).join('<br>');
-                    await broadcastStatus(`<strong>All requested scrapers finished successfully!</strong><br><br>${allMessages}`);
-                    
-                    const { data: finalData } = await supabase.from('tata_bot_settings').select('value').eq('key', 'fetch_job');
-                    if (finalData && finalData.length > 0) {
-                        const finalJob = JSON.parse(finalData[0].value);
-                        finalJob.status = 'completed';
-                        if (!finalJob.logs) finalJob.logs = '<div>Finished successfully!</div>';
-                        await supabase.from('tata_bot_settings').upsert({ key: 'fetch_job', value: JSON.stringify(finalJob) }, { onConflict: 'key' });
-                    }
-                } catch (err) {
-                    await broadcastStatus(`FATAL ERROR: ${err.message}`);
-                    const { data: finalData } = await supabase.from('tata_bot_settings').select('value').eq('key', 'fetch_job');
-                    if (finalData && finalData.length > 0) {
-                        const finalJob = JSON.parse(finalData[0].value);
-                        finalJob.status = 'failed';
-                        if (!finalJob.logs) finalJob.logs = `<div>FATAL ERROR: ${err.message}</div>`;
-                        await supabase.from('tata_bot_settings').upsert({ key: 'fetch_job', value: JSON.stringify(finalJob) }, { onConflict: 'key' });
-                    }
-                }
-                isProcessing = false;
-            }
-        }
-    } catch (e) {
-        console.error('Polling error:', e);
-        isProcessing = false;
+async function writeJob(job) {
+  const { error } = await supabase
+    .from('tata_bot_settings')
+    .upsert({ key: JOB_KEY, value: JSON.stringify(job) }, { onConflict: 'key' });
+  if (error) throw error;
+}
+
+// Every mutation of the job row goes through one serialised queue. Without this,
+// concurrent read-modify-write cycles clobber each other and the dashboard loses
+// progress lines (or shows a half-written log).
+let writeQueue = Promise.resolve();
+function updateJob(mutator) {
+  writeQueue = writeQueue
+    .then(async () => {
+      const current = (await readJob()) || {};
+      mutator(current);
+      await writeJob(current);
+    })
+    .catch((e) => {
+      console.error('Job update error:', e);
+    });
+  return writeQueue;
+}
+
+// Appends a log line (and optionally progress) so the dashboard can poll live status.
+function appendLog(msg, progress) {
+  return updateJob((cur) => {
+    if (progress) cur.progress = progress;
+    let logs = (cur.logs || '') + `<div>${new Date().toISOString()} - ${msg}</div>`;
+    if (logs.length > MAX_LOG_CHARS) {
+      logs = '<div>... earlier steps truncated ...</div>' + logs.slice(-MAX_LOG_CHARS);
     }
-}, 3000);
+    cur.logs = logs;
+  });
+}
 
-// Setup Automated Cron Job (10:00 AM every day)
-cron.schedule('0 10 * * *', async () => {
-  console.log('Running automated 10 AM data fetch...');
-  
+// Claims a pending job. Vercel can fire overlapping invocations, so re-check the
+// row as we flip it to avoid two runners scraping the portal at once.
+async function claimPendingJob() {
+  const job = await readJob();
+  if (!job || job.status !== 'pending') return null;
+  job.status = 'processing';
+  job.startedAt = new Date().toISOString();
+  job.logs = '';
+  job.progress = { step: 0, total: 1 };
+  await writeJob(job);
+  return job;
+}
+
+async function countLocations(targetLocation) {
+  const { data } = await supabase.from('tata_locations').select('location_name');
+  const all = data || [];
+  if (targetLocation && targetLocation !== 'ALL') {
+    return all.filter((l) => l.location_name === targetLocation).length;
+  }
+  return all.length;
+}
+
+async function runJob(job) {
+  const wantConsumption = job.type === 'consumption' || job.type === 'all';
+  const wantInventory = job.type === 'inventory' || job.type === 'all';
+  if (!wantConsumption && !wantInventory) throw new Error(`Unknown job type: ${job.type}`);
+
+  // Detail lines emitted by the scrapers themselves.
+  const broadcast = (msg) => appendLog(`&nbsp;&nbsp;&nbsp;${msg}`);
+
+  const state = { step: 0, total: 1 };
+  const step = (msg) => {
+    state.step += 1;
+    return appendLog(`<strong>Step ${state.step}/${state.total}</strong> &mdash; ${msg}`, {
+      step: state.step,
+      total: state.total,
+    });
+  };
+
+  try {
+    const locCount = wantInventory ? await countLocations(job.targetLocation || 'ALL') : 0;
+    state.total = Math.max(
+      1,
+      (wantConsumption ? 2 : 0) + (wantInventory ? 1 + locCount * 2 : 0)
+    );
+    await appendLog(`Job started (type: ${job.type}). ${state.total} steps planned.`, {
+      step: 0,
+      total: state.total,
+    });
+
+    // Run strictly one at a time. Both scrapers drive Puppeteer against the same
+    // shared ./chrome-profile directory, so running them concurrently corrupts it.
+    const results = [];
+    if (wantConsumption) {
+      await step('Starting consumption scraper');
+      results.push(await fetchConsumptionData(job.fromDate, job.toDate, broadcast));
+      await step('Consumption scraper finished');
+    }
+    if (wantInventory) {
+      await step('Starting inventory scraper');
+      results.push(await fetchInventoryData(broadcast, job.targetLocation || 'ALL'));
+      await step('Inventory scraper finished');
+    }
+
+    const allMessages = results.flat().filter(Boolean).join('<br>');
+    await appendLog(
+      `<strong>All requested scrapers finished successfully!</strong><br><br>${allMessages}`,
+      { step: state.total, total: state.total }
+    );
+
+    await updateJob((cur) => {
+      cur.status = 'completed';
+      cur.finishedAt = new Date().toISOString();
+      cur.progress = { step: state.total, total: state.total };
+      if (!cur.logs) cur.logs = '<div>Finished successfully!</div>';
+    });
+
+    return { success: true, message: 'Sync completed' };
+  } catch (err) {
+    console.error('Job failed:', err);
+    await appendLog(`<strong>FATAL ERROR:</strong> ${err.message}`);
+    await updateJob((cur) => {
+      cur.status = 'failed';
+      cur.finishedAt = new Date().toISOString();
+      cur.error = err.message;
+      if (!cur.logs) cur.logs = `<div>FATAL ERROR: ${err.message}</div>`;
+    });
+    return { success: false, message: err.message };
+  }
+}
+
+function enqueueDailyJob() {
   const today = new Date();
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
-  
-  const format = (d) => `${(d.getMonth()+1).toString().padStart(2, '0')}/${d.getDate().toString().padStart(2, '0')}/${d.getFullYear()}`;
-  
-  const fromDate = '01/01/2026';
-  const toDate = format(yesterday);
-  
-  // Submit job to queue
-  const job = {
+  // Rolls over automatically instead of being pinned to a literal year.
+  const yearStart = new Date(today.getFullYear(), 0, 1);
+
+  return {
     status: 'pending',
     type: 'all',
-    fromDate,
-    toDate,
+    fromDate: formatDate(yearStart),
+    toDate: formatDate(yesterday),
     targetLocation: 'ALL',
-    logs: ''
+    logs: '',
+    progress: { step: 0, total: 1 },
   };
-  await supabase.from('tata_bot_settings').upsert({ key: 'fetch_job', value: JSON.stringify(job) }, { onConflict: 'key' });
-  console.log('Automated job added to queue.');
-});
+}
+
+function send(res, status, body) {
+  res.statusCode = status;
+  res.setHeader('Content-Type', 'application/json');
+  res.end(JSON.stringify(body));
+}
+
+// Vercel Cron sends `Authorization: Bearer $CRON_SECRET`. Manual /api/sync calls
+// must present the same secret once it is configured.
+function isAuthorized(req) {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return true;
+  const header = req.headers['authorization'] || '';
+  return header === `Bearer ${secret}`;
+}
+
+export default async function handler(req, res) {
+  const path = (req.url || '').split('?')[0].replace(/\/+$/, '') || '/';
+
+  try {
+    // Vercel Cron entrypoint - runs once a day at 10:00 IST (see "crons" in vercel.json)
+    if (path === '/api/cron' || path === '/cron') {
+      if (req.method !== 'GET' && req.method !== 'POST') {
+        return send(res, 405, { success: false, message: 'Method not allowed' });
+      }
+      if (!isAuthorized(req)) {
+        return send(res, 401, { success: false, message: 'Unauthorized' });
+      }
+      await writeJob(enqueueDailyJob());
+      const job = await claimPendingJob();
+      if (!job) return send(res, 200, { success: true, message: 'No pending job' });
+      return send(res, 200, await runJob(job));
+    }
+
+    // Dashboard "Sync Database" button
+    if (path === '/api/sync' || path === '/sync') {
+      if (req.method !== 'POST') {
+        return send(res, 405, { success: false, message: 'Method not allowed' });
+      }
+      if (!isAuthorized(req)) {
+        return send(res, 401, { success: false, message: 'Unauthorized' });
+      }
+      const job = await claimPendingJob();
+      if (!job) return send(res, 200, { success: true, message: 'No pending job' });
+      return send(res, 200, await runJob(job));
+    }
+
+    if (path === '/api/status' || path === '/status') {
+      const job = await readJob();
+      return send(res, 200, { success: true, job });
+    }
+
+    return send(res, 404, { success: false, message: 'Not found' });
+  } catch (err) {
+    console.error('Handler error:', err);
+    return send(res, 500, { success: false, message: err.message });
+  }
+}

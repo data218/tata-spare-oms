@@ -225,7 +225,7 @@ function attachMovementListeners() {
   });
 }
 
-window.filterMovementData = function() {
+function filterMovementData() {
   const overlay = document.getElementById('loading-overlay');
   if (overlay) overlay.style.display = 'flex';
   setTimeout(() => {

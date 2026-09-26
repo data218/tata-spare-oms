@@ -293,6 +293,20 @@ const tableFilterConfigs = {
   }
 };
 
+function getPriceMapCache() {
+  const rows = (window.rawInventoryData && window.rawInventoryData.priceList) || [];
+  if (!window._priceMapCache || window._priceMapCacheSource !== rows) {
+    const map = {};
+    rows.forEach(p => {
+      const k = String(p.part_number || '').trim().toUpperCase();
+      if (k) map[k] = Number(p.ndp) || 0;
+    });
+    window._priceMapCache = map;
+    window._priceMapCacheSource = rows;
+  }
+  return window._priceMapCache;
+}
+
 function getFieldValue(obj, key, tableId) {
   if (key === 'statusText') {
     if (tableId === 'demand-table-body') {
@@ -316,17 +330,13 @@ function getFieldValue(obj, key, tableId) {
     return obj._monthYearCache;
   }
   if (key === 'ndpPrice') {
-    const pn = obj.part_no || 'Unknown';
-    if (window.rawInventoryData && window.rawInventoryData.priceList) {
-      if (!window._priceMapCache) {
-        window._priceMapCache = {};
-        window.rawInventoryData.priceList.forEach(p => {
-          window._priceMapCache[p.part_number] = Number(p.ndp) || 0;
-        });
-      }
-      return window._priceMapCache[pn] || 0;
+    if (obj.ndpPrice !== undefined && obj.ndpPrice !== null && obj.ndpPrice !== '') {
+      return Number(obj.ndpPrice) || 0;
     }
-    return 0;
+    const pn = String(obj.partId || obj.part_no || obj.part_number || '').trim().toUpperCase();
+    if (!pn) return 0;
+    const cache = getPriceMapCache();
+    return cache[pn] || 0;
   }
   return obj[key];
 }
@@ -703,6 +713,25 @@ navItems.forEach(item => {
   });
 });
 
+// "Upload Manually" shortcut inside the missing-data alert -> opens Settings > Inventory Manual Upload
+const btnUploadMissingData = document.getElementById('btn-upload-missing-data');
+if (btnUploadMissingData) {
+  btnUploadMissingData.addEventListener('click', () => {
+    const settingsNav = document.querySelector('[data-target="view-settings"]');
+    if (settingsNav) settingsNav.click();
+
+    const invCard = document.getElementById('inventory-upload-form');
+    const invHeader = invCard ? invCard.closest('.settings-card').querySelector('.settings-header') : null;
+    if (invHeader) {
+      const content = invHeader.nextElementSibling;
+      if (content && content.style.display === 'none') invHeader.click();
+    }
+
+    const fileInput = document.getElementById('inventory-upload-file');
+    if (fileInput) fileInput.focus();
+  });
+}
+
 // --- Locations Settings Logic ---
 async function populateLocationSelect() {
   const select = document.getElementById('location-select');
@@ -997,6 +1026,27 @@ if (fetchForm) {
               if (data && data.length > 0) {
                   const updatedJob = JSON.parse(data[0].value);
                   statusDiv.innerHTML = updatedJob.logs || 'Processing...';
+
+                  // Step-by-step progress bar driven by job.progress
+                  const wrap = document.getElementById('fetch-progress-wrap');
+                  const bar = document.getElementById('fetch-progress-bar');
+                  const pctEl = document.getElementById('fetch-progress-pct');
+                  const labelEl = document.getElementById('fetch-progress-label');
+                  const prog = updatedJob.progress;
+                  if (wrap && bar && prog && prog.total > 0) {
+                      wrap.style.display = 'block';
+                      const pct = Math.max(0, Math.min(100, Math.round((prog.step / prog.total) * 100)));
+                      bar.style.width = pct + '%';
+                      if (pctEl) pctEl.textContent = pct + '%';
+                      if (labelEl) {
+                          const running = updatedJob.status === 'processing';
+                          labelEl.textContent = running
+                              ? `Step ${prog.step} of ${prog.total}`
+                              : (updatedJob.status === 'completed' ? 'Completed' : 'Stopped');
+                      }
+                  } else if (wrap) {
+                      wrap.style.display = 'none';
+                  }
                   
                   const plain = (statusDiv.textContent || '').replace(/\s+/g, ' ').trim();
                   
@@ -1016,6 +1066,16 @@ if (fetchForm) {
 
                   if (updatedJob.status === 'completed' || updatedJob.status === 'failed') {
                       clearInterval(pollInterval);
+                      const doneBar = document.getElementById('fetch-progress-bar');
+                      const donePct = document.getElementById('fetch-progress-pct');
+                      const doneLabel = document.getElementById('fetch-progress-label');
+                      if (updatedJob.status === 'completed') {
+                          if (doneBar) doneBar.style.width = '100%';
+                          if (donePct) donePct.textContent = '100%';
+                          if (doneLabel) doneLabel.textContent = 'Completed';
+                      } else if (doneLabel) {
+                          doneLabel.textContent = `Stopped at step ${(updatedJob.progress && updatedJob.progress.step) || 0}`;
+                      }
                       if (updatedJob.status === 'completed') {
                           statusDiv.style.color = '#059669';
                           btn.innerHTML = '<i data-lucide="check"></i> Done!';
@@ -1199,7 +1259,7 @@ function processRawData({ inventory, consumption, priceList = [], movementLogs =
     const pn = String(row.part_no || row.part_number || '').trim().toUpperCase();
     const loc = row.division || row.location_1 || 'Narwal';
     const standardLoc = mapLocation(loc);
-    const consKey = pn + '_' + standardLoc; const key = row.id ? row.id : (consKey + '_' + Math.random());
+    const consKey = pn + '_' + standardLoc; const key = consKey;
     
     const consQty = consumptionByPartLoc.get(consKey) || 0;
     const priceData = priceByPart.get(pn) || {};
@@ -1248,10 +1308,10 @@ function processRawData({ inventory, consumption, priceList = [], movementLogs =
   consumptionByPartLoc.forEach((consQty, key) => {
     if (!grouped.has(key)) {
       const parts = key.split('_');
-      const pn = parts[0];
-      const loc = parts[1];
+      const loc = parts.pop();
+      const pn = parts.join('_');
       const priceData = priceByPart.get(pn) || {};
-      
+
       grouped.set(key, {
         partId: pn,
         model: priceData.description || 'Unknown',
@@ -1285,8 +1345,6 @@ function processRawData({ inventory, consumption, priceList = [], movementLogs =
       }
     } else {
       // Create it if it doesn't exist
-      const parts = key.split('_');
-      const pn = parts[0];
       const priceData = priceByPart.get(pn) || {};
       
       grouped.set(key, {

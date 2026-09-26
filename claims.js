@@ -86,8 +86,110 @@ export function initClaims() {
   if (locFilter) locFilter.addEventListener('change', renderAllViews);
   if (monthFilter) monthFilter.addEventListener('change', renderAllViews);
 
+  initClaimsUpload();
+
   // Initial Fetch
   fetchClaimsData();
+}
+
+function initClaimsUpload() {
+  const fileInput = document.getElementById('claims-file-input');
+  const btn = document.getElementById('claims-upload-btn');
+  const nameEl = document.getElementById('claims-file-name');
+  const statusEl = document.getElementById('claims-upload-status');
+  if (!fileInput || !btn) return;
+
+  fileInput.addEventListener('change', () => {
+    const f = fileInput.files && fileInput.files[0];
+    if (nameEl) nameEl.textContent = f ? f.name : '';
+    btn.disabled = !f;
+    btn.style.opacity = f ? '1' : '0.5';
+  });
+
+  btn.addEventListener('click', async () => {
+    if (!fileInput.files || fileInput.files.length === 0) return;
+    const file = fileInput.files[0];
+
+    statusEl.style.display = 'block';
+    statusEl.style.color = 'var(--text-color)';
+    statusEl.textContent = 'Parsing Excel file...';
+    btn.disabled = true;
+    btn.style.opacity = '0.7';
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const data = new Uint8Array(event.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+        if (jsonData.length === 0) throw new Error("No data found in the Excel file.");
+
+        statusEl.textContent = `Found ${jsonData.length} rows. Uploading to Supabase...`;
+
+        const formattedData = jsonData.map(row => {
+          const getVal = (possibleKeys) => {
+            for (const k of Object.keys(row)) {
+              for (const pk of possibleKeys) {
+                if (k.toLowerCase().trim() === pk.toLowerCase().trim() || k.toLowerCase().trim().startsWith(pk.toLowerCase().trim())) {
+                  return row[k];
+                }
+              }
+            }
+            return null;
+          };
+
+          return {
+            dealer_name: String(getVal(['Dealer Name', 'Dealer Na']) || ''),
+            submitted_by: String(getVal(['Submitted By', 'Submitted B']) || ''),
+            designation: String(getVal(['Designation']) || ''),
+            invoice_number: String(getVal(['Invoice Number', 'Invoice Nu']) || ''),
+            part_number: String(getVal(['Part Number', 'Part No']) || ''),
+            part_description: String(getVal(['Part Description', 'Part Desc']) || ''),
+            quantity: parseFloat(getVal(['Quantity', 'Qty'])) || 0,
+            amount: parseFloat(getVal(['Amount'])) || 0,
+            type_of_issue: String(getVal(['Type Of Issue', 'Type Of Issu']) || ''),
+            other_issue_details: String(getVal(['Other Issue Details', 'Other Issue']) || ''),
+            detailed_description: String(getVal(['Detailed Description', 'Detailed Des']) || ''),
+            part_received_date: String(getVal(['Part Received Date', 'Part Received']) || ''),
+            claim_request_date: String(getVal(['Claim Request Date', 'Claim Request']) || ''),
+            claim_number: String(getVal(['Claim Number', 'Claim Num']) || ''),
+            requested_action: String(getVal(['Requested Action', 'Requested Act']) || ''),
+            remarks: String(getVal(['Remarks']) || ''),
+            additional_comments: String(getVal(['Additional Comments', 'Additional Comm']) || '')
+          };
+        }).filter(row => row.part_number && row.part_number !== 'null' && row.part_number.trim() !== '');
+
+        if (formattedData.length === 0) throw new Error("Could not map rows. Ensure a 'Part Number' column exists.");
+
+        const BATCH_SIZE = 1000;
+        for (let i = 0; i < formattedData.length; i += BATCH_SIZE) {
+          const batch = formattedData.slice(i, i + BATCH_SIZE);
+          const { error } = await supabase.from('tata_part_claim_data').insert(batch);
+          if (error) throw error;
+          statusEl.textContent = `Uploaded ${Math.min(i + BATCH_SIZE, formattedData.length)} of ${formattedData.length} rows...`;
+        }
+
+        statusEl.style.color = '#10b981';
+        statusEl.innerHTML = '<i data-lucide="check"></i> Claims uploaded successfully!';
+        btn.innerHTML = '<i data-lucide="check"></i> Done';
+        btn.style.background = '#059669';
+        if (window.lucide) window.lucide.createIcons();
+
+        fileInput.value = '';
+        if (nameEl) nameEl.textContent = '';
+        await fetchClaimsData();
+      } catch (err) {
+        console.error(err);
+        statusEl.style.color = '#ef4444';
+        statusEl.textContent = 'Error: ' + err.message;
+        btn.disabled = false;
+        btn.style.opacity = '1';
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  });
 }
 
 function getHeatmapColor(pct) {
