@@ -1,31 +1,23 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
-    },
-    {
-      "src": "server.js",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": [
-          "node_modules/puppeteer-extra-plugin-*/**/*",
-          "node_modules/fs-extra/**/*",
-          "node_modules/rimraf/**/*",
-          "node_modules/deepmerge/**/*"
-        ],
-        "maxDuration": 800
-      }
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "functions": {
+    "server.js": {
+      "maxDuration": 800,
+      "includeFiles": [
+        "node_modules/puppeteer-extra-plugin-*/**/*",
+        "node_modules/fs-extra/**/*",
+        "node_modules/rimraf/**/*",
+        "node_modules/deepmerge/**/*"
+      ]
     }
-  ],
-  "routes": [
+  },
+  "rewrites": [
     {
-      "src": "/api/(.*)",
-      "dest": "/server.js"
+      "source": "/api/(.*)",
+      "destination": "/server.js"
     }
   ],
   "crons": [

@@ -219,6 +219,27 @@ export default async function handler(req, res) {
       return send(res, 200, { success: true, job });
     }
 
+    // Reports the actual lambda runtime, so packaging problems can be measured
+    // instead of guessed at.
+    if (path === '/api/health' || path === '/health') {
+      let requireEsm;
+      try {
+        const { createRequire } = await import('module');
+        // Exactly the operation that fails: CJS requiring an ESM package.
+        createRequire(import.meta.url)('puppeteer-core');
+        requireEsm = { ok: true };
+      } catch (e) {
+        requireEsm = { ok: false, error: e.message.split('\n')[0] };
+      }
+      return send(res, 200, {
+        success: true,
+        node: process.version,
+        major: Number(process.versions.node.split('.')[0]),
+        requireEsm,
+      });
+    }
+
+
     return send(res, 404, { success: false, message: 'Not found' });
   } catch (err) {
     console.error('Handler error:', err);
