@@ -3474,7 +3474,7 @@ window.ppniLocationChartInstance = null;
 window.ppniYearChartInstance = null;
 window.ppniMonthChartInstance = null;
 
-function renderPPNICharts(locationSums, yearSums, monthSums) {
+function renderPPNICharts(locationSums, yearSums, monthSums, bucketSums) {
   if (typeof Chart === 'undefined') return;
   Chart.defaults.set('plugins.datalabels', { display: false });
 

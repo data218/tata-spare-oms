@@ -3396,6 +3396,45 @@ window._renderPPNI_internal = function() {
   let locationSums = {};
   let yearSums = {};
   let monthSums = {}; // Format: "YYYY-MM"
+  
+  let bucketSums = {
+    '0-30': { qty: 0, value: 0 },
+    '30-60': { qty: 0, value: 0 },
+    '60-90': { qty: 0, value: 0 },
+    '90-180': { qty: 0, value: 0 },
+    '180-365': { qty: 0, value: 0 },
+    '>365': { qty: 0, value: 0 }
+  };
+
+  // Calculate bucket sums for ALL parts (not just >180)
+  allParts.forEach(p => {
+    if (p.currentStock > 0) {
+      let val = p.stockValue || 0;
+      let qty = p.currentStock || 0;
+      let age = p.ageingDays || 0;
+      if (age < 0) age = 0;
+
+      if (age <= 30) {
+        bucketSums['0-30'].qty += qty;
+        bucketSums['0-30'].value += val;
+      } else if (age <= 60) {
+        bucketSums['30-60'].qty += qty;
+        bucketSums['30-60'].value += val;
+      } else if (age <= 90) {
+        bucketSums['60-90'].qty += qty;
+        bucketSums['60-90'].value += val;
+      } else if (age <= 180) {
+        bucketSums['90-180'].qty += qty;
+        bucketSums['90-180'].value += val;
+      } else if (age <= 365) {
+        bucketSums['180-365'].qty += qty;
+        bucketSums['180-365'].value += val;
+      } else {
+        bucketSums['>365'].qty += qty;
+        bucketSums['>365'].value += val;
+      }
+    }
+  });
 
   ppniParts.forEach(p => {
     totalValue += (p.stockValue || 0);
@@ -3441,7 +3480,7 @@ window._renderPPNI_internal = function() {
   if (elMaxAge) elMaxAge.textContent = maxAge + ' Days';
 
   // Render Charts
-  renderPPNICharts(locationSums, yearSums, monthSums);
+  renderPPNICharts(locationSums, yearSums, monthSums, bucketSums);
 
   // Pagination
   const totalItems = ppniParts.length;
@@ -3502,7 +3541,7 @@ window.ppniLocationChartInstance = null;
 window.ppniYearChartInstance = null;
 window.ppniMonthChartInstance = null;
 
-function renderPPNICharts(locationSums, yearSums, monthSums) {
+function renderPPNICharts(locationSums, yearSums, monthSums, bucketSums) {
   if (typeof Chart === 'undefined') return;
   Chart.defaults.set('plugins.datalabels', { display: false });
 
