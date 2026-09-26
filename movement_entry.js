@@ -129,8 +129,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const parts = window.originalProcessedParts
-      .filter(p => p.location === location)
-      .map(p => p.partId)
+      .filter(p => String(p.location || '').toUpperCase() === String(location || '').toUpperCase())
+      .map(p => String(p.partId))
       .sort();
 
     let htmlStr = '';
@@ -156,7 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const item = window.originalProcessedParts.find(p => p.location === loc && p.partId === part);
+    const item = window.originalProcessedParts.find(p => String(p.location || '').toUpperCase() === String(loc || '').toUpperCase() && String(p.partId || '').toUpperCase() === String(part || '').toUpperCase());
     if (item) {
       availQtySpan.textContent = item.currentStock;
       if (partNameInput) partNameInput.value = item.model || 'N/A';
@@ -181,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const item = window.originalProcessedParts.find(p => p.location === loc && p.partId === part);
+    const item = window.originalProcessedParts.find(p => String(p.location || '').toUpperCase() === String(loc || '').toUpperCase() && String(p.partId || '').toUpperCase() === String(part || '').toUpperCase());
     if (!item) {
       errorMsg.textContent = 'Part not found in this location.';
       errorMsg.style.display = 'block';
@@ -359,7 +359,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
           }
 
-          const item = window.originalProcessedParts.find(p => (p.location || '').toUpperCase() === loc && (p.partId || '').toUpperCase() === part);
+          const item = window.originalProcessedParts.find(p => String(p.location || '').toUpperCase() === loc && String(p.partId || '').toUpperCase() === part);
           if (!item) {
             errorCount++;
             errors.push(`Row ${index + 2}: Part ${part} not found in ${loc}.`);
