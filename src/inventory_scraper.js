@@ -169,12 +169,14 @@ let botUser = location.username;
             console.log(`Looking for: ${textArr.join(' OR ')}`);
 
             for (const text of textArr) {
-                for (const frame of page.frames()) {
+                const allPages = await browser.pages();
+                for (const p of allPages) {
+                    for (const frame of [p, ...p.frames()]) {
                     try {
                         // First try clickable tags
                         let xpath = isExact
-                            ? `//a[normalize-space(.)="${text}" or @title="${text}" or @alt="${text}"] | //button[normalize-space(.)="${text}" or @title="${text}" or @alt="${text}"] | //img[@title="${text}" or @alt="${text}"]`
-                            : `//a[contains(normalize-space(.), "${text}") or contains(@title, "${text}") or contains(@alt, "${text}")] | //button[contains(normalize-space(.), "${text}") or contains(@title, "${text}") or contains(@alt, "${text}")] | //img[contains(@title, "${text}") or contains(@alt, "${text}")]`;
+                            ? `//a[normalize-space(.)="${text}" or @title="${text}" or @alt="${text}" or @value="${text}"] | //button[normalize-space(.)="${text}" or @title="${text}" or @alt="${text}" or @value="${text}"] | //img[@title="${text}" or @alt="${text}"] | //input[@value="${text}" or @title="${text}"]`
+                            : `//a[contains(normalize-space(.), "${text}") or contains(@title, "${text}") or contains(@alt, "${text}") or contains(@value, "${text}")] | //button[contains(normalize-space(.), "${text}") or contains(@title, "${text}") or contains(@alt, "${text}") or contains(@value, "${text}")] | //img[contains(@title, "${text}") or contains(@alt, "${text}")] | //input[contains(@value, "${text}") or contains(@title, "${text}")]`;
 
                         let elementsCount = await frame.evaluate((xp) => {
                             return document.evaluate(xp, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null).snapshotLength;
@@ -183,8 +185,8 @@ let botUser = location.username;
                         let useFallback = elementsCount === 0;
                         if (useFallback) {
                             xpath = isExact
-                                ? `//*[normalize-space(.)="${text}" or @title="${text}" or @alt="${text}"]`
-                                : `//*[contains(normalize-space(.), "${text}") or contains(@title, "${text}") or contains(@alt, "${text}")]`;
+                                ? `//*[normalize-space(.)="${text}" or @title="${text}" or @alt="${text}" or @value="${text}"]`
+                                : `//*[contains(normalize-space(.), "${text}") or contains(@title, "${text}") or contains(@alt, "${text}") or contains(@value, "${text}")]`;
                             elementsCount = await frame.evaluate((xp) => {
                                 return document.evaluate(xp, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null).snapshotLength;
                             }, xpath);
@@ -242,6 +244,7 @@ let botUser = location.username;
                     }
                 }
             }
+        }
 
             console.log(`FAILED: Could not find any of: ${textArr.join(', ')}`);
             return false;
@@ -388,65 +391,33 @@ let botUser = location.username;
 
         let foundDownload = false;
         for (let i = 0; i < 6; i++) {
-            console.log(`Clicking Download to Excel... (Attempt ${i+1})`);
+            notify(`Clicking Download to Excel... (Attempt ${i+1})`);
             foundDownload = await robustClickText(['Download to Excel', 'Download To Excel', 'Download excel']);
             if (foundDownload) break;
             await new Promise(r => setTimeout(r, 5000));
         }
-        if (!foundDownload) console.log('WARNING: Could not find Download to Excel button');
+        if (!foundDownload) notify('WARNING: Could not find Download to Excel button');
         
-        await new Promise(r => setTimeout(r, 5000));
-        
-        let foundNext = false;
-        for (let i = 0; i < 30; i++) {
-            console.log(`Clicking Next on popup... (Attempt ${i+1})`);
-            
-            // Use evaluate for a guaranteed click
-            for (const frame of [page, ...page.frames()]) {
-                try {
-                    foundNext = await frame.evaluate(() => {
-                        const allEls = Array.from(document.querySelectorAll('*'));
-                        const nextBtn = allEls.find(el => {
-                            // Only check elements that have no element children (leaf nodes)
-                            if (el.children.length > 0) return false;
-                            const text = el.tagName === 'INPUT' ? el.value : el.textContent;
-                            return text && text.trim() === 'Next' && el.offsetWidth > 0;
-                        });
-                        if (nextBtn) {
-                            console.log('Found Next element:', nextBtn.tagName);
-                            nextBtn.click();
-                            nextBtn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-                            nextBtn.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
-                            nextBtn.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-                            return true;
-                        }
-                        return false;
-                    });
-                    if (foundNext) {
-                        console.log('SUCCESS: Clicked "Next" button!');
-                        break;
-                    }
-                } catch (e) {}
-            }
-            if (foundNext) break;
-            await new Promise(r => setTimeout(r, 2000));
-        }
-        if (!foundNext) console.log('WARNING: Could not find Next button using evaluate');
-        
-        console.log('Waiting 3 seconds for Siebel to generate the file...');
-        await new Promise(r => setTimeout(r, 3000));
-        await page.screenshot({ path: 'debug_after_next.png' });
-
-        console.log('Waiting for download to complete (polling downloads folder)...');
+        notify('Waiting for file to download (handling popups if any)...');
+        let downloadedFile = null;
         const timeout = 120000; // 2 minutes
         const start = Date.now();
-        let downloadedFile = null;
         
         while (Date.now() - start < timeout) {
+            // 1. Try to click Next on any popup
+            try {
+                const clicked = await robustClickText(['Next', 'NEXT'], true);
+                if (clicked) {
+                    notify('Found and clicked Next button on the popup!');
+                    // Wait a bit after clicking Next so we don't spam click it
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+            } catch(e) {}
+            
+            // 2. Check for downloaded file
             const files = fs.readdirSync(downloadPath);
             const crdownload = files.find(f => f.endsWith('.crdownload'));
             if (!crdownload) {
-                // Find the most recently modified file since allowAndName uses UUIDs
                 let newestFile = null;
                 let newestTime = 0;
                 for (const file of files) {
@@ -458,21 +429,20 @@ let botUser = location.username;
                     }
                 }
                 
-                // Only consider it a match if it was created/modified after we started polling
-                if (newestFile && newestTime > start - 10000) {
-                    // Rename it to .csv so parser doesn't get confused
+                if (newestFile && newestTime > start - 15000) {
                     downloadedFile = newestFile + '.csv';
                     fs.renameSync(newestFile, downloadedFile);
-                    console.log('Download complete and renamed to CSV: ', downloadedFile);
+                    notify(`Download complete and renamed to CSV: ${downloadedFile}`);
                     break;
                 }
             }
             await new Promise(r => setTimeout(r, 2000));
         }
-
+        
         if (!downloadedFile) {
+            notify('WARNING: Download timed out after 2 minutes. This usually means there are 0 records available for this location. Skipping.');
             await page.screenshot({ path: 'debug_download_failed.png' });
-            throw new Error('Download timed out or failed.');
+            throw new Error('No records available or download failed');
         }
         
         if (downloadedFile) {
@@ -572,7 +542,11 @@ let botUser = location.username;
 
     } catch (error) {
         console.error(`An error occurred during scraping for ${location.location_name}:`, error);
-        notify(`ERROR: ${location.location_name} failed due to: ${error.message}`);
+        if (error.message && error.message.includes('No records available')) {
+            notify(`Finished ${location.location_name}: No inventory records found.`);
+        } else {
+            notify(`ERROR: ${location.location_name} failed due to: ${error.message}`);
+        }
         // Do NOT throw error, so it can continue to the next location
     } finally {
         if (browser) {

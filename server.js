@@ -26,14 +26,20 @@ setInterval(async () => {
                 console.log(`Starting job: ${job.type}`);
                 
                 job.status = 'processing';
-                job.logs = '';
+                // Do not clear logs so the initial 'Starting...' message remains
                 await supabase.from('tata_bot_settings').upsert({ key: 'fetch_job', value: JSON.stringify(job) }, { onConflict: 'key' });
                 
                 const broadcastStatus = async (msg) => {
                     console.log(msg);
                     const timestamp = new Date().toISOString();
-                    job.logs += `<div>${timestamp} - ${msg}</div>`;
-                    await supabase.from('tata_bot_settings').upsert({ key: 'fetch_job', value: JSON.stringify(job) }, { onConflict: 'key' });
+                    try {
+                        const { data } = await supabase.from('tata_bot_settings').select('value').eq('key', 'fetch_job');
+                        if (data && data.length > 0) {
+                            const currentJob = JSON.parse(data[0].value);
+                            currentJob.logs = (currentJob.logs || '') + `<div>${timestamp} - ${msg}</div>`;
+                            await supabase.from('tata_bot_settings').upsert({ key: 'fetch_job', value: JSON.stringify(currentJob) }, { onConflict: 'key' });
+                        }
+                    } catch(e) { console.error('Log sync error:', e); }
                 };
                 
                 try {
@@ -48,12 +54,23 @@ setInterval(async () => {
                     const results = await Promise.all(tasks);
                     const allMessages = results.flat().filter(Boolean).join('<br>');
                     await broadcastStatus(`<strong>All requested scrapers finished successfully!</strong><br><br>${allMessages}`);
-                    job.status = 'completed';
-                    await supabase.from('tata_bot_settings').upsert({ key: 'fetch_job', value: JSON.stringify(job) }, { onConflict: 'key' });
+                    
+                    const { data: finalData } = await supabase.from('tata_bot_settings').select('value').eq('key', 'fetch_job');
+                    if (finalData && finalData.length > 0) {
+                        const finalJob = JSON.parse(finalData[0].value);
+                        finalJob.status = 'completed';
+                        if (!finalJob.logs) finalJob.logs = '<div>Finished successfully!</div>';
+                        await supabase.from('tata_bot_settings').upsert({ key: 'fetch_job', value: JSON.stringify(finalJob) }, { onConflict: 'key' });
+                    }
                 } catch (err) {
                     await broadcastStatus(`FATAL ERROR: ${err.message}`);
-                    job.status = 'failed';
-                    await supabase.from('tata_bot_settings').upsert({ key: 'fetch_job', value: JSON.stringify(job) }, { onConflict: 'key' });
+                    const { data: finalData } = await supabase.from('tata_bot_settings').select('value').eq('key', 'fetch_job');
+                    if (finalData && finalData.length > 0) {
+                        const finalJob = JSON.parse(finalData[0].value);
+                        finalJob.status = 'failed';
+                        if (!finalJob.logs) finalJob.logs = `<div>FATAL ERROR: ${err.message}</div>`;
+                        await supabase.from('tata_bot_settings').upsert({ key: 'fetch_job', value: JSON.stringify(finalJob) }, { onConflict: 'key' });
+                    }
                 }
                 isProcessing = false;
             }

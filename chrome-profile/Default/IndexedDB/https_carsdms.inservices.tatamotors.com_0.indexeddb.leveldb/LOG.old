@@ -1,0 +1,25 @@
+2026/09/25-17:05:20.535 dd0 Reusing MANIFEST C:\Users\HP\.gemini\antigravity\scratch\tata-spare-oms\chrome-profile\Default\IndexedDB\https_carsdms.inservices.tatamotors.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/09/25-17:05:20.536 dd0 Recovering log #37
+2026/09/25-17:05:20.536 dd0 Reusing old log C:\Users\HP\.gemini\antigravity\scratch\tata-spare-oms\chrome-profile\Default\IndexedDB\https_carsdms.inservices.tatamotors.com_0.indexeddb.leveldb/000037.log 
+2026/09/25-17:05:20.537 dd0 Delete type=2 #36
+2026/09/25-17:05:24.204 dd0 Level-0 table #42: started
+2026/09/25-17:05:24.209 dd0 Level-0 table #42: 618 bytes OK
+2026/09/25-17:05:24.213 dd0 Delete type=0 #37
+2026/09/25-17:05:24.214 26b8 Manual compaction at level-0 from '\x00\x0e\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x0f\x00\x00\x00' @ 0 : 0; will stop at '\x00\x0e\x00\x00\x05' @ 240 : 1
+2026/09/25-17:05:24.215 26b8 Compacting 1@0 + 1@1 files
+2026/09/25-17:05:24.218 26b8 Generated table #43@0: 22 keys, 943 bytes
+2026/09/25-17:05:24.218 26b8 Compacted 1@0 + 1@1 files => 943 bytes
+2026/09/25-17:05:24.220 26b8 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/09/25-17:05:24.221 26b8 Delete type=2 #42
+2026/09/25-17:05:24.221 dd0 Manual compaction at level-0 from '\x00\x0e\x00\x00\x05' @ 240 : 1 .. '\x00\x0f\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/09/25-17:05:49.778 26b8 Level-0 table #45: started
+2026/09/25-17:05:49.786 26b8 Level-0 table #45: 600 bytes OK
+2026/09/25-17:05:49.788 26b8 Delete type=2 #39
+2026/09/25-17:05:49.788 26b8 Delete type=0 #41
+2026/09/25-17:05:49.789 dd0 Manual compaction at level-0 from '\x00\x0f\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x10\x00\x00\x00' @ 0 : 0; will stop at '\x00\x0f\x00\x00\x05' @ 259 : 1
+2026/09/25-17:05:49.789 dd0 Compacting 1@0 + 1@1 files
+2026/09/25-17:05:49.792 dd0 Generated table #46@0: 23 keys, 970 bytes
+2026/09/25-17:05:49.792 dd0 Compacted 1@0 + 1@1 files => 970 bytes
+2026/09/25-17:05:49.794 dd0 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/09/25-17:05:49.795 dd0 Delete type=2 #45
+2026/09/25-17:05:49.795 dd0 Manual compaction at level-0 from '\x00\x0f\x00\x00\x05' @ 259 : 1 .. '\x00\x10\x00\x00\x00' @ 0 : 0; will stop at (end)

@@ -15,16 +15,29 @@ const sidebar = document.getElementById('sidebar');
 const hamburgerBtn = document.getElementById('hamburger-btn');
 
 // --- Live Clock & Beautiful Date Formatter ---
-function formatBeautifulDate(dateInput) {
-  let d = dateInput instanceof Date ? dateInput : new Date(dateInput);
-  if (isNaN(d.getTime())) {
-    // Try to parse DD/MM/YYYY
-    if (typeof dateInput === 'string') {
-      const parts = dateInput.split(', ')[0].split('/');
-      if (parts.length === 3) d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T${dateInput.split(', ')[1]}`);
+window.parseTataDate = function(dateStr) {
+  if (!dateStr) return null;
+  if (typeof dateStr !== 'string') return new Date(dateStr);
+  if (dateStr.match(/^\d{4}-\d{2}-\d{2}/)) return new Date(dateStr);
+  
+  const datePart = dateStr.split(' ')[0];
+  const parts = datePart.split(/[-/]/);
+  if (parts.length === 3) {
+    let d = parseInt(parts[0], 10);
+    let m = parseInt(parts[1], 10);
+    let y = parseInt(parts[2], 10);
+    if (y < 100) y += 2000;
+    if (m > 12 && d <= 12) { // It's actually MM/DD/YYYY
+      return new Date(y, d - 1, m);
     }
-    if (isNaN(d.getTime())) return dateInput;
+    return new Date(y, m - 1, d);
   }
+  return new Date(dateStr);
+};
+
+function formatBeautifulDate(dateInput) {
+  let d = window.parseTataDate(dateInput);
+  if (!d || isNaN(d.getTime())) return dateInput;
   
   const day = d.getDate();
   const suffix = ["th", "st", "nd", "rd"][day % 10 > 3 ? 0 : (day - day % 10 !== 10) * day % 10];
@@ -1191,7 +1204,7 @@ function processRawData({ inventory, consumption, priceList = [], movementLogs =
     // Update last_receipt to the most recent one
     const lr = row.last_receipt;
     if (lr) {
-      if (!existing.last_receipt || new Date(lr) > new Date(existing.last_receipt)) {
+      if (!existing.last_receipt || window.parseTataDate(lr) > window.parseTataDate(existing.last_receipt)) {
         existing.last_receipt = lr;
       }
     }
@@ -1229,8 +1242,8 @@ function processRawData({ inventory, consumption, priceList = [], movementLogs =
   for (const part of grouped.values()) {
     part.stockValue = part.ndpPrice * part.currentStock;
     if (part.currentStock > 0 && part.last_receipt) {
-      const lrDate = new Date(part.last_receipt);
-      if (!isNaN(lrDate)) {
+      const lrDate = window.parseTataDate(part.last_receipt);
+      if (lrDate && !isNaN(lrDate)) {
         part.ageingDays = Math.floor((now - lrDate) / (1000 * 60 * 60 * 24));
       }
     } else {
@@ -3271,8 +3284,8 @@ window.renderPPNI = function() {
 
     // Month & Year Wise
     if (p.last_receipt) {
-      let d = new Date(p.last_receipt);
-      if (!isNaN(d)) {
+      let d = window.parseTataDate ? window.parseTataDate(p.last_receipt) : new Date(p.last_receipt);
+      if (d && !isNaN(d)) {
         let yr = d.getFullYear();
         yearSums[yr] = (yearSums[yr] || 0) + (p.stockValue || 0);
         let ym = yr + '-' + String(d.getMonth()+1).padStart(2, '0');
@@ -3318,7 +3331,7 @@ window.renderPPNI = function() {
     tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px; color: var(--text-secondary);">No parts found.</td></tr>';
   } else {
     paginated.forEach(part => {
-      let lrText = part.last_receipt ? new Date(part.last_receipt).toLocaleDateString('en-IN') : 'N/A';
+      let lrText = part.last_receipt ? (window.parseTataDate(part.last_receipt) ? window.parseTataDate(part.last_receipt).toLocaleDateString('en-IN') : 'N/A') : 'N/A';
       let ageText = part.ageingDays >= 0 ? `${part.ageingDays} Days` : 'N/A';
       let badgeClass = part.ageingDays > 180 ? 'critical' : (part.ageingDays > 90 ? 'low' : 'healthy');
       

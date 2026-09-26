@@ -100,18 +100,24 @@ async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
         // Add an extra wait for any subsequent client-side redirects or dashboard loading
         await new Promise(r => setTimeout(r, 5000));
         
-        // Check if login failed
-        const errorMsg = await page.$('.bitech-errormsg-container');
-        if (errorMsg) {
-            const isVisible = await page.evaluate(el => {
-                const style = window.getComputedStyle(el);
-                return style && style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
-            }, errorMsg);
-            
-            if (isVisible) {
-                const errText = await page.evaluate(el => el.textContent, errorMsg);
-                throw new Error(`Login failed for ${botUser}: ${errText.trim()}`);
+        // Check if login failed, safely ignoring execution context destroyed errors during navigation
+        try {
+            const errorMsg = await page.$('.bitech-errormsg-container');
+            if (errorMsg) {
+                const isVisible = await page.evaluate(el => {
+                    const style = window.getComputedStyle(el);
+                    return style && style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+                }, errorMsg);
+                
+                if (isVisible) {
+                    const errText = await page.evaluate(el => el.textContent, errorMsg);
+                    throw new Error(`Login failed for ${botUser}: ${errText.trim()}`);
+                }
             }
+        } catch (e) {
+            if (e.message.includes('Login failed')) throw e;
+            // Execution context destroyed means navigation happened, so login likely succeeded!
+            console.log('Navigation occurred, assuming login success.');
         }
 
         notify('Login successful. Navigating to PCBU Spares report...');
