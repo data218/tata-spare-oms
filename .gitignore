@@ -25,3 +25,12 @@ dist-ssr
 
 .vercel
 .env*
+
+# Puppeteer profile - contains session cookies / login data, never commit
+chrome-profile/
+
+# Debug artifacts from scraper runs
+debug_*.png
+all_elements.json
+all_links.json
+page.html
