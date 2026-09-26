@@ -59,8 +59,8 @@ window.renderPPNI = function() {
 
     // Month Wise
     if (p.last_receipt) {
-      let d = new Date(p.last_receipt);
-      if (!isNaN(d)) {
+      let d = window.parseTataDate ? window.parseTataDate(p.last_receipt) : new Date(p.last_receipt);
+      if (d && !isNaN(d)) {
         let ym = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2, '0');
         monthSums[ym] = (monthSums[ym] || 0) + (p.stockValue || 0);
       }
@@ -104,7 +104,7 @@ window.renderPPNI = function() {
     tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px; color: var(--text-secondary);">No parts found.</td></tr>';
   } else {
     paginated.forEach(part => {
-      let lrText = part.last_receipt ? new Date(part.last_receipt).toLocaleDateString('en-IN') : 'N/A';
+      let lrText = part.last_receipt ? (window.parseTataDate && window.parseTataDate(part.last_receipt) ? window.parseTataDate(part.last_receipt).toLocaleDateString('en-IN') : 'N/A') : 'N/A';
       let ageText = part.ageingDays >= 0 ? `${part.ageingDays} Days` : 'N/A';
       let badgeClass = part.ageingDays > 180 ? 'critical' : (part.ageingDays > 90 ? 'low' : 'healthy');
       
