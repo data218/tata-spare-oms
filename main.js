@@ -1019,7 +1019,15 @@ if (fetchForm) {
       };
       
       await supabase.from('tata_bot_settings').upsert({ key: 'fetch_job', value: JSON.stringify(job) }, { onConflict: 'key' });
-      
+
+      // Kick the serverless function so the job is actually claimed and run.
+      // Not awaited: it runs for minutes, and we read progress via the poll below.
+      fetch('/api/sync', { method: 'POST' }).catch((e) => {
+          console.error('Could not start scraper:', e);
+          statusDiv.style.color = '#ef4444';
+          statusDiv.textContent = 'Could not start the scraper: ' + e.message;
+      });
+
       let pollInterval = setInterval(async () => {
           try {
               const { data } = await supabase.from('tata_bot_settings').select('value').eq('key', 'fetch_job');
