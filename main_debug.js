@@ -3329,6 +3329,45 @@ window._renderPPNI_internal = function() {
   let locationSums = {};
   let yearSums = {};
   let monthSums = {}; // Format: "YYYY-MM"
+  
+  let bucketSums = {
+    '0-30': { qty: 0, value: 0 },
+    '30-60': { qty: 0, value: 0 },
+    '60-90': { qty: 0, value: 0 },
+    '90-180': { qty: 0, value: 0 },
+    '180-365': { qty: 0, value: 0 },
+    '>365': { qty: 0, value: 0 }
+  };
+
+  // Calculate bucket sums for ALL parts (not just >180)
+  allParts.forEach(p => {
+    if (p.currentStock > 0) {
+      let val = p.stockValue || 0;
+      let qty = p.currentStock || 0;
+      let age = p.ageingDays || 0;
+      if (age < 0) age = 0;
+
+      if (age <= 30) {
+        bucketSums['0-30'].qty += qty;
+        bucketSums['0-30'].value += val;
+      } else if (age <= 60) {
+        bucketSums['30-60'].qty += qty;
+        bucketSums['30-60'].value += val;
+      } else if (age <= 90) {
+        bucketSums['60-90'].qty += qty;
+        bucketSums['60-90'].value += val;
+      } else if (age <= 180) {
+        bucketSums['90-180'].qty += qty;
+        bucketSums['90-180'].value += val;
+      } else if (age <= 365) {
+        bucketSums['180-365'].qty += qty;
+        bucketSums['180-365'].value += val;
+      } else {
+        bucketSums['>365'].qty += qty;
+        bucketSums['>365'].value += val;
+      }
+    }
+  });
 
   ppniParts.forEach(p => {
     totalValue += (p.stockValue || 0);
@@ -3374,7 +3413,7 @@ window._renderPPNI_internal = function() {
   if (elMaxAge) elMaxAge.textContent = maxAge + ' Days';
 
   // Render Charts
-  renderPPNICharts(locationSums, yearSums, monthSums);
+  renderPPNICharts(locationSums, yearSums, monthSums, bucketSums);
 
   // Pagination
   const totalItems = ppniParts.length;
@@ -3485,6 +3524,88 @@ function renderPPNICharts(locationSums, yearSums, monthSums) {
       type: 'line',
       data: { labels: mLabels, datasets: [{ label: 'Value (₹)', data: mData, borderColor: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.1)', borderWidth: 2, fill: true, tension: 0.3, pointBackgroundColor: '#f59e0b' }] },
       options: { responsive: true, maintainAspectRatio: false, plugins: { datalabels: { display: true, align: 'top', anchor: 'center', formatter: formatCurrency, font: {size: 10, weight: 'bold'}, color: '#64748b' }, legend: { display: false }, tooltip: { callbacks: { label: function(ctx) { return '₹' + ctx.raw.toLocaleString('en-IN', {maximumFractionDigits:0}); } } } }, scales: { y: { beginAtZero: true, ticks: { callback: formatCurrency } } } }
+    });
+  }
+
+  // 4. Ageing Buckets Chart
+  const ctxBucket = document.getElementById('ppni-ageing-bucket-chart');
+  if (ctxBucket) {
+    if (window.ppniAgeingBucketChartInstance) window.ppniAgeingBucketChartInstance.destroy();
+    
+    const bucketLabels = ['0-30 Days', '30-60 Days', '60-90 Days', '90-180 Days', '180-365 Days', '>365 Days'];
+    const bucketKeys = ['0-30', '30-60', '60-90', '90-180', '180-365', '>365'];
+    
+    const valueData = bucketKeys.map(k => bucketSums[k].value);
+    const qtyData = bucketKeys.map(k => bucketSums[k].qty);
+
+    window.ppniAgeingBucketChartInstance = new Chart(ctxBucket, {
+      type: 'bar',
+      data: {
+        labels: bucketLabels,
+        datasets: [
+          {
+            label: 'Total Value (₹)',
+            data: valueData,
+            backgroundColor: '#10b981', // green for value
+            borderRadius: 4,
+            yAxisID: 'yValue'
+          },
+          {
+            label: 'Total Qty',
+            data: qtyData,
+            type: 'line',
+            borderColor: '#f59e0b', // amber for qty
+            backgroundColor: '#f59e0b',
+            borderWidth: 2,
+            pointRadius: 4,
+            yAxisID: 'yQty'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true, position: 'top' },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                let v = ctx.raw;
+                if (ctx.datasetIndex === 0) return 'Value: ' + formatCurrency(v);
+                return 'Qty: ' + v.toLocaleString();
+              }
+            }
+          },
+          datalabels: {
+            display: true,
+            anchor: 'end',
+            align: 'top',
+            color: '#666',
+            font: { size: 10, weight: 'bold' },
+            formatter: (val, ctx) => {
+              if (val === 0) return '';
+              if (ctx.datasetIndex === 0) return formatCurrency(val);
+              return val.toLocaleString();
+            }
+          }
+        },
+        scales: {
+          x: { grid: { display: false } },
+          yValue: {
+            type: 'linear',
+            display: true,
+            position: 'left',
+            beginAtZero: true,
+            ticks: { callback: v => formatCurrency(v) }
+          },
+          yQty: {
+            type: 'linear',
+            display: false,
+            position: 'right',
+            beginAtZero: true
+          }
+        }
+      }
     });
   }
 }

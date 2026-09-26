@@ -3554,6 +3554,88 @@ function renderPPNICharts(locationSums, yearSums, monthSums) {
       options: { responsive: true, maintainAspectRatio: false, plugins: { datalabels: { display: true, align: 'top', anchor: 'center', formatter: formatCurrency, font: {size: 10, weight: 'bold'}, color: '#64748b' }, legend: { display: false }, tooltip: { callbacks: { label: function(ctx) { return '₹' + ctx.raw.toLocaleString('en-IN', {maximumFractionDigits:0}); } } } }, scales: { y: { beginAtZero: true, ticks: { callback: formatCurrency } } } }
     });
   }
+
+  // 4. Ageing Buckets Chart
+  const ctxBucket = document.getElementById('ppni-ageing-bucket-chart');
+  if (ctxBucket) {
+    if (window.ppniAgeingBucketChartInstance) window.ppniAgeingBucketChartInstance.destroy();
+    
+    const bucketLabels = ['0-30 Days', '30-60 Days', '60-90 Days', '90-180 Days', '180-365 Days', '>365 Days'];
+    const bucketKeys = ['0-30', '30-60', '60-90', '90-180', '180-365', '>365'];
+    
+    const valueData = bucketKeys.map(k => bucketSums[k].value);
+    const qtyData = bucketKeys.map(k => bucketSums[k].qty);
+
+    window.ppniAgeingBucketChartInstance = new Chart(ctxBucket, {
+      type: 'bar',
+      data: {
+        labels: bucketLabels,
+        datasets: [
+          {
+            label: 'Total Value (₹)',
+            data: valueData,
+            backgroundColor: '#10b981', // green for value
+            borderRadius: 4,
+            yAxisID: 'yValue'
+          },
+          {
+            label: 'Total Qty',
+            data: qtyData,
+            type: 'line',
+            borderColor: '#f59e0b', // amber for qty
+            backgroundColor: '#f59e0b',
+            borderWidth: 2,
+            pointRadius: 4,
+            yAxisID: 'yQty'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true, position: 'top' },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                let v = ctx.raw;
+                if (ctx.datasetIndex === 0) return 'Value: ' + formatCurrency(v);
+                return 'Qty: ' + v.toLocaleString();
+              }
+            }
+          },
+          datalabels: {
+            display: true,
+            anchor: 'end',
+            align: 'top',
+            color: '#666',
+            font: { size: 10, weight: 'bold' },
+            formatter: (val, ctx) => {
+              if (val === 0) return '';
+              if (ctx.datasetIndex === 0) return formatCurrency(val);
+              return val.toLocaleString();
+            }
+          }
+        },
+        scales: {
+          x: { grid: { display: false } },
+          yValue: {
+            type: 'linear',
+            display: true,
+            position: 'left',
+            beginAtZero: true,
+            ticks: { callback: v => formatCurrency(v) }
+          },
+          yQty: {
+            type: 'linear',
+            display: false,
+            position: 'right',
+            beginAtZero: true
+          }
+        }
+      }
+    });
+  }
 }
 
 // Attach Pagination Events
