@@ -285,9 +285,9 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     let samplePart1 = "PART-123";
-    let sampleLoc1 = "Main Warehouse";
+    let sampleLoc1 = "NARWAL";
     let samplePart2 = "PART-456";
-    let sampleLoc2 = "Service Center North";
+    let sampleLoc2 = "KATHUA";
 
     // Try to get real examples from the system data
     if (window.originalProcessedParts && window.originalProcessedParts.length > 1) {
@@ -342,8 +342,8 @@ document.addEventListener('DOMContentLoaded', () => {
         rows.forEach((row, index) => {
           const date = row['Date'] || new Date().toISOString().split('T')[0];
           const type = row['Movement'] ? row['Movement'].toString().toUpperCase() : null;
-          const part = row['Part ID'];
-          const loc = row['Location'];
+          const part = row['Part ID'] ? row['Part ID'].toString().trim().toUpperCase() : null;
+          const loc = row['Location'] ? row['Location'].toString().trim().toUpperCase() : null;
           const qty = parseInt(row['Qty'], 10);
           const ref = row['Reference'] || "Bulk Upload";
 
@@ -359,7 +359,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
           }
 
-          const item = window.originalProcessedParts.find(p => p.location === loc && p.partId === part);
+          const item = window.originalProcessedParts.find(p => (p.location || '').toUpperCase() === loc && (p.partId || '').toUpperCase() === part);
           if (!item) {
             errorCount++;
             errors.push(`Row ${index + 2}: Part ${part} not found in ${loc}.`);
