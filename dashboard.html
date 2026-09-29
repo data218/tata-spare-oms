@@ -1179,7 +1179,10 @@
             <div class="table-section">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                 <h3>Top Consumed Parts (30 Days)</h3>
-                <input type="text" id="cons-search-input" placeholder="Search Part No..." style="padding: 8px; border: 1px solid var(--border-color); border-radius: 4px;">
+                <div style="display: flex; gap: 8px; align-items: center;">
+                  <input type="text" id="cons-search-input" placeholder="Search Part No..." style="padding: 8px; border: 1px solid var(--border-color); border-radius: 4px;" />
+                  <button id="cons-search-btn" style="padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; font-weight: 600;">Search</button>
+                </div>
               </div>
               <table class="control-tower-table">
                 <thead>
