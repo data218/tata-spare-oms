@@ -1599,7 +1599,6 @@ async function loadDataAndRender() {
   renderDashboardAnalytics();
   await checkMissingDataAlerts();
   await populateLocationSelect();
-  markFilterHeaders();
   if (typeof window.renderRecentActivity === 'function' && typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
 }
 
