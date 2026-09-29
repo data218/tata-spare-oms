@@ -227,6 +227,18 @@ let botUser = location.username;
             return false;
         }
 
+        // Retries a click until the element appears. The Siebel Site Map builds
+        // its category tree asynchronously and, on the slower serverless CPU, the
+        // one-shot click lands before the tree is rendered.
+        async function retryClick(textArr, isExact = false, index = 0, tries = 12) {
+            for (let i = 0; i < tries; i++) {
+                const ok = await robustClickText(textArr, isExact, index);
+                if (ok) return true;
+                await new Promise(r => setTimeout(r, 2000));
+            }
+            return false;
+        }
+
         // 0. (Removed OBIEE dashboard click)
         await new Promise(r => setTimeout(r, 2000));
 
@@ -252,18 +264,20 @@ let botUser = location.username;
 
         // 2. Click on MIS - Spares (in the Site Map - Category)
         console.log('Clicking MIS - Spares in Site Map (Category)...');
-        await robustClickText(['MIS - Spares', 'MIS Spares'], false, 0); // 0 = First visible match
+        const misCat = await retryClick(['MIS - Spares', 'MIS Spares'], false, 0, 12);
+        notify(`Site Map 'MIS - Spares' category click: ${misCat ? 'OK' : 'FAILED'}`);
         await new Promise(r => setTimeout(r, 5000));
         
         // 2.5 Click on MIS - Spares AGAIN (in the Site Map - Link)
         console.log('Clicking MIS - Spares in Site Map (Link)...');
-        const misLink = await robustClickText(['MIS - Spares', 'MIS Spares'], false, 1); // 1 = Second visible match
+        let misLink = await retryClick(['MIS - Spares', 'MIS Spares'], false, 1, 6); // 1 = Second visible match
+        if (!misLink) misLink = await retryClick(['MIS - Spares', 'MIS Spares'], false, 0, 6);
         notify(`Site Map 'MIS - Spares' link click: ${misLink ? 'OK' : 'FAILED'}`);
         await new Promise(r => setTimeout(r, 10000));
 
         // 3.5 Click on Spares Inventory (sub-tab)
         console.log('Clicking Spares Inventory tab...');
-        const invTab = await robustClickText(['Spares Inventory']);
+        const invTab = await retryClick(['Spares Inventory'], false, 0, 12);
         notify(`'Spares Inventory' tab click: ${invTab ? 'OK' : 'FAILED'}`);
         await new Promise(r => setTimeout(r, 5000));
         await page.screenshot({ path: scratch('debug_after_spares_inventory_tab.png') });
@@ -392,8 +406,8 @@ let botUser = location.username;
             // diagnosed from outside the lambda (its /tmp artifacts are lost).
             try {
                 const interesting = allElements
-                    .filter(e => /export|excel|download|save|toolbar|menu|action/i.test([e.text, e.title, e.alt, e.value, e.id].join(' ')))
-                    .slice(0, 250);
+                    .filter(e => /export|excel|download|save|toolbar|menu|action|mis|spares|inventory|site ?map|screens/i.test([e.text, e.title, e.alt, e.value, e.id].join(' ')))
+                    .slice(0, 300);
                 const labels = [...new Set(allElements
                     .filter(e => ['BUTTON', 'A', 'INPUT', 'IMG'].includes(e.tag))
                     .map(e => e.text || e.value || e.title || e.alt)
