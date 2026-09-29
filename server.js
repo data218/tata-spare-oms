@@ -283,7 +283,7 @@ async function triggerNextTick(req) {
   const headers = {};
   if (process.env.CRON_SECRET) headers.authorization = `Bearer ${process.env.CRON_SECRET}`;
   try {
-    const res = await fetch(`${origin}/api/queue/step`, { method: 'POST', headers });
+    const res = await fetch(`${origin}/api/queue`, { method: 'POST', headers });
     if (!res.ok) {
       console.error('Next unit rejected:', res.status, (await res.text().catch(() => '')).slice(0, 300));
     }
@@ -438,8 +438,9 @@ export default async function handler(req, res) {
       return await kickOff(req, res);
     }
 
-    // Internal: the hand-over target between units of the same run.
-    if (path === '/api/queue/step' || path === '/queue/step') {
+    // Internal: the hand-over target between units of the same run. Kept to a
+    // single path segment because that is all api/[...path].js routes.
+    if (path === '/api/queue' || path === '/queue') {
       if (req.method !== 'POST') {
         return send(res, 405, { success: false, message: 'Method not allowed' });
       }
