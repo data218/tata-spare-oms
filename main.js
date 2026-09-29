@@ -1618,6 +1618,12 @@ document.querySelectorAll('.filter-clear-btn').forEach(el => {
   el.addEventListener('click', () => {
     document.querySelectorAll('.filter-from-date').forEach(f => f.value = '');
     document.querySelectorAll('.filter-to-date').forEach(t => t.value = '');
+    const gInput = document.getElementById('global-search-input');
+    if (gInput) gInput.value = '';
+    window.hSearchQuery = '';
+    window.filteredProcessedParts = window.originalProcessedParts || [];
+    window._searchIndex = null;
+    window._searchIndexParts = null;
     if (typeof loadDataAndRender === 'function') loadDataAndRender();
   });
 });
@@ -2530,7 +2536,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const q = globalSearchInput.value.trim().toLowerCase();
       window.hSearchQuery = globalSearchInput.value;
       window.hCurrentPage = 1;
-      const parts = window.originalProcessedParts || [];
+      const dateRange = getDateRangeFilter();
+      let parts = window.originalProcessedParts || [];
+      if (dateRange) {
+        parts = filterByDateRange(parts.map(p => ({ ...p, last_receipt: p.last_receipt || '' })), 'last_receipt', dateRange);
+      }
       let filtered;
       if (!q) {
         filtered = parts;
@@ -2548,6 +2558,8 @@ document.addEventListener('DOMContentLoaded', () => {
         ).map(e => e.p);
       }
       window.filteredProcessedParts = filtered;
+      window._searchIndex = null;
+      window._searchIndexParts = null;
       renderHealthTable();
       const kpiTotal = document.getElementById('invh-kpi-total');
       const kpiValue = document.getElementById('invh-kpi-value');
