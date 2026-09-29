@@ -8,8 +8,36 @@ import { supabase } from './server-config.js';
 import { profileDir, downloadDir, scratch } from './scratch-paths.js';
 dotenv.config();
 
+// The MIS Spares report (and its Site Map entry) is hidden while Tata closes
+// the books: for the last 2 days of the month and for the first 2-3 days of
+// the new one. Detect that window so we raise a clear, specific alert instead
+// of a generic failure.
+function isMonthClosingWindow(date = new Date()) {
+    const day = date.getDate();
+    const daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+    return day >= daysInMonth - 1 || day <= 3; // 30th-31st ... and 1st-3rd
+}
+
+const MONTH_CLOSING_ALERT_MESSAGE =
+    'MIS Spares data option not found due to month closing. The report is hidden for the last 2 days of every month and reappears 2-3 days after the 1st. Inventory data will resume automatically once it is available.';
+
+// Shared with the dashboard, which reads the `inventory_alert` row to show a
+// persistent banner. Passing null clears a stale alert.
+async function persistInventoryAlert(alert) {
+    try {
+        await supabase.from('tata_bot_settings').upsert(
+            { key: 'inventory_alert', value: alert ? JSON.stringify(alert) : '' },
+            { onConflict: 'key' }
+        );
+    } catch (e) {
+        console.log('Failed to persist inventory alert:', e.message);
+    }
+}
+
 async function fetchInventoryData(onProgress = null, targetLocation = 'ALL') {
     let summaryMessages = [];
+    let anyRowsParsed = false;
+    const unavailableLocations = [];
     const notify = (msg) => {
         console.log(msg);
         if (onProgress) onProgress(msg);
@@ -32,6 +60,8 @@ async function fetchInventoryData(onProgress = null, targetLocation = 'ALL') {
 
     for (const location of locations) {
         notify(`Starting automated bot for Inventory Data (Location: ${location.location_name})...`);
+        let reachedInventoryView = false;
+        let optionUnavailable = false;
         const browser = await launchBrowser({
             userDataDir: profileDir,
             args: [
@@ -275,7 +305,7 @@ let botUser = location.username;
         notify('Opening the MIS Spares inventory view directly...');
         await gotoView(MIS_SPARES_VIEW).catch(() => false);
         await new Promise(r => setTimeout(r, 8000));
-        let reachedInventoryView = await inventoryViewLoaded();
+        reachedInventoryView = await inventoryViewLoaded();
         notify(`MIS Spares direct navigation: ${reachedInventoryView ? 'OK' : 'FAILED'}`);
 
         if (!reachedInventoryView) {
@@ -324,6 +354,11 @@ let botUser = location.username;
             await page.screenshot({ path: scratch('debug_after_spares_inventory_tab.png') });
 
             reachedInventoryView = await inventoryViewLoaded();
+        }
+
+        if (!reachedInventoryView) {
+            optionUnavailable = true;
+            notify(`WARNING: Could not open the MIS Spares data option for ${location.location_name}.`);
         }
 
         // 4. Wait for report/applet to load
@@ -628,6 +663,7 @@ let botUser = location.username;
             
             summaryMessages.push(`${location.location_name} INVENTORY DATA UPLOADED ${rowsCount} ROWS`);
             notify(`${location.location_name} INVENTORY DATA UPLOADED ${rowsCount} ROWS`);
+            if (rowsCount > 0) anyRowsParsed = true;
 
         } else {
             throw new Error('Download timed out or failed.');
@@ -636,6 +672,7 @@ let botUser = location.username;
     } catch (error) {
         console.error(`An error occurred during scraping for ${location.location_name}:`, error);
         if (error.message && error.message.includes('No records available')) {
+            optionUnavailable = true;
             notify(`Finished ${location.location_name}: No inventory records found.`);
         } else {
             notify(`ERROR: ${location.location_name} failed due to: ${error.message}`);
@@ -647,7 +684,26 @@ let botUser = location.username;
             await browser.close();
         }
     }
+
+        if (optionUnavailable) unavailableLocations.push(location.location_name);
     } // End of locations loop
+
+    // Month-end closing: the MIS Spares report is hidden for the last 2 days of
+    // the month, so surface a clear, specific alert (and persist it for the
+    // dashboard banner) instead of a silent "no data" outcome.
+    const monthClosing = isMonthClosingWindow();
+    if (monthClosing && unavailableLocations.length) {
+        notify(`ERROR: ${MONTH_CLOSING_ALERT_MESSAGE} (Locations: ${unavailableLocations.join(', ')})`);
+        await persistInventoryAlert({
+            type: 'month_end_closing',
+            message: MONTH_CLOSING_ALERT_MESSAGE,
+            locations: unavailableLocations,
+            at: new Date().toISOString(),
+        });
+    } else if (anyRowsParsed || !monthClosing) {
+        await persistInventoryAlert(null);
+    }
+
     return summaryMessages;
 }
 

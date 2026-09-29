@@ -1467,6 +1467,47 @@ async function checkMissingDataAlerts() {
   const existing = document.getElementById('missing-locations-alert');
   if (existing) existing.remove();
 
+  const renderAlertBanner = (title, message, locations) => {
+    const banner = document.createElement('div');
+    banner.id = 'missing-locations-alert';
+    banner.style.cssText = 'background: rgba(239,68,68,0.1); border: 1px solid #ef4444; border-left: 4px solid #ef4444; padding: 14px 16px; border-radius: 6px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; z-index: 20;';
+    banner.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <i data-lucide="alert-triangle" style="color: #ef4444; width: 22px; height: 22px;"></i>
+        <div>
+          <h4 style="margin: 0; color: #ef4444; font-size: 0.95rem; font-weight: 600;">${title}</h4>
+          <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.85rem;">${message}${locations && locations.length ? ' (Locations: ' + locations.join(', ') + ')' : ''}</p>
+        </div>
+      </div>`;
+
+    const dashboardContent = document.querySelector('#view-dashboard .dashboard-content') || document.getElementById('view-dashboard');
+    if (dashboardContent) {
+      dashboardContent.prepend(banner);
+    } else {
+      document.body.prepend(banner);
+    }
+    try { lucide.createIcons(); } catch (e) {}
+  };
+
+  // Server-reported alert, e.g. the MIS Spares report is hidden during the
+  // last 2 days of the month while Tata closes the books.
+  let inventoryAlert = null;
+  try {
+    const { data } = await supabase.from('tata_bot_settings').select('value').eq('key', 'inventory_alert').maybeSingle();
+    if (data && data.value) inventoryAlert = JSON.parse(data.value);
+  } catch (e) {
+    console.error('Error reading inventory alert:', e);
+  }
+
+  if (inventoryAlert && inventoryAlert.type === 'month_end_closing') {
+    renderAlertBanner(
+      'MIS Spares data option not found due to month closing',
+      inventoryAlert.message || 'The report is hidden for the last 2 days of the month and reappears 2-3 days after the 1st.',
+      inventoryAlert.locations
+    );
+    return;
+  }
+
   let locations = [];
   try {
     const { data, error } = await supabase.from('tata_locations').select('location_name');
@@ -1494,25 +1535,10 @@ async function checkMissingDataAlerts() {
 
   if (!missing.length) return;
 
-  const banner = document.createElement('div');
-  banner.id = 'missing-locations-alert';
-  banner.style.cssText = 'background: rgba(239,68,68,0.1); border: 1px solid #ef4444; border-left: 4px solid #ef4444; padding: 14px 16px; border-radius: 6px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; z-index: 20;';
-  banner.innerHTML = `
-    <div style="display: flex; align-items: center; gap: 12px;">
-      <i data-lucide="alert-triangle" style="color: #ef4444; width: 22px; height: 22px;"></i>
-      <div>
-        <h4 style="margin: 0; color: #ef4444; font-size: 0.95rem; font-weight: 600;">Inventory data not fetched for: ${missing.join(', ')}</h4>
-        <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.85rem;">Unable to fetch data for the above location(s). Check the Tata DMS login credentials and retry the fetch. This alert hides automatically once data is available.</p>
-      </div>
-    </div>`;
-
-  const dashboardContent = document.querySelector('#view-dashboard .dashboard-content') || document.getElementById('view-dashboard');
-  if (dashboardContent) {
-    dashboardContent.prepend(banner);
-  } else {
-    document.body.prepend(banner);
-  }
-  try { lucide.createIcons(); } catch (e) {}
+  renderAlertBanner(
+    `Inventory data not fetched for: ${missing.join(', ')}`,
+    'Unable to fetch data for the above location(s). Check the Tata DMS login credentials and retry the fetch. This alert hides automatically once data is available.'
+  );
 }
 
 async function loadDataAndRender() {
