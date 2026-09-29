@@ -1231,6 +1231,7 @@ async function fetchInventoryData() {
     ]);
 
     if (dateRange) {
+      inventoryData = filterByDateRange(inventoryData, 'last_receipt', dateRange);
       consumptionData = filterByDateRange(consumptionData, 'date', dateRange);
     }
     
