@@ -161,6 +161,7 @@ async function startOrMergeJob(spec) {
     targetLocation: (spec && spec.targetLocation) || 'ALL',
     logs: '',
     progress: { step: 0, total: units.length },
+    queue: { units, createdAt: new Date().toISOString() },
   };
   await writeJob(fresh);
   return fresh;
@@ -321,11 +322,21 @@ async function processQueue(req) {
     unit.result = (Array.isArray(result) ? result : [result]).filter(Boolean).join('<br>');
     await appendLog(`<strong>${label}: completed</strong>${unit.result ? '<br>' + unit.result : ''}`);
   } catch (err) {
-    unit.status = 'failed';
     unit.finishedAt = new Date().toISOString();
     unit.error = err.message;
     console.error(`Unit failed (${label}):`, err);
-    await appendLog(`<strong>ERROR: ${label} failed:</strong> ${err.message}`);
+    if (unit.attempts < MAX_UNIT_ATTEMPTS) {
+      // A transient portal error should not cost the location its data: put it
+      // back on the queue, and retire it only once the attempts run out.
+      unit.status = 'pending';
+      unit.note = 'retrying after error';
+      await appendLog(
+        `<strong>ERROR: ${label} failed (attempt ${unit.attempts} of ${MAX_UNIT_ATTEMPTS}):</strong> ${err.message} - retrying`
+      );
+    } else {
+      unit.status = 'failed';
+      await appendLog(`<strong>ERROR: ${label} failed permanently:</strong> ${err.message}`);
+    }
   }
 
   await settle(job);
