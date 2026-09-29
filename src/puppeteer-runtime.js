@@ -19,4 +19,45 @@ import 'puppeteer-extra-plugin-user-preferences';
 const extra = addExtra(puppeteer);
 extra.use(StealthPlugin());
 
+// Flags Chrome needs in a container regardless of where it runs. Serverless
+// runtimes have no sandbox and a tiny /dev/shm, and the portal uses a cert the
+// container does not trust.
+const baseArgs = [
+  '--no-sandbox',
+  '--disable-setuid-sandbox',
+  '--disable-dev-shm-usage',
+  '--disable-popup-blocking',
+  '--ignore-certificate-errors',
+];
+
+// Launches the stealth-wrapped browser. On Vercel there is no system Chrome and
+// npm skips `puppeteer`'s postinstall browser download (install scripts are not
+// allowed), so a plain launch() looks for a Chrome that was never fetched.
+// @sparticuz/chromium ships a headless build matched to this puppeteer version
+// and unpacks it into the writable /tmp at runtime.
+export async function launchBrowser(overrides = {}) {
+  const { args: extraArgs = [], ...rest } = overrides;
+  const options = {
+    headless: process.env.SCRAPER_HEADLESS === 'false' ? false : 'new',
+    protocolTimeout: Number(process.env.SCRAPER_PROTOCOL_TIMEOUT || 180000),
+    defaultViewport: null,
+    ...rest,
+    args: [...baseArgs, ...extraArgs],
+  };
+
+  if (process.env.VERCEL) {
+    const { default: chromium } = await import('@sparticuz/chromium');
+    options.executablePath = await chromium.executablePath();
+    // @sparticuz/chromium ships chrome-headless-shell, so puppeteer must run in
+    // its 'shell' headless mode. The package bakes the matching --headless flag
+    // into chromium.args and exposes no `headless` property of its own.
+    options.headless = process.env.SCRAPER_HEADLESS === 'false' ? false : 'shell';
+    options.args = [...chromium.args, ...baseArgs, ...extraArgs];
+  } else if (process.env.SCRAPER_CHANNEL) {
+    options.channel = process.env.SCRAPER_CHANNEL;
+  }
+
+  return extra.launch(options);
+}
+
 export default extra;

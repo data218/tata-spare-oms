@@ -1,4 +1,4 @@
-import puppeteer from './puppeteer-runtime.js';
+import { launchBrowser } from './puppeteer-runtime.js';
 import * as dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
@@ -32,21 +32,11 @@ async function fetchInventoryData(onProgress = null, targetLocation = 'ALL') {
 
     for (const location of locations) {
         notify(`Starting automated bot for Inventory Data (Location: ${location.location_name})...`);
-        const browser = await puppeteer.launch({
-            headless: process.env.SCRAPER_HEADLESS === 'false' ? false : 'new',
-            // Vercel has no system Chrome; leaving this unset uses the bundled Chromium.
-            ...(process.env.SCRAPER_CHANNEL ? { channel: process.env.SCRAPER_CHANNEL } : {}),
-            protocolTimeout: Number(process.env.SCRAPER_PROTOCOL_TIMEOUT || 180000),
+        const browser = await launchBrowser({
             userDataDir: profileDir,
             args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-popup-blocking',
-                '--window-size=1920,1080',
-                '--ignore-certificate-errors'
-            ],
-            defaultViewport: null
+                '--window-size=1920,1080'
+            ]
         });
         const page = await browser.newPage();
     
