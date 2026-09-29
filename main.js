@@ -2332,7 +2332,7 @@ document.addEventListener('DOMContentLoaded', () => {
        stats.resVal += (p.reserved || 0) * (p.ndpPrice || 0);
        if (p.currentStock === 0) stats.oos++;
        else if (p.currentStock < p.min) stats.low++;
-       if (['LUBRICANT', 'LUBRICANTS', 'LUBE', 'LUBES', 'OIL'].includes(p.productCategory)) {
+        if (['LUBRICANT', 'LUBRICANTS', 'LUBE', 'LUBES', 'OIL'].includes((p.productCategory || '').toUpperCase())) {
           stats.lubeQty += p.currentStock || 0;
           stats.lubeVal += p.stockValue || 0;
        }
