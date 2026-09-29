@@ -1192,6 +1192,28 @@ async function fetchTableData(tableName, locationFilter = null, columns = '*') {
   return tableData;
 }
 
+function getDateRangeFilter() {
+  const fromEl = document.getElementById('filter-from-date');
+  const toEl = document.getElementById('filter-to-date');
+  const from = fromEl && fromEl.value ? fromEl.value : null;
+  const to = toEl && toEl.value ? toEl.value : null;
+  if (!from && !to) return null;
+  return { from, to };
+}
+
+function filterByDateRange(data, dateField, range) {
+  if (!range) return data;
+  return data.filter(row => {
+    const val = row[dateField];
+    if (!val) return true;
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return true;
+    if (range.from && d < new Date(range.from)) return false;
+    if (range.to && d > new Date(range.to + 'T23:59:59')) return false;
+    return true;
+  });
+}
+
 async function fetchInventoryData() {
   try {
     const sessionStr = sessionStorage.getItem('currentUser') || '{}';
@@ -1199,13 +1221,19 @@ async function fetchInventoryData() {
     const userLocation = currentUser.location || 'ALL';
     const isAdmin = currentUser.role === 'Super Admin' || currentUser.role === 'Admin' || userLocation === 'ALL';
     const filter = isAdmin ? null : userLocation;
+    const dateRange = getDateRangeFilter();
 
-    const [inventoryData, consumptionData, priceListData, movementLogsData] = await Promise.all([
+    let [inventoryData, consumptionData, priceListData, movementLogsData] = await Promise.all([
       fetchTableData('tata_spare_inventory', filter, 'part_no, division, qty, availability, product_category, description, last_receipt, fetched_at'),
       fetchTableData('tata_consumption_data', filter, '*'),
       fetchTableData('tata_price_list', null, 'part_number, ndp, description, category'),
       supabase.from('tata_movement_logs').select('*')
     ]);
+
+    if (dateRange) {
+      inventoryData = filterByDateRange(inventoryData, 'fetched_at', dateRange);
+      consumptionData = filterByDateRange(consumptionData, 'date', dateRange);
+    }
     
     let movementLogs = movementLogsData.data || [];
     if (filter) {
@@ -1573,6 +1601,31 @@ async function loadDataAndRender() {
   await populateLocationSelect();
   markFilterHeaders();
   if (typeof window.renderRecentActivity === 'function' && typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+}
+
+// --- Date Range Filter Event Listeners ---
+const filterFromDate = document.getElementById('filter-from-date');
+const filterToDate = document.getElementById('filter-to-date');
+const mgmtFilterClear = document.getElementById('mgmt-filter-clear');
+
+if (filterFromDate) {
+  filterFromDate.addEventListener('change', () => {
+    if (typeof loadDataAndRender === 'function') loadDataAndRender();
+  });
+}
+if (filterToDate) {
+  filterToDate.addEventListener('change', () => {
+    if (typeof loadDataAndRender === 'function') loadDataAndRender();
+  });
+}
+if (mgmtFilterClear) {
+  mgmtFilterClear.addEventListener('click', () => {
+    if (filterFromDate) filterFromDate.value = '';
+    if (filterToDate) filterToDate.value = '';
+    const catFilter = document.getElementById('mgmt-filter-category');
+    if (catFilter) catFilter.value = 'ALL';
+    if (typeof loadDataAndRender === 'function') loadDataAndRender();
+  });
 }
 
 function renderDashboard() {
