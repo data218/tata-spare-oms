@@ -318,6 +318,18 @@
         <div id="view-inventory" class="view-section">
           <div class="dashboard-content">
             <h2 class="welcome-text">Inventory Health</h2>
+            <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; background: white; padding: 10px 14px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
+              <span style="font-weight: 600; font-size: 0.8rem; color: #64748b; text-transform: uppercase;">Date Filter</span>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <label style="font-size: 0.8rem; color: #64748b; font-weight: 600;">From</label>
+                <input type="date" class="filter-from-date" style="padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.85rem;" />
+              </div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <label style="font-size: 0.8rem; color: #64748b; font-weight: 600;">To</label>
+                <input type="date" class="filter-to-date" style="padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.85rem;" />
+              </div>
+              <button class="filter-clear-btn" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 0.85rem; font-weight: 600;">Clear</button>
+            </div>
 
             <div class="overview-section" style="margin-bottom: 20px;">
               <div class="widget-grid" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));">
@@ -509,6 +521,18 @@
         <!-- REORDER MANAGEMENT VIEW -->
         <div id="view-orders" class="view-section" style="display: none;">
           <div class="dashboard-content">
+            <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; background: white; padding: 10px 14px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
+              <span style="font-weight: 600; font-size: 0.8rem; color: #64748b; text-transform: uppercase;">Date Filter</span>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <label style="font-size: 0.8rem; color: #64748b; font-weight: 600;">From</label>
+                <input type="date" class="filter-from-date" style="padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.85rem;" />
+              </div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <label style="font-size: 0.8rem; color: #64748b; font-weight: 600;">To</label>
+                <input type="date" class="filter-to-date" style="padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.85rem;" />
+              </div>
+              <button class="filter-clear-btn" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 0.85rem; font-weight: 600;">Clear</button>
+            </div>
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px;">
               <div>
                 <h2 class="welcome-text">Reorder Control Tower</h2>
@@ -651,6 +675,18 @@
 <div id="view-ppni" class="view-section" style="display: none; padding: 0 20px 20px 20px; overflow-y: auto; overflow-x: auto;">
           <div class="dashboard-content" style="max-width: 1400px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; min-height: min-content; padding-top: 20px; min-width: 1200px; overflow: visible;">
             <h2 class="welcome-text">Parts Purchased Not Installed (PPNI)</h2>
+            <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; background: white; padding: 10px 14px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
+              <span style="font-weight: 600; font-size: 0.8rem; color: #64748b; text-transform: uppercase;">Date Filter</span>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <label style="font-size: 0.8rem; color: #64748b; font-weight: 600;">From</label>
+                <input type="date" class="filter-from-date" style="padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.85rem;" />
+              </div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <label style="font-size: 0.8rem; color: #64748b; font-weight: 600;">To</label>
+                <input type="date" class="filter-to-date" style="padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.85rem;" />
+              </div>
+              <button class="filter-clear-btn" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 0.85rem; font-weight: 600;">Clear</button>
+            </div>
             <p style="color: var(--text-secondary); margin-bottom: 20px;">Analysis of parts currently in stock (Not Installed).</p>
             
             <div class="kpi-grid" style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
@@ -746,10 +782,21 @@
         <!-- CLAIMS VIEW -->
         <div id="view-claims" class="view-section" style="display: none; padding: 0 20px 20px 20px; overflow-y: auto; overflow-x: auto;">
           <div class="dashboard-content" style="max-width: 1400px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; min-height: min-content; padding-top: 20px; min-width: 1200px; overflow: visible;">
-            
+            <h2 class="welcome-text" style="margin: 0;">Part Claim Analytics</h2>
+            <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; background: white; padding: 10px 14px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
+              <span style="font-weight: 600; font-size: 0.8rem; color: #64748b; text-transform: uppercase;">Date Filter</span>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <label style="font-size: 0.8rem; color: #64748b; font-weight: 600;">From</label>
+                <input type="date" class="filter-from-date" style="padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.85rem;" />
+              </div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <label style="font-size: 0.8rem; color: #64748b; font-weight: 600;">To</label>
+                <input type="date" class="filter-to-date" style="padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.85rem;" />
+              </div>
+              <button class="filter-clear-btn" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 0.85rem; font-weight: 600;">Clear</button>
+            </div>
             <!-- HEADER -->
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-              <h2 class="welcome-text" style="margin: 0;">Part Claim Analytics</h2>
               <button id="btn-new-claim" class="primary-btn" style="font-size: 1rem; padding: 10px 20px; display: flex; align-items: center; gap: 8px;">
                 <i data-lucide="plus-circle"></i> New Claim Form
               </button>
@@ -1001,6 +1048,18 @@
         <div id="view-consumption" class="view-section" style="display: none;">
           <div class="dashboard-content">
             <h2 class="welcome-text">Parts Consumption Analytics</h2>
+            <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; background: white; padding: 10px 14px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
+              <span style="font-weight: 600; font-size: 0.8rem; color: #64748b; text-transform: uppercase;">Date Filter</span>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <label style="font-size: 0.8rem; color: #64748b; font-weight: 600;">From</label>
+                <input type="date" class="filter-from-date" style="padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.85rem;" />
+              </div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <label style="font-size: 0.8rem; color: #64748b; font-weight: 600;">To</label>
+                <input type="date" class="filter-to-date" style="padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.85rem;" />
+              </div>
+              <button class="filter-clear-btn" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 0.85rem; font-weight: 600;">Clear</button>
+            </div>
             
             <div class="overview-section" style="margin-bottom: 24px;">
               <div class="widget-grid" style="grid-template-columns: repeat(6, 1fr); gap: 12px;">
@@ -1152,6 +1211,18 @@
         <!-- MOVEMENT VIEW -->
         <div id="view-movement" class="view-section" style="display: none;">
           <div class="dashboard-content">
+            <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; background: white; padding: 10px 14px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
+              <span style="font-weight: 600; font-size: 0.8rem; color: #64748b; text-transform: uppercase;">Date Filter</span>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <label style="font-size: 0.8rem; color: #64748b; font-weight: 600;">From</label>
+                <input type="date" class="filter-from-date" style="padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.85rem;" />
+              </div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <label style="font-size: 0.8rem; color: #64748b; font-weight: 600;">To</label>
+                <input type="date" class="filter-to-date" style="padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.85rem;" />
+              </div>
+              <button class="filter-clear-btn" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 0.85rem; font-weight: 600;">Clear</button>
+            </div>
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px;">
               <div>
                 <h2 class="welcome-text">Inventory IN / OUT</h2>

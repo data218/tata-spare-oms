@@ -1603,30 +1603,24 @@ async function loadDataAndRender() {
   if (typeof window.renderRecentActivity === 'function' && typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
 }
 
-// --- Date Range Filter Event Listeners ---
-const filterFromDate = document.getElementById('filter-from-date');
-const filterToDate = document.getElementById('filter-to-date');
-const mgmtFilterClear = document.getElementById('mgmt-filter-clear');
-
-if (filterFromDate) {
-  filterFromDate.addEventListener('change', () => {
+// --- Date Range Filter Event Listeners (all pages) ---
+document.querySelectorAll('.filter-from-date').forEach(el => {
+  el.addEventListener('change', () => {
     if (typeof loadDataAndRender === 'function') loadDataAndRender();
   });
-}
-if (filterToDate) {
-  filterToDate.addEventListener('change', () => {
+});
+document.querySelectorAll('.filter-to-date').forEach(el => {
+  el.addEventListener('change', () => {
     if (typeof loadDataAndRender === 'function') loadDataAndRender();
   });
-}
-if (mgmtFilterClear) {
-  mgmtFilterClear.addEventListener('click', () => {
-    if (filterFromDate) filterFromDate.value = '';
-    if (filterToDate) filterToDate.value = '';
-    const catFilter = document.getElementById('mgmt-filter-category');
-    if (catFilter) catFilter.value = 'ALL';
+});
+document.querySelectorAll('.filter-clear-btn').forEach(el => {
+  el.addEventListener('click', () => {
+    document.querySelectorAll('.filter-from-date').forEach(f => f.value = '');
+    document.querySelectorAll('.filter-to-date').forEach(t => t.value = '');
     if (typeof loadDataAndRender === 'function') loadDataAndRender();
   });
-}
+});
 
 function renderDashboard() {
   const overlay = document.getElementById('loading-overlay');
