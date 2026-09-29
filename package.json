@@ -17,6 +17,7 @@
   "dependencies": {
     "@sparticuz/chromium": "153.0.0",
     "@supabase/supabase-js": "^2.116.0",
+    "@vercel/functions": "^3.9.9",
     "chart.js": "^4.5.1",
     "cors": "^2.8.6",
     "csv-parser": "^3.2.1",

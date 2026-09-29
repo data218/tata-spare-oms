@@ -1009,25 +1009,18 @@ if (fetchForm) {
     }
     
     try {
-      const job = {
-          status: 'pending',
-          type,
-          fromDate,
-          toDate,
-          targetLocation,
-          logs: '<div>Starting background scraper... please wait and do not close this page.</div>'
-      };
-      
-      await supabase.from('tata_bot_settings').upsert({ key: 'fetch_job', value: JSON.stringify(job) }, { onConflict: 'key' });
-
-      // Kick the serverless function so the job is actually claimed and run.
-      // Not awaited: it runs for minutes, and we read progress via the poll below.
-      fetch('/api/sync', { method: 'POST' }).catch((e) => {
-          console.error('Could not start scraper:', e);
-          statusDiv.style.color = '#ef4444';
-          statusDiv.textContent = 'Could not start the scraper: ' + e.message;
+      // The server owns the queue so that a manual fetch merges into a run that
+      // is already in flight instead of discarding the locations it had queued.
+      const response = await fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, fromDate, toDate, targetLocation })
       });
+      if (!response.ok) {
+        throw new Error('Could not start the scraper: HTTP ' + response.status);
+      }
 
+      // Progress is read from the job row below while it runs in the background.
       let pollInterval = setInterval(async () => {
           try {
               const { data } = await supabase.from('tata_bot_settings').select('value').eq('key', 'fetch_job');
@@ -2034,7 +2027,9 @@ document.addEventListener('DOMContentLoaded', () => {
       
       try {
         const response = await fetch('/api/sync', {
-          method: 'POST'
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'all', targetLocation: 'ALL' })
         });
         const result = await response.json();
         
@@ -2044,14 +2039,14 @@ document.addEventListener('DOMContentLoaded', () => {
         syncBtn.style.opacity = '1';
         
         if(result.success) {
-          btnText.textContent = 'Synced!';
-          await supabase.from('tata_bot_settings').upsert({ key: 'last_sync', value: new Date().toLocaleString() }, { onConflict: 'key' });
-          loadLastSync();
+          // The run is queued unit by unit, so it finishes long after this
+          // response. "last sync" is stamped by the run itself, not here.
+          btnText.textContent = 'Sync started';
           setTimeout(() => {
-            console.log('Sync successful, refreshing dashboard data from Supabase...');
+            console.log('Sync started, refreshing dashboard data from Supabase...');
             loadDataAndRender();
             btnText.textContent = originalText;
-          }, 1000);
+          }, 2000);
         } else {
           btnText.textContent = 'Sync Failed';
           console.error(result.message);
