@@ -318,13 +318,7 @@
         <div id="view-inventory" class="view-section">
           <div class="dashboard-content">
             <h2 class="welcome-text">Inventory Health</h2>
-            <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; background: white; padding: 10px 14px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
-              <span style="font-weight: 600; font-size: 0.8rem; color: #64748b; text-transform: uppercase;">Search</span>
-              <div style="display: flex; align-items: center; gap: 6px;">
-                <input type="text" id="global-search-input" placeholder="Search Part No / Description..." style="padding: 6px 12px; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.85rem; width: 200px;" />
-                <button id="global-search-btn" style="padding: 6px 14px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; font-weight: 600;">Search</button>
-              </div>
-            </div>
+
 
             <div class="overview-section" style="margin-bottom: 20px;">
               <div class="widget-grid" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));">
@@ -481,7 +475,11 @@
                     <button class="health-filter-btn" data-filter="low" style="padding: 6px 14px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: 600; background: transparent; color: var(--text-secondary); font-family: inherit;">Low Stock</button>
                     <button class="health-filter-btn" data-filter="healthy" style="padding: 6px 14px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: 600; background: transparent; color: var(--text-secondary); font-family: inherit;">Healthy</button>
                   </div>
-
+                  <div style="display: flex; gap: 8px; align-items: center;">
+                    <input type="text" id="global-search-input" placeholder="Search Part No / Description..." style="padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; width: 240px; font-family: inherit;" />
+                    <button id="global-search-btn" style="padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600;">Search</button>
+                    <button id="global-search-cancel" style="padding: 8px 16px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600;">Cancel</button>
+                  </div>
                 </div>
               </div>
               <table class="control-tower-table">

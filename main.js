@@ -2603,6 +2603,55 @@ document.addEventListener('DOMContentLoaded', () => {
     globalSearchInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') doGlobalSearch();
     });
+    const globalSearchCancel = document.getElementById('global-search-cancel');
+    if (globalSearchCancel) {
+      globalSearchCancel.addEventListener('click', () => {
+        globalSearchInput.value = '';
+        window.hSearchQuery = '';
+        window.filteredProcessedParts = window.originalProcessedParts || [];
+        window._searchIndex = null;
+        window._searchIndexParts = null;
+        window.hCurrentPage = 1;
+        renderHealthTable();
+        const parts = window.originalProcessedParts || [];
+        const kpiTotal = document.getElementById('invh-kpi-total');
+        const kpiValue = document.getElementById('invh-kpi-value');
+        const kpiOnhand = document.getElementById('invh-kpi-onhand');
+        const kpiOnhandVal = document.getElementById('invh-kpi-onhand-val');
+        const kpiTransit = document.getElementById('invh-kpi-transit');
+        const kpiTransitVal = document.getElementById('invh-kpi-transit-val');
+        const kpiReserved = document.getElementById('invh-kpi-reserved');
+        const kpiReservedVal = document.getElementById('invh-kpi-reserved-val');
+        const kpiOos = document.getElementById('invh-kpi-oos');
+        const kpiLow = document.getElementById('invh-kpi-low');
+        const kpiLube = document.getElementById('invh-kpi-lube');
+        const kpiLubeVal = document.getElementById('invh-kpi-lube-val');
+        let onhandQty = 0, onhandVal = 0, transitQty = 0, transitVal = 0, resQty = 0, resVal = 0, oos = 0, low = 0, lubeQty = 0, lubeVal = 0;
+        parts.forEach(p => {
+          if (p.currentStock > 0) { onhandQty += p.currentStock; onhandVal += p.stockValue || 0; }
+          if (p.inTransit > 0) { transitQty += p.inTransit; transitVal += (p.inTransit * (p.ndpPrice || 0)); }
+          if (p.reserved > 0) { resQty += p.reserved; resVal += (p.reserved * (p.ndpPrice || 0)); }
+          if (p.currentStock === 0) oos++;
+          else if (p.currentStock < (p.min || 5)) low++;
+          if (['LUBRICANT', 'LUBRICANTS', 'LUBE', 'LUBES', 'OIL'].includes((p.productCategory || '').toUpperCase())) {
+            lubeQty += p.currentStock || 0;
+            lubeVal += p.stockValue || 0;
+          }
+        });
+        if (kpiTotal) kpiTotal.textContent = parts.length.toLocaleString('en-IN');
+        if (kpiValue) kpiValue.textContent = '₹' + onhandVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+        if (kpiOnhand) kpiOnhand.textContent = onhandQty.toLocaleString('en-IN');
+        if (kpiOnhandVal) kpiOnhandVal.textContent = '₹' + onhandVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+        if (kpiTransit) kpiTransit.textContent = transitQty.toLocaleString('en-IN');
+        if (kpiTransitVal) kpiTransitVal.textContent = '₹' + transitVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+        if (kpiReserved) kpiReserved.textContent = resQty.toLocaleString('en-IN');
+        if (kpiReservedVal) kpiReservedVal.textContent = '₹' + resVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+        if (kpiOos) kpiOos.textContent = oos.toLocaleString('en-IN');
+        if (kpiLow) kpiLow.textContent = low.toLocaleString('en-IN');
+        if (kpiLube) kpiLube.textContent = (lubeQty / 1000).toLocaleString('en-IN', { maximumFractionDigits: 2 }) + ' L';
+        if (kpiLubeVal) kpiLubeVal.textContent = '₹' + lubeVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+      });
+    }
   }
 
   const cardBtns = document.querySelectorAll('#view-inventory .widget-card.clickable');
