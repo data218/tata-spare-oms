@@ -39,6 +39,9 @@ async function fetchInventoryData(onProgress = null, targetLocation = 'ALL') {
             ]
         });
         const page = await browser.newPage();
+        // Present as a normal desktop Chrome; the portal can serve a degraded
+        // page to a "HeadlessChrome" user agent.
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36');
     
     // Auto-dismiss dialogs so page.screenshot and evaluation don't hang
     page.on('dialog', async dialog => {
@@ -236,7 +239,10 @@ let botUser = location.username;
             return false;
         });
         if (!siteMapClicked) {
-            await robustClickText(['Site Map', 'SiteMap']);
+            const r = await robustClickText(['Site Map', 'SiteMap']);
+            notify(`Site Map click: ${r ? 'OK' : 'FAILED'}`);
+        } else {
+            notify('Site Map click: OK (icon)');
         }
         
         console.log('Waiting for Site Map (Screens) to load...');
@@ -251,17 +257,20 @@ let botUser = location.username;
         
         // 2.5 Click on MIS - Spares AGAIN (in the Site Map - Link)
         console.log('Clicking MIS - Spares in Site Map (Link)...');
-        await robustClickText(['MIS - Spares', 'MIS Spares'], false, 1); // 1 = Second visible match
+        const misLink = await robustClickText(['MIS - Spares', 'MIS Spares'], false, 1); // 1 = Second visible match
+        notify(`Site Map 'MIS - Spares' link click: ${misLink ? 'OK' : 'FAILED'}`);
         await new Promise(r => setTimeout(r, 10000));
 
         // 3.5 Click on Spares Inventory (sub-tab)
         console.log('Clicking Spares Inventory tab...');
-        await robustClickText(['Spares Inventory']);
+        const invTab = await robustClickText(['Spares Inventory']);
+        notify(`'Spares Inventory' tab click: ${invTab ? 'OK' : 'FAILED'}`);
         await new Promise(r => setTimeout(r, 5000));
         await page.screenshot({ path: scratch('debug_after_spares_inventory_tab.png') });
 
         // 4. Wait for report/applet to load
         notify('Waiting for Inventory applet to load...');
+        notify(`Page URL after navigation: ${page.url()}`);
         await new Promise(r => setTimeout(r, 5000));
 
         // 5. DOWN ARROW

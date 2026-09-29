@@ -52,7 +52,10 @@ export async function launchBrowser(overrides = {}) {
     // its 'shell' headless mode. The package bakes the matching --headless flag
     // into chromium.args and exposes no `headless` property of its own.
     options.headless = process.env.SCRAPER_HEADLESS === 'false' ? false : 'shell';
-    options.args = [...chromium.args, ...baseArgs, ...extraArgs];
+    // `--single-process` is in @sparticuz's default set, but it breaks the
+    // multi-frame/AJAX behaviour the Siebel portal relies on, so the report
+    // navigation silently does nothing. Drop it and keep the rest.
+    options.args = [...chromium.args.filter(a => a !== '--single-process'), ...baseArgs, ...extraArgs];
   } else if (process.env.SCRAPER_CHANNEL) {
     options.channel = process.env.SCRAPER_CHANNEL;
   }
