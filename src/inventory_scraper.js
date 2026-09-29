@@ -239,48 +239,92 @@ let botUser = location.username;
             return false;
         }
 
-        // 0. (Removed OBIEE dashboard click)
-        await new Promise(r => setTimeout(r, 2000));
+        // 0. Navigate to the MIS Spares inventory export. This is the same report
+        // the old Site Map flow reached ("MIS - Spares" > "Spares Inventory"). The
+        // menu entry is hidden for a few days around month-end close, but the view
+        // itself is still served, and the Site Map markup exposes its direct
+        // GotoView URL - so open it by view name and keep the click-through below
+        // only as a fallback.
+        const MIS_SPARES_VIEW = 'TM Spares Parts Inventory Export View - MIS Spares New';
 
-        // 1. Try clicking Site Map
-        console.log('Clicking Site Map icon...');
-        // Siebel Site Map icon usually has title="Site Map"
-        const siteMapClicked = await page.evaluate(() => {
-            const el = document.querySelector('[title="Site Map"], [title="Sitemap"], img[alt="Site Map"]');
-            if (el) { el.click(); return true; }
+        const gotoView = (viewName) => page.evaluate((v) => {
+            const url = `/siebel/app/workshop/enu?SWENeedContext=false&SWECmd=GotoView&SWEC=19&SWEBID=-1&SRN=&SWETS=&SWEKeepContext=0&SWEView=${v}&SWEScrnCap=Part Browser`;
+            try {
+                window.SiebelApp.S_App.GotoView('', '', url, '_sweclient._swecontent._sweview');
+                return true;
+            } catch (e) {
+                const a = Array.from(document.querySelectorAll('a'))
+                    .find(x => (x.getAttribute('onclick') || '').includes(v));
+                if (a) { a.click(); return true; }
+                return false;
+            }
+        }, encodeURIComponent(viewName).replace(/%20/g, '+'));
+
+        const inventoryViewLoaded = async () => {
+            for (const frame of page.frames()) {
+                try {
+                    const ok = await frame.evaluate(() =>
+                        /Part #/.test(document.body.innerText) && /Spare Part Browser/.test(document.body.innerText));
+                    if (ok) return true;
+                } catch (e) {}
+            }
             return false;
-        });
-        if (!siteMapClicked) {
-            const r = await robustClickText(['Site Map', 'SiteMap']);
-            notify(`Site Map click: ${r ? 'OK' : 'FAILED'}`);
-        } else {
-            notify('Site Map click: OK (icon)');
-        }
-        
-        console.log('Waiting for Site Map (Screens) to load...');
-        await page.waitForSelector('::-p-text(Screens)', { visible: true, timeout: 30000 }).catch(e => console.log('Screens text not found, continuing...'));
+        };
+
         await new Promise(r => setTimeout(r, 2000));
-        await page.screenshot({ path: scratch('debug_site_map.png') });
+        notify('Opening the MIS Spares inventory view directly...');
+        await gotoView(MIS_SPARES_VIEW).catch(() => false);
+        await new Promise(r => setTimeout(r, 8000));
+        let reachedInventoryView = await inventoryViewLoaded();
+        notify(`MIS Spares direct navigation: ${reachedInventoryView ? 'OK' : 'FAILED'}`);
 
-        // 2. Click on MIS - Spares (in the Site Map - Category)
-        console.log('Clicking MIS - Spares in Site Map (Category)...');
-        const misCat = await retryClick(['MIS - Spares', 'MIS Spares'], false, 0, 12);
-        notify(`Site Map 'MIS - Spares' category click: ${misCat ? 'OK' : 'FAILED'}`);
-        await new Promise(r => setTimeout(r, 5000));
-        
-        // 2.5 Click on MIS - Spares AGAIN (in the Site Map - Link)
-        console.log('Clicking MIS - Spares in Site Map (Link)...');
-        let misLink = await retryClick(['MIS - Spares', 'MIS Spares'], false, 1, 6); // 1 = Second visible match
-        if (!misLink) misLink = await retryClick(['MIS - Spares', 'MIS Spares'], false, 0, 6);
-        notify(`Site Map 'MIS - Spares' link click: ${misLink ? 'OK' : 'FAILED'}`);
-        await new Promise(r => setTimeout(r, 10000));
+        if (!reachedInventoryView) {
+            // Fallback: the original Site Map click-through (works when the
+            // month-end close menu entries are visible again).
+            console.log('Falling back to the Site Map click-through...');
 
-        // 3.5 Click on Spares Inventory (sub-tab)
-        console.log('Clicking Spares Inventory tab...');
-        const invTab = await retryClick(['Spares Inventory'], false, 0, 12);
-        notify(`'Spares Inventory' tab click: ${invTab ? 'OK' : 'FAILED'}`);
-        await new Promise(r => setTimeout(r, 5000));
-        await page.screenshot({ path: scratch('debug_after_spares_inventory_tab.png') });
+            // 1. Try clicking Site Map
+            console.log('Clicking Site Map icon...');
+            // Siebel Site Map icon usually has title="Site Map"
+            const siteMapClicked = await page.evaluate(() => {
+                const el = document.querySelector('[title="Site Map"], [title="Sitemap"], img[alt="Site Map"]');
+                if (el) { el.click(); return true; }
+                return false;
+            });
+            if (!siteMapClicked) {
+                const r = await robustClickText(['Site Map', 'SiteMap']);
+                notify(`Site Map click: ${r ? 'OK' : 'FAILED'}`);
+            } else {
+                notify('Site Map click: OK (icon)');
+            }
+
+            console.log('Waiting for Site Map (Screens) to load...');
+            await page.waitForSelector('::-p-text(Screens)', { visible: true, timeout: 30000 }).catch(e => console.log('Screens text not found, continuing...'));
+            await new Promise(r => setTimeout(r, 2000));
+            await page.screenshot({ path: scratch('debug_site_map.png') });
+
+            // 2. Click on MIS - Spares (in the Site Map - Category)
+            console.log('Clicking MIS - Spares in Site Map (Category)...');
+            const misCat = await retryClick(['MIS - Spares', 'MIS Spares'], false, 0, 12);
+            notify(`Site Map 'MIS - Spares' category click: ${misCat ? 'OK' : 'FAILED'}`);
+            await new Promise(r => setTimeout(r, 5000));
+
+            // 2.5 Click on MIS - Spares AGAIN (in the Site Map - Link)
+            console.log('Clicking MIS - Spares in Site Map (Link)...');
+            let misLink = await retryClick(['MIS - Spares', 'MIS Spares'], false, 1, 6); // 1 = Second visible match
+            if (!misLink) misLink = await retryClick(['MIS - Spares', 'MIS Spares'], false, 0, 6);
+            notify(`Site Map 'MIS - Spares' link click: ${misLink ? 'OK' : 'FAILED'}`);
+            await new Promise(r => setTimeout(r, 10000));
+
+            // 3.5 Click on Spares Inventory (sub-tab)
+            console.log('Clicking Spares Inventory tab...');
+            const invTab = await retryClick(['Spares Inventory'], false, 0, 12);
+            notify(`'Spares Inventory' tab click: ${invTab ? 'OK' : 'FAILED'}`);
+            await new Promise(r => setTimeout(r, 5000));
+            await page.screenshot({ path: scratch('debug_after_spares_inventory_tab.png') });
+
+            reachedInventoryView = await inventoryViewLoaded();
+        }
 
         // 4. Wait for report/applet to load
         notify('Waiting for Inventory applet to load...');
