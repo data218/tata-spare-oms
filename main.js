@@ -2334,14 +2334,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const tbody = document.getElementById('health-table-body');
     if (!tbody) return;
     
-    // Prefer column-filtered rows, else global location-filtered data
-    let displayParts = window.tableFilterData['health-table-body'] || [...filteredProcessedParts];
+    let displayParts;
     if (window.hSearchQuery) {
       const q = window.hSearchQuery.toLowerCase();
-      displayParts = displayParts.filter(p => 
-        (p.partId && p.partId.toLowerCase().includes(q)) || 
+      const source = window.filteredProcessedParts || [...filteredProcessedParts];
+      displayParts = source.filter(p =>
+        (p.partId && p.partId.toLowerCase().includes(q)) ||
         (p.model && p.model.toLowerCase().includes(q))
       );
+    } else {
+      displayParts = window.tableFilterData['health-table-body'] || [...filteredProcessedParts];
     }
     
     // 2. Health Filter
