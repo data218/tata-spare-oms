@@ -1129,6 +1129,9 @@ const itemsPerPage = 50;
 async function fetchTableData(tableName, locationFilter = null, columns = '*') {
   // 1. Get exact row count first (fast, head-only)
   let countQuery = supabase.from(tableName).select('id', { count: 'exact', head: true });
+  if (locationFilter) {
+    countQuery = countQuery.eq('division', locationFilter);
+  }
   
   const { count, error: countErr } = await countQuery;
   if (countErr) {
@@ -1139,6 +1142,9 @@ async function fetchTableData(tableName, locationFilter = null, columns = '*') {
 
   // 2. Fetch first chunk (asking for 100,000 rows) to detect Supabase's max-rows limit
   let firstQuery = supabase.from(tableName).select(columns).range(0, 99999);
+  if (locationFilter) {
+    firstQuery = firstQuery.eq('division', locationFilter);
+  }
   const { data: firstData, error: firstErr } = await firstQuery;
   
   if (firstErr) {
@@ -1162,6 +1168,9 @@ async function fetchTableData(tableName, locationFilter = null, columns = '*') {
   const queries = [];
   for (let page = 1; page <= remainingPages; page++) {
     let query = supabase.from(tableName).select(columns).range(page * pageSize, (page + 1) * pageSize - 1);
+    if (locationFilter) {
+      query = query.eq('division', locationFilter);
+    }
     queries.push(query);
   }
   
@@ -1230,22 +1239,22 @@ function processRawData({ inventory, consumption, priceList = [], movementLogs =
     });
   });
 
-  // Helper to map raw dealer names to our standard locations
-  const mapLocation = (dealerName) => {
-    if (!dealerName) return 'Narwal';
-    const d = dealerName.toLowerCase().replace(/\s+/g, '');
-    if (d.includes('channirama') || d.includes('chhanirama')) return 'Channi Rama';
-    if (d.includes('smamsamba') || d.includes('supwal')) return 'Supwal';
-    if (d.includes('smamkathua') || d.includes('kathua')) return 'Kathua';
-    if (d.includes('jammu') || d.includes('narwal') || d.includes('narval')) return 'Narwal';
-    return 'Narwal'; // Default
+  // Helper to map raw division strings to standard location names
+  const mapLocation = (divisionStr) => {
+    if (!divisionStr) return 'NARWAL';
+    const d = divisionStr.toLowerCase().replace(/\s+/g, '');
+    if (d.includes('channirama') || d.includes('chhanirama')) return 'CHANNIRAMA';
+    if (d.includes('supwal') || d.includes('smamsamba')) return 'SUPWAL';
+    if (d.includes('kathua') || d.includes('smamkathua')) return 'KATHUA';
+    if (d.includes('jammu') || d.includes('narwal') || d.includes('narval')) return 'NARWAL';
+    return 'NARWAL'; // Default
   };
 
   // Pre-process consumption data grouped by Part + Location
   const consumptionByPartLoc = new Map();
   consumption.forEach(row => {
     const pn = String(row.part_no || row.part_number || '').trim().toUpperCase(); 
-    const loc = mapLocation(row.dealer);
+    const loc = mapLocation(row.division);
     const key = pn + '_' + loc;
     
     const qty = parseInt(row.sold_qty) || 0;
