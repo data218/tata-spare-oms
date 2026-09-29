@@ -2504,6 +2504,21 @@ document.addEventListener('DOMContentLoaded', () => {
       window.hCurrentPage = 1;
       renderHealthTable();
     });
+    hSearchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        window.hSearchQuery = e.target.value;
+        window.hCurrentPage = 1;
+        renderHealthTable();
+      }
+    });
+  }
+  const hSearchBtn = document.getElementById('health-search-btn');
+  if (hSearchBtn) {
+    hSearchBtn.addEventListener('click', () => {
+      window.hSearchQuery = hSearchInput ? hSearchInput.value : '';
+      window.hCurrentPage = 1;
+      renderHealthTable();
+    });
   }
 
   const cardBtns = document.querySelectorAll('#view-inventory .widget-card.clickable');
