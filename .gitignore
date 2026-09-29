@@ -34,3 +34,6 @@ debug_*.png
 all_elements.json
 all_links.json
 page.html
+
+# Exported reports pulled off the Siebel portal
+downloads/

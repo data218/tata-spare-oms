@@ -1,18 +1,11 @@
-import puppeteer from 'puppeteer-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-// These plugins are all loaded at runtime through a dynamic `require(name)` in
-// puppeteer-extra/dist/index.cjs.js, which Vercel's dependency tracer cannot
-// follow. Importing them statically keeps them (and their own dependencies) in
-// the bundle. Chain: stealth -> user-preferences -> user-data-dir.
-import 'puppeteer-extra-plugin-user-data-dir';
-import 'puppeteer-extra-plugin-user-preferences';
+import puppeteer from './puppeteer-runtime.js';
 import * as dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import csv from 'csv-parser';
 import { supabase } from './server-config.js';
+import { downloadDir, scratch } from './scratch-paths.js';
 dotenv.config();
-puppeteer.use(StealthPlugin());
 
 async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
     let totalRowsInserted = 0;
@@ -65,7 +58,7 @@ async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
         await page.goto('https://insights.inservices.pv.tatamotors/bi-security-login/login.jsp;jsessionid=88qnqGtWzPcCQ8wukvy-OV4WucW5kFiuZ7vH5WZn7Rs3JPXNJMRs!614236238?msi=false&mt=false&profileMust=true&redirect=L2FuYWx5dGljcy9zYXcuZGxsP0Rhc2hib2FyZCZwb3J0YWxQYXRoPSUyZnNoYXJlZCUyZlN0YXJ0JTIwdXAlMmZfcG9ydGFsJTJmRGFzaGJvYXJkJmhhc2g9R2Q5bm5fWmkwcVpMNTlUd3ZBNkhzaGpMLU1MZE5jamJqdEdDa0FlTzMtX2UwRFl1cTVoenlWNjl4UkowMDVrcw==', { waitUntil: 'networkidle2' });
 
         const html = await page.content();
-        fs.writeFileSync('page.html', html);
+        fs.writeFileSync(scratch('page.html'), html);
         console.log('Saved page.html for inspection');
 
         // Wait for login fields to appear
@@ -230,7 +223,7 @@ async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
         notify('Waiting for the data table to load...');
         
         console.log('Setting up download behavior...');
-        const downloadPath = path.resolve('./downloads');
+        const downloadPath = downloadDir;
         if (!fs.existsSync(downloadPath)) {
             fs.mkdirSync(downloadPath, { recursive: true });
         }
@@ -263,7 +256,7 @@ async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
                 allLinks = allLinks.concat(links);
             } catch (e) {}
         }
-        fs.writeFileSync('all_links.json', JSON.stringify(allLinks, null, 2));
+        fs.writeFileSync(scratch('all_links.json'), JSON.stringify(allLinks, null, 2));
         console.log('Saved all_links.json');
 
         console.log('Clicking Export...');
@@ -315,7 +308,7 @@ async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
         
         console.log('Waiting 2 seconds to see what happened after clicking CSV...');
         await new Promise(r => setTimeout(r, 2000));
-        await page.screenshot({ path: 'debug_after_csv_click.png', fullPage: true });
+        await page.screenshot({ path: scratch('debug_after_csv_click.png'), fullPage: true });
 
         console.log('Waiting for download to complete (polling downloads folder)...');
         let downloadedFile = null;

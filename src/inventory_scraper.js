@@ -1,19 +1,12 @@
-import puppeteer from 'puppeteer-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-// These plugins are all loaded at runtime through a dynamic `require(name)` in
-// puppeteer-extra/dist/index.cjs.js, which Vercel's dependency tracer cannot
-// follow. Importing them statically keeps them (and their own dependencies) in
-// the bundle. Chain: stealth -> user-preferences -> user-data-dir.
-import 'puppeteer-extra-plugin-user-data-dir';
-import 'puppeteer-extra-plugin-user-preferences';
+import puppeteer from './puppeteer-runtime.js';
 import * as dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import csv from 'csv-parser';
 import { Readable } from 'stream';
 import { supabase } from './server-config.js';
+import { profileDir, downloadDir, scratch } from './scratch-paths.js';
 dotenv.config();
-puppeteer.use(StealthPlugin());
 
 async function fetchInventoryData(onProgress = null, targetLocation = 'ALL') {
     let summaryMessages = [];
@@ -44,7 +37,7 @@ async function fetchInventoryData(onProgress = null, targetLocation = 'ALL') {
             // Vercel has no system Chrome; leaving this unset uses the bundled Chromium.
             ...(process.env.SCRAPER_CHANNEL ? { channel: process.env.SCRAPER_CHANNEL } : {}),
             protocolTimeout: Number(process.env.SCRAPER_PROTOCOL_TIMEOUT || 180000),
-            userDataDir: path.resolve('./chrome-profile'),
+            userDataDir: profileDir,
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -87,9 +80,9 @@ async function fetchInventoryData(onProgress = null, targetLocation = 'ALL') {
         }
         
         // Take a screenshot of the login page just in case
-        await page.screenshot({ path: 'debug_login_page.png' });
+        await page.screenshot({ path: scratch('debug_login_page.png') });
         const html = await page.content();
-        fs.writeFileSync('page.html', html);
+        fs.writeFileSync(scratch('page.html'), html);
         console.log('Saved page.html for inspection');
 let botUser = location.username;
         let botPass = location.password;
@@ -146,7 +139,7 @@ let botUser = location.username;
         }
         
         // Take screenshot after login
-        await page.screenshot({ path: 'debug_after_login.png' });
+        await page.screenshot({ path: scratch('debug_after_login.png') });
         
         // Final check if login failed
         bodyText = await page.evaluate(() => document.body.innerText);
@@ -259,7 +252,7 @@ let botUser = location.username;
         console.log('Waiting for Site Map (Screens) to load...');
         await page.waitForSelector('::-p-text(Screens)', { visible: true, timeout: 30000 }).catch(e => console.log('Screens text not found, continuing...'));
         await new Promise(r => setTimeout(r, 2000));
-        await page.screenshot({ path: 'debug_site_map.png' });
+        await page.screenshot({ path: scratch('debug_site_map.png') });
 
         // 2. Click on MIS - Spares (in the Site Map - Category)
         console.log('Clicking MIS - Spares in Site Map (Category)...');
@@ -275,7 +268,7 @@ let botUser = location.username;
         console.log('Clicking Spares Inventory tab...');
         await robustClickText(['Spares Inventory']);
         await new Promise(r => setTimeout(r, 5000));
-        await page.screenshot({ path: 'debug_after_spares_inventory_tab.png' });
+        await page.screenshot({ path: scratch('debug_after_spares_inventory_tab.png') });
 
         // 4. Wait for report/applet to load
         notify('Waiting for Inventory applet to load...');
@@ -285,7 +278,7 @@ let botUser = location.username;
         // Sometimes an OK button needs to be clicked after selecting in a prompt
         await robustClickText(['OK', 'Ok']);
         await new Promise(r => setTimeout(r, 8000));
-        await page.screenshot({ path: 'debug_after_ok.png' });
+        await page.screenshot({ path: scratch('debug_after_ok.png') });
 
         notify('Waiting for potential prompt to load (15s)...');
         await new Promise(r => setTimeout(r, 15000));
@@ -333,7 +326,7 @@ let botUser = location.username;
         }
         
         console.log('Setting up download behavior...');
-        const downloadPath = path.resolve('./downloads');
+        const downloadPath = downloadDir;
         if (!fs.existsSync(downloadPath)) {
             fs.mkdirSync(downloadPath, { recursive: true });
         }
@@ -377,7 +370,7 @@ let botUser = location.username;
                 allElements = allElements.concat(els);
             } catch (e) {}
         }
-        fs.writeFileSync('all_elements.json', JSON.stringify(allElements, null, 2));
+        fs.writeFileSync(scratch('all_elements.json'), JSON.stringify(allElements, null, 2));
         console.log('Saved all_elements.json');
 
         let foundDownload = false;
@@ -432,7 +425,7 @@ let botUser = location.username;
         
         if (!downloadedFile) {
             notify('WARNING: Download timed out after 2 minutes. This usually means there are 0 records available for this location. Skipping.');
-            await page.screenshot({ path: 'debug_download_failed.png' });
+            await page.screenshot({ path: scratch('debug_download_failed.png') });
             throw new Error('No records available or download failed');
         }
         
