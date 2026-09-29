@@ -338,6 +338,13 @@ let botUser = location.username;
         }
 
         notify('Exporting report...');
+
+        // On some Oracle BI deployments the export actions live behind an
+        // "Export" toolbar menu, so "Download to Excel" only exists after it is
+        // opened. Clicking it when already visible is harmless.
+        console.log('Attempting to open the Export menu...');
+        await robustClickText(['Export', 'Export...', 'Export Report'], true);
+        await new Promise(r => setTimeout(r, 2000));
         
         console.log('Extracting ALL text from all frames...');
         let allElements = [];
@@ -370,7 +377,36 @@ let botUser = location.username;
             if (foundDownload) break;
             await new Promise(r => setTimeout(r, 5000));
         }
-        if (!foundDownload) notify('WARNING: Could not find Download to Excel button');
+        if (!foundDownload) {
+            notify('WARNING: Could not find Download to Excel button');
+            // Persist what the page actually contained so the failure can be
+            // diagnosed from outside the lambda (its /tmp artifacts are lost).
+            try {
+                const interesting = allElements
+                    .filter(e => /export|excel|download|save|toolbar|menu|action/i.test([e.text, e.title, e.alt, e.value, e.id].join(' ')))
+                    .slice(0, 250);
+                const labels = [...new Set(allElements
+                    .filter(e => ['BUTTON', 'A', 'INPUT', 'IMG'].includes(e.tag))
+                    .map(e => e.text || e.value || e.title || e.alt)
+                    .filter(Boolean))]
+                    .slice(0, 400);
+                await supabase.from('tata_bot_settings').upsert({
+                    key: 'debug_last_failure',
+                    value: JSON.stringify({
+                        at: new Date().toISOString(),
+                        location: location.location_name,
+                        pageUrl: page.url(),
+                        frames: page.frames().map(f => f.url()),
+                        totalElements: allElements.length,
+                        interesting,
+                        labels,
+                    }),
+                }, { onConflict: 'key' });
+                console.log('Saved debug_last_failure to Supabase.');
+            } catch (dbgErr) {
+                console.log('Failed to persist debug info:', dbgErr.message);
+            }
+        }
         
         notify('Waiting for file to download (handling popups if any)...');
         let downloadedFile = null;
