@@ -1273,20 +1273,23 @@ function processRawData({ inventory, consumption, priceList = [], movementLogs =
     
     const consQty = consumptionByPartLoc.get(consKey) || 0;
     const priceData = priceByPart.get(pn) || {};
-    
+    const finalNdp = priceData.ndp || 0;
+    const finalDesc = priceData.description || row.description || 'Unknown';
+    const finalCategory = (row.product_category || priceData.category || 'Uncategorized').trim().toUpperCase();
+
     if (!grouped.has(key)) {
       grouped.set(key, {
         partId: pn,
-        model: priceData.description || row.description || 'Unknown',
+        model: finalDesc,
         location: standardLoc,
-        productCategory: (row.product_category || priceData.category || 'Uncategorized').trim().toUpperCase(),
+        productCategory: finalCategory,
         currentStock: 0,
         reserved: 0,
         inTransit: 0,
         stockValue: 0,
-        ndpPrice: priceData.ndp || 0,
+        ndpPrice: finalNdp,
         min: 5,
-        demand: Math.ceil(consQty / 4), // Simple mocked demand based on real consumption
+        demand: Math.ceil(consQty / 4),
         consumption30d: consQty,
         last_receipt: row.last_receipt || '',
         ageingDays: -1
