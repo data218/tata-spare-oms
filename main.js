@@ -1231,7 +1231,6 @@ async function fetchInventoryData() {
     ]);
 
     if (dateRange) {
-      inventoryData = filterByDateRange(inventoryData, 'fetched_at', dateRange);
       consumptionData = filterByDateRange(consumptionData, 'date', dateRange);
     }
     
