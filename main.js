@@ -1205,9 +1205,9 @@ function filterByDateRange(data, dateField, range) {
   if (!range) return data;
   return data.filter(row => {
     const val = row[dateField];
-    if (!val) return true;
+    if (!val) return false;
     const d = new Date(val);
-    if (isNaN(d.getTime())) return true;
+    if (isNaN(d.getTime())) return false;
     if (range.from && d < new Date(range.from)) return false;
     if (range.to && d > new Date(range.to + 'T23:59:59')) return false;
     return true;
