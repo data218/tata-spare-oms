@@ -2387,9 +2387,10 @@ document.addEventListener('DOMContentLoaded', () => {
        if (p.currentStock === 0) stats.oos++;
        else if (p.currentStock < p.min) stats.low++;
         if (['LUBRICANT', 'LUBRICANTS', 'LUBE', 'LUBES', 'OIL'].includes((p.productCategory || '').toUpperCase())) {
-          stats.lubeQty += p.currentStock || 0;
-          stats.lubeVal += p.stockValue || 0;
-       }
+          const lubeQtyLtr = (p.currentStock || 0) / 1000;
+          stats.lubeQty += lubeQtyLtr;
+          stats.lubeVal += lubeQtyLtr * (p.ndpPrice || 0);
+        }
     });
 
     if (kpiTotal) kpiTotal.textContent = totalItems.toLocaleString('en-IN');
