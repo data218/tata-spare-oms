@@ -3097,11 +3097,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
     const paginatedRecords = consRecords.slice(startIndex, endIndex);
     
-    // Create Price Map for NDP lookup
+    // Create Price Map for NDP lookup (by part_number AND by description)
     const priceMap = {};
+    const priceByDesc = {};
     if (window.rawInventoryData && window.rawInventoryData.priceList) {
       window.rawInventoryData.priceList.forEach(p => {
-        priceMap[p.part_number] = Number(p.ndp) || 0;
+        const pn = String(p.part_number || '').trim().toUpperCase();
+        if (pn) priceMap[pn] = Number(p.ndp) || 0;
+        const desc = String(p.description || '').trim().toUpperCase().replace(/\s+/g, ' ');
+        if (desc && !priceByDesc[desc]) priceByDesc[desc] = Number(p.ndp) || 0;
       });
     }
 
@@ -3123,7 +3127,8 @@ document.addEventListener('DOMContentLoaded', () => {
       paginatedRecords.forEach((part, index) => {
         const rank = startIndex + index + 1;
         const partNo = part.part_no || 'Unknown';
-        const ndp = priceMap[partNo] || 0;
+        const descKey = String(part.part_desc || '').trim().toUpperCase().replace(/\s+/g, ' ');
+        const ndp = priceMap[partNo] || priceByDesc[descKey] || 0;
         
         const dStr = part.date || part.fetched_at || '';
         const dateObj = dStr ? new Date(dStr) : null;
