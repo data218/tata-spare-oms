@@ -568,6 +568,14 @@ h2.welcome-text {
   background: #f8fafc;
   white-space: nowrap;
 }
+.control-tower-table thead[style*="linear-gradient"] th {
+  background: transparent !important;
+  color: white !important;
+  border-bottom: none !important;
+  font-size: 0.8rem !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+}
 .control-tower-table thead th.has-filter {
   user-select: none;
 }
