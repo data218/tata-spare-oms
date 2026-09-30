@@ -298,12 +298,16 @@ const tableFilterConfigs = {
       'Month/Year': 'monthYear', 'Part No.': 'part_no', 'Description': 'part_desc',
       'Cons. (Qty)': 'sold_qty', 'Value (₹)': 'value', 'NDP (₹)': 'ndpPrice',
       'Tax (₹)': 'tax_amount', 'Billing Type': 'billing_type', 'Order Type': 'order_type',
-      'Mode of Pmt': 'mode_of_payment'
+      'Mode of Pmt': 'mode_of_payment',
+      'Velocity Trend': 'velocityTrend'
     },
     formatters: {
-      sold_qty: (r) => Number(r.sold_qty || 0).toLocaleString('en-IN'),
-      value: (r) => '₹' + Number(r.value || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 }),
-      tax_amount: (r) => '₹' + Number(r.tax_amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })
+      // sold_qty is deliberately unformatted: the cell prints the raw number
+      value: (r) => '₹' + Number(r.value || 0).toLocaleString('en-IN'),
+      ndpPrice: (r) => '₹' + consNdp(r).toLocaleString('en-IN'),
+      tax_amount: (r) => '₹' + Number(r.tax_amount || 0).toLocaleString('en-IN'),
+      monthYear: (r) => consMonthYear(r),
+      velocityTrend: (r) => consVelocityTrend(r.part_no)
     },
     render: (rows) => { window.tableFilterData['cons-table-body'] = rows; window.cCurrentPage = 1; window.renderConsumptionTable(); }
   },
@@ -319,6 +323,67 @@ const tableFilterConfigs = {
 
 // Cap on how many distinct values a column filter will list at once.
 const MAX_FILTER_VALUES = 300;
+
+// Lifetime consumed qty per part, used for the Velocity Trend bucket.
+// Cached against the row array so the column filter can classify every row in
+// O(1) instead of re-summing 40k+ consumption rows per call.
+function getConsVelocityMap() {
+  const rows = (window.rawInventoryData && window.rawInventoryData.consumption) || [];
+  if (!window._consVelocityCache || window._consVelocityCacheSource !== rows) {
+    const m = {};
+    rows.forEach(r => {
+      const pn = r.part_no || 'Unknown';
+      m[pn] = (m[pn] || 0) + (Number(r.sold_qty) || 0);
+    });
+    window._consVelocityCache = m;
+    window._consVelocityCacheSource = rows;
+  }
+  return window._consVelocityCache;
+}
+
+// Single source of truth for the Velocity Trend label
+function consVelocityTrend(partNo) {
+  const total = getConsVelocityMap()[String(partNo || 'Unknown')] || 0;
+  if (total >= 20) return 'Fast';
+  if (total >= 5) return 'Mid';
+  if (total > 0) return 'Slow';
+  return '-';
+}
+
+// NDP for a consumption row: part number first, then normalised description.
+// The value is derived, never stored on the row, so the column filter has to
+// resolve it exactly the way the cell does. Cached against the price list.
+function getConsNdpLookup() {
+  const rows = (window.rawInventoryData && window.rawInventoryData.priceList) || [];
+  if (!window._consNdpCache || window._consNdpCacheSource !== rows) {
+    const byPart = {};
+    const byDesc = {};
+    rows.forEach(p => {
+      const pn = String(p.part_number || '').trim();
+      if (pn) byPart[pn] = Number(p.ndp) || 0;
+      const desc = String(p.description || '').trim().toUpperCase().replace(/\s+/g, ' ');
+      if (desc && !byDesc[desc]) byDesc[desc] = Number(p.ndp) || 0;
+    });
+    window._consNdpCache = { byPart, byDesc };
+    window._consNdpCacheSource = rows;
+  }
+  return window._consNdpCache;
+}
+
+function consNdp(row) {
+  const { byPart, byDesc } = getConsNdpLookup();
+  const byNo = byPart[String(row.part_no || '').trim()];
+  if (byNo) return byNo;
+  const descKey = String(row.part_desc || '').trim().toUpperCase().replace(/\s+/g, ' ');
+  return (descKey && byDesc[descKey]) || 0;
+}
+
+// Month/Year label, identical to the badge in the cell
+function consMonthYear(row) {
+  const dStr = row.date || row.fetched_at || '';
+  const d = dStr ? new Date(dStr) : null;
+  return d && !isNaN(d) ? d.toLocaleString('en-US', { month: 'short', year: 'numeric' }) : '-';
+}
 
 function getPriceMapCache() {
   const rows = (window.rawInventoryData && window.rawInventoryData.priceList) || [];
@@ -3307,27 +3372,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
     const paginatedRecords = consRecords.slice(startIndex, endIndex);
     
-    // Create Price Map for NDP lookup (by part_number AND by description)
-    const priceMap = {};
-    const priceByDesc = {};
-    if (window.rawInventoryData && window.rawInventoryData.priceList) {
-      window.rawInventoryData.priceList.forEach(p => {
-        const pn = String(p.part_number || '').trim().toUpperCase();
-        if (pn) priceMap[pn] = Number(p.ndp) || 0;
-        const desc = String(p.description || '').trim().toUpperCase().replace(/\s+/g, ' ');
-        if (desc && !priceByDesc[desc]) priceByDesc[desc] = Number(p.ndp) || 0;
-      });
-    }
-
-    // Create Velocity Map for Velocity Trend lookup
-    const velocityMap = {};
-    if (window.rawInventoryData && window.rawInventoryData.consumption) {
-      window.rawInventoryData.consumption.forEach(r => {
-        const pn = r.part_no || 'Unknown';
-        if (!velocityMap[pn]) velocityMap[pn] = 0;
-        velocityMap[pn] += (Number(r.sold_qty) || 0);
-      });
-    }
+    // Velocity Trend buckets come from the shared cached map so the badge and
+    // the column filter always agree.
+    const velocityMap = getConsVelocityMap();
 
     tbody.innerHTML = '';
     
@@ -3337,22 +3384,19 @@ document.addEventListener('DOMContentLoaded', () => {
       paginatedRecords.forEach((part, index) => {
         const rank = startIndex + index + 1;
         const partNo = part.part_no || 'Unknown';
-        const descKey = String(part.part_desc || '').trim().toUpperCase().replace(/\s+/g, ' ');
-        const ndp = priceMap[partNo] || priceByDesc[descKey] || 0;
+        const ndp = consNdp(part);
         
-        const dStr = part.date || part.fetched_at || '';
-        const dateObj = dStr ? new Date(dStr) : null;
-        const monthYear = dateObj && !isNaN(dateObj) ? dateObj.toLocaleString('en-US', { month: 'short', year: 'numeric' }) : '-';
+        const monthYear = consMonthYear(part);
         
-        const totalQty = velocityMap[partNo] || 0;
-        let trendHtml = '-';
-        if (totalQty >= 20) {
-          trendHtml = '<span style="background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16,185,129,0.2); padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 600; text-transform: uppercase;">Fast</span>';
-        } else if (totalQty >= 5) {
-          trendHtml = '<span style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245,158,11,0.2); padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 600; text-transform: uppercase;">Mid</span>';
-        } else if (totalQty > 0) {
-          trendHtml = '<span style="background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239,68,68,0.2); padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 600; text-transform: uppercase;">Slow</span>';
-        }
+        const trend = consVelocityTrend(partNo);
+        const trendStyles = {
+          Fast: 'background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16,185,129,0.2);',
+          Mid: 'background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245,158,11,0.2);',
+          Slow: 'background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239,68,68,0.2);'
+        };
+        const trendHtml = trend === '-'
+          ? '-'
+          : `<span style="${trendStyles[trend]} padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 600; text-transform: uppercase;">${trend}</span>`;
         
         const tr = document.createElement('tr');
         tr.style.borderBottom = '1px solid var(--border-color)';

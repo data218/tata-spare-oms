@@ -48,6 +48,11 @@ function sliceByBraces(start) {
 
 const code = [
   'const MAX_FILTER_VALUES = 300;',
+  sliceByBraces('function getConsVelocityMap()'),
+  sliceByBraces('function consVelocityTrend(partNo)'),
+  sliceByBraces('function getConsNdpLookup()'),
+  sliceByBraces('function consNdp(row)'),
+  sliceByBraces('function consMonthYear(row)'),
   sliceByBraces('const tableFilterConfigs = {'),
   sliceByBraces('function getPriceMapCache()'),
   sliceByBraces('function getFieldValue(obj, key, tableId)'),
@@ -69,6 +74,17 @@ const html = `<!DOCTYPE html><html><body>
     </thead>
     <tbody id="movement-table-body"></tbody>
   </table>
+
+  <table class="control-tower-table">
+    <thead style="background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);">
+      <tr>
+        <th>Rank</th><th>Month/Year</th><th>Part No.</th><th>Description</th>
+        <th>Cons. (Qty)</th><th>Value (₹)</th><th>NDP (₹)</th><th>Tax (₹)</th>
+        <th>Billing Type</th><th>Order Type</th><th>Mode of Pmt</th><th>Velocity Trend</th>
+      </tr>
+    </thead>
+    <tbody id="cons-table-body"></tbody>
+  </table>
 </body></html>`;
 
 const dom = new JSDOM(html, { runScripts: 'outside-only', pretendToBeVisual: true });
@@ -89,6 +105,8 @@ window.movementData = [
 window.movCurrentType = 'ALL';
 window.movSearchQuery = '';
 window.movDateFilter = 'all';
+window.rawInventoryData = { consumption: [] };
+window.renderConsumptionTable = () => {};
 window.activeFilters = new window.Map();
 window.activeSort = new window.Map();
 window.tableFilterData = {};
@@ -112,8 +130,8 @@ const check = (name, ok, detail = '') => {
 };
 
 console.log('Carets added to headers:');
-check('caret injected', doc.querySelectorAll('.th-filter-caret').length === 9,
-  `${doc.querySelectorAll('.th-filter-caret').length}/9`);
+const movCarets = doc.querySelectorAll('table:nth-of-type(1) .th-filter-caret').length;
+check('movement carets injected', movCarets === 9, `${movCarets}/9`);
 
 function openDropdown(label) {
   doc.querySelectorAll('.column-filter-dropdown').forEach((d) => d.remove());
@@ -175,6 +193,97 @@ check('after Clear', renderedCount() === before, `${renderedCount()} of ${before
 window.movDateFilter = 'all';
 check('scope still full', window.getScopedMovementRows().length === before,
   `${window.getScopedMovementRows().length} rows in scope`);
+
+console.log('\n  ' + pass + ' passed, ' + fail + ' failed');
+
+// --- Part Consumption: derived-column filters -----------------------------
+// The table is transaction level (no aggregation), so the filter scope is the
+// raw consumption rows. Lifetime sold qty drives the velocity bucket:
+// >=20 Fast, >=5 Mid, >0 Slow, else '-'.
+window.rawInventoryData.priceList = [
+  { part_number: 'FAST1', ndp: 900, description: 'Oil' },
+  { part_number: 'MID1', ndp: 700, description: 'Filter' },
+  { part_number: 'SLOW1', ndp: 250, description: 'Belt' },
+  { part_number: 'NOPRICE', ndp: 0, description: 'Ghost Item' },
+];
+window.rawInventoryData.consumption = [
+  { part_no: 'FAST1', sold_qty: 12, part_desc: 'Oil', value: 1000, tax_amount: 180, date: '2026-09-05' },
+  { part_no: 'FAST1', sold_qty: 15, part_desc: 'Oil', value: 2000, tax_amount: 360, date: '2026-08-05' },
+  { part_no: 'MID1', sold_qty: 6, part_desc: 'Filter', value: 800, tax_amount: 126, date: '2026-09-06' },
+  { part_no: 'SLOW1', sold_qty: 2, part_desc: 'Belt', value: 300, tax_amount: 45, date: '2026-07-06' },
+  { part_no: 'DEAD1', sold_qty: 0, part_desc: 'Gasket', value: 0, tax_amount: 0, date: '' },
+];
+const scopeSize = window.rawInventoryData.consumption.length; // 5 transactions
+
+const consThs = [...doc.querySelectorAll('table:nth-of-type(2) thead th')];
+const openCons = (label) => {
+  doc.querySelectorAll('.column-filter-dropdown').forEach((d) => d.remove());
+  const th = consThs.find((t) => t.textContent.trim() === label);
+  th.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  return doc.querySelector('.column-filter-dropdown');
+};
+const consOptions = (label) => {
+  const dd = openCons(label);
+  return dd ? [...dd.querySelectorAll('.col-filter-options input')].map((i) => i.value) : [];
+};
+// Clear is per-column, so reset every column to make assertions independent.
+// This also proves no column's Clear button throws.
+const CONS_COLS = ['Month/Year', 'Part No.', 'Description', 'Cons. (Qty)', 'Value (\u20b9)',
+  'NDP (\u20b9)', 'Tax (\u20b9)', 'Billing Type', 'Order Type', 'Mode of Pmt', 'Velocity Trend'];
+const consResetAll = () => {
+  for (const c of CONS_COLS) {
+    const dd = openCons(c);
+    dd.querySelector('.clear-btn').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  }
+  return window.tableFilterData['cons-table-body'].length;
+};
+// tick exactly the given values, untick everything else
+const consNarrowTo = (label, keep) => {
+  consResetAll();
+  const dd = openCons(label);
+  [...dd.querySelectorAll('.col-filter-options input')].forEach((b) => {
+    const want = keep.includes(b.value);
+    if (b.checked !== want) { b.checked = want; b.dispatchEvent(new window.Event('change', { bubbles: true })); }
+  });
+  dd.querySelector('.apply-btn').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  return window.tableFilterData['cons-table-body'].length;
+};
+
+console.log('\nPart Consumption - header carets:');
+check('11 filterable headers (Rank is positional)',
+  doc.querySelectorAll('table:nth-of-type(2) .th-filter-caret').length === 11,
+  `${consThs.length} headers, ${doc.querySelectorAll('table:nth-of-type(2) .th-filter-caret').length} carets`);
+check('Clear on all 11 columns is safe', consResetAll() === scopeSize, `${scopeSize} of ${scopeSize} rows, no errors`);
+
+console.log('\nPart Consumption - Velocity Trend filter (new):');
+const velVals = consOptions('Velocity Trend');
+check('dropdown opens with 4 buckets', ['Fast', 'Mid', 'Slow', '-'].every((b) => velVals.includes(b)), velVals.join(' | '));
+check('Fast narrows to its transactions', consNarrowTo('Velocity Trend', ['Fast']) === 2, '2 of 5 transactions');
+check('survives re-render', (() => { window.renderConsumptionTable(); return window.tableFilterData['cons-table-body'].length === 2; })(), '2 rows kept');
+check('Mid narrows to 1', consNarrowTo('Velocity Trend', ['Mid']) === 1, '1 of 5');
+check('clear restores all', (() => {
+  const dd = openCons('Velocity Trend');
+  dd.querySelector('.clear-btn').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  return window.tableFilterData['cons-table-body'].length === scopeSize;
+})(), `${scopeSize} of ${scopeSize} restored`);
+
+console.log('\nPart Consumption - previously broken derived columns:');
+const ndpVals = consOptions('NDP (\u20b9)');
+check('NDP resolves (was "(Blank)")', ndpVals.includes('\u20b9900') && ndpVals.includes('\u20b9700') && ndpVals.includes('\u20b9250'),
+  ndpVals.join(' | '));
+const ndpNarrowed = consNarrowTo('NDP (\u20b9)', ['\u20b9900']);
+check('NDP = \u20b9900 selects the FAST1 rows', ndpNarrowed === 2, ndpNarrowed + ' of 5');
+const myVals = consOptions('Month/Year');
+check('Month/Year resolves (was "(Blank)")', myVals.includes('Sep 2026') && myVals.includes('Aug 2026') && myVals.includes('-'),
+  myVals.join(' | '));
+const sepNarrowed = consNarrowTo('Month/Year', ['Sep 2026']);
+check('Month/Year = Sep 2026', sepNarrowed === 2, sepNarrowed + ' of 5');
+const blankNarrowed = consNarrowTo('Month/Year', ['-']);
+check('blank-date row keeps the "-" bucket', blankNarrowed === 1, blankNarrowed + ' of 5');
+
+const qtyVals = consOptions('Cons. (Qty)');
+check('Cons. (Qty) matches raw cell text', qtyVals.includes('12') && qtyVals.includes('15') && !qtyVals.includes('1,234.5'),
+  qtyVals.join(' | '));
 
 console.log(`\n  ${pass} passed, ${fail} failed`);
 process.exit(fail > 0 ? 1 : 0);
