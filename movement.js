@@ -4,7 +4,7 @@
 window.movementData = [];
 window.movementFiltered = [];
 window.movCurrentPage = 1;
-window.movDateFilter = 'today'; // Default to today
+window.movDateFilter = 'all'; // Default to all time - history is 6 months deep
 let isMovementInitialized = false;
 const MOV_ITEMS_PER_PAGE = 50;
 
@@ -237,11 +237,13 @@ function filterMovementData() {
   }, 50);
 }
 
-function _filterMovementData_internal() {
-  window.movCurrentPage = 1;
-  let filtered = (window.tableFilterData && window.tableFilterData['movement-table-body']) 
-    ? [...window.tableFilterData['movement-table-body']] 
-    : [...window.movementData];
+// Applies the page-level filters (global location, IN/OUT toggle, search box and
+// date range) to a set of movement rows.
+// Kept separate so the header column-filter can offer exactly the values that
+// are actually reachable in the current view, instead of every value in the
+// full 60k+ row history.
+function applyMovementFilters(rows) {
+  let filtered = [...rows];
 
   const globalLoc = document.getElementById('location-select')?.value;
   if (globalLoc && globalLoc !== 'ALL') {
@@ -285,6 +287,24 @@ function _filterMovementData_internal() {
       return true;
     });
   }
+
+  return filtered;
+}
+
+// Rows currently in scope for the header column filters
+window.getScopedMovementRows = function() {
+  if (window.tableFilterData && window.tableFilterData['movement-table-body']) {
+    return applyMovementFilters(window.tableFilterData['movement-table-body']);
+  }
+  return applyMovementFilters(window.movementData || []);
+};
+
+function _filterMovementData_internal() {
+  window.movCurrentPage = 1;
+  const base = (window.tableFilterData && window.tableFilterData['movement-table-body']) 
+    ? window.tableFilterData['movement-table-body'] 
+    : window.movementData;
+  const filtered = applyMovementFilters(base);
 
   window.movementFiltered = filtered;
   updateMovementKPIs();

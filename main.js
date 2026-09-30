@@ -206,7 +206,11 @@ const tableFilterConfigs = {
     }
   },
   'movement-table-body': {
-    getRows: () => window.movementData || [],
+    // Only the rows currently reachable in the view, so the filter dropdown
+    // never offers a value that the date/type/search filters would exclude
+    getRows: () => (typeof window.getScopedMovementRows === 'function'
+      ? window.getScopedMovementRows()
+      : (window.movementData || [])),
     fields: {
       'Date': 'date',
       'Direction': 'direction',
