@@ -4,7 +4,7 @@
 window.reorderData = [];
 window.reorderFiltered = [];
 window.roCurrentPage = 1;
-const RO_ITEMS_PER_PAGE = 50;
+let RO_ITEMS_PER_PAGE = 50;
 window.reorderBasket = new Set();
 
 window.initReorderModule = function() {
