@@ -2960,9 +2960,22 @@ document.addEventListener('DOMContentLoaded', () => {
     // Daily trend (Current Month)
     const now = new Date();
     const currentMonthPrefix = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-    const sortedDays = Object.keys(dayQty).filter(d => d.startsWith(currentMonthPrefix)).sort();
+    const isCurrentMonthOnly = window.consTrendCurrentMonth === true;
+    const sortedDays = isCurrentMonthOnly
+      ? Object.keys(dayQty).filter(d => d.startsWith(currentMonthPrefix)).sort()
+      : Object.keys(dayQty).sort();
     const trendLabels = sortedDays;
     const trendData = sortedDays.map(d => Number(dayQty[d]) || 0);
+
+    const currentMonthBtn = document.getElementById('current-month-btn');
+    if (currentMonthBtn) {
+      currentMonthBtn.style.background = isCurrentMonthOnly ? '#3b82f6' : 'rgba(59,130,246,0.1)';
+      currentMonthBtn.style.color = isCurrentMonthOnly ? 'white' : 'var(--text-secondary)';
+      currentMonthBtn.onclick = () => {
+        window.consTrendCurrentMonth = !isCurrentMonthOnly;
+        if (typeof renderConsumptionAnalytics === 'function') renderConsumptionAnalytics();
+      };
+    }
 
     // Top 5 consumed parts by value
     const tpKeys = Object.keys(partAgg).sort((a,b) => partAgg[b].value - partAgg[a].value).slice(0,5);
