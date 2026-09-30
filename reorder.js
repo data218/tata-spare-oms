@@ -566,29 +566,79 @@ window.viewReorderReason = function(btn) {
   const desc = decodeURIComponent(btn.getAttribute('data-desc') || '');
   const loc = btn.getAttribute('data-loc') || 'Unknown Location';
 
+  const row = (window.reorderFiltered || window.reorderData || []).find(r => r.partNo === partNo && r.location === loc);
+  if (!row) return;
+
   const modal = document.createElement('div');
   modal.id = 'reorder-reason-modal';
   modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
   modal.innerHTML = `
-    <div style="background:white;padding:24px;border-radius:10px;max-width:500px;width:90%; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
+    <div style="background:white;padding:24px;border-radius:12px;max-width:600px;width:90%; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-height: 85vh; overflow-y: auto;">
       <button onclick="document.getElementById('reorder-reason-modal').remove()" style="position:absolute;top:16px;right:16px;background:var(--card-bg);border:1px solid #e2e8f0;border-radius:50%;width:28px;height:28px;font-size:1.2rem;cursor:pointer;color:#64748b;display:flex;align-items:center;justify-content:center;transition:all 0.2s;">&times;</button>
       <h3 style="margin-top:0; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px; color: #0f172a; font-size: 1.1rem; display:flex; align-items:center; gap:8px;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #3b82f6;"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+        <i data-lucide="info" style="width: 20px; height: 20px; color: #3b82f6;"></i>
         Recommendation Details
       </h3>
       <div style="margin-bottom: 16px; padding: 12px; background: #f8fafc; border-radius: 8px;">
-        <div style="font-weight: 700; font-size: 1.1rem; color: #0f172a;">${partNo}</div>
-        <div style="font-size: 0.9rem; color: #475569; margin-top: 2px;">${desc}</div>
+        <div style="font-weight: 700; font-size: 1.1rem; color: #0f172a;">${row.partNo}</div>
+        <div style="font-size: 0.9rem; color: #475569; margin-top: 2px;">${row.description}</div>
         <div style="font-size: 0.85rem; color: #64748b; margin-top: 6px; display: flex; align-items: center; gap: 4px;">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-          ${loc}
+          <i data-lucide="map-pin" style="width: 14px; height: 14px;"></i>
+          ${row.location} | ${row.supplier}
         </div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+        <div style="padding: 10px; background: #f8fafc; border-radius: 8px;">
+          <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 600;">Current Stock</div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: ${row.currentStock === 0 ? '#ef4444' : '#0f172a'};">${row.currentStock}</div>
+        </div>
+        <div style="padding: 10px; background: #f8fafc; border-radius: 8px;">
+          <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 600;">Available</div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: #0f172a;">${row.available}</div>
+        </div>
+        <div style="padding: 10px; background: #f8fafc; border-radius: 8px;">
+          <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 600;">In Transit</div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: #8b5cf6;">${row.inTransit}</div>
+        </div>
+        <div style="padding: 10px; background: #f8fafc; border-radius: 8px;">
+          <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 600;">Reserved</div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: #f59e0b;">${row.reserved}</div>
+        </div>
+        <div style="padding: 10px; background: #f8fafc; border-radius: 8px;">
+          <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 600;">Min / Max</div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: #0f172a;">${row.minStock} / ${row.maxStock}</div>
+        </div>
+        <div style="padding: 10px; background: #f8fafc; border-radius: 8px;">
+          <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 600;">Safety Stock</div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: #0f172a;">${row.safetyStock}</div>
+        </div>
+        <div style="padding: 10px; background: #f8fafc; border-radius: 8px;">
+          <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 600;">Avg Cons/Day</div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: #0f172a;">${row.avgDailyCons.toFixed(1)}</div>
+        </div>
+        <div style="padding: 10px; background: #f8fafc; border-radius: 8px;">
+          <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 600;">Days of Stock</div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: #0f172a;">${row.daysOfStock}</div>
+        </div>
+        <div style="padding: 10px; background: #f8fafc; border-radius: 8px;">
+          <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 600;">NDP</div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: #0f172a;">₹${row.ndpPrice.toLocaleString('en-IN')}</div>
+        </div>
+        <div style="padding: 10px; background: #f8fafc; border-radius: 8px;">
+          <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 600;">Order Qty</div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: #3b82f6;">${row.recQty.toLocaleString('en-IN')}</div>
+        </div>
+      </div>
+      <div style="margin-bottom: 16px; padding: 12px; background: #f8fafc; border-radius: 8px;">
+        <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 600;">Priority</div>
+        <div style="font-size: 1rem; font-weight: 700; color: ${row.priority === 'CRITICAL' ? '#ef4444' : row.priority === 'HIGH' ? '#f59e0b' : '#10b981'};">${row.priority}</div>
       </div>
       <div>
         <div style="font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Reasoning</div>
-        <p style="font-size:0.95rem;color:#334155;line-height:1.6;margin:0;">${reason}</p>
+        <p style="font-size:0.95rem;color:#334155;line-height:1.6;margin:0;">${row.reason}</p>
       </div>
     </div>
   `;
   document.body.appendChild(modal);
+  if (typeof lucide !== 'undefined') lucide.createIcons({ root: modal });
 };
