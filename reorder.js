@@ -463,33 +463,26 @@ function renderReorderTable() {
       tr.style.background = isChecked ? '#f8fafc' : 'white';
 
       tr.innerHTML = `
-        <td style="padding: 4px 4px; text-align: center;"><input type="checkbox" onchange="window.toggleReorderBasket('${r.id}'); this.closest('tr').style.background = this.checked ? '#f8fafc' : 'white';" ${isChecked}></td>
-        <td style="padding: 4px 4px;">${badgeHtml}</td>
-        <td style="padding: 4px 4px;">
-          <div style="font-weight: 600; font-size: 0.8rem;">${r.partNo}</div>
-          <div style="font-size: 0.7rem; color: var(--text-secondary); max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${r.description}">${r.description}</div>
+        <td style="padding: 4px 6px; text-align: center;"><input type="checkbox" onchange="window.toggleReorderBasket('${r.id}'); this.closest('tr').style.background = this.checked ? '#f8fafc' : 'white';" ${isChecked}></td>
+        <td style="padding: 4px 6px;">${badgeHtml}</td>
+        <td style="padding: 4px 6px;">
+          <div style="font-weight: 600; font-size: 0.75rem;">${r.partNo}</div>
+          <div style="font-size: 0.65rem; color: var(--text-secondary); max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${r.description}">${r.description}</div>
         </td>
-        <td style="padding: 4px 4px;">
+        <td style="padding: 4px 6px;">
           <div style="font-size: 0.7rem; font-weight: 500;">${r.location}</div>
-          <div style="font-size: 0.7rem; color: var(--text-secondary);">${r.supplier}</div>
         </td>
-        <td style="padding: 4px 4px; text-align: right;">
-          <div style="font-weight: ${r.currentStock === 0 ? '700' : '500'}; color: ${r.currentStock === 0 ? '#ef4444' : 'inherit'};">${r.currentStock.toLocaleString('en-IN')}</div>
-          <div style="font-size: 0.7rem; color: #8b5cf6;">In Transit: ${r.inTransit}</div>
-          <div style="font-size: 0.7rem; color: #f59e0b;">Available: ${r.available}</div>
+        <td style="padding: 4px 6px; text-align: right;">
+          <div style="font-weight: ${r.currentStock === 0 ? '700' : '500'}; color: ${r.currentStock === 0 ? '#ef4444' : 'inherit'}; font-size: 0.75rem;">${r.currentStock.toLocaleString('en-IN')}</div>
         </td>
-        <td style="padding: 8px 4px; text-align: right; font-size: 0.7rem; color: var(--text-secondary);">${r.minStock} / ${r.maxStock}</td>
-        <td style="padding: 8px 4px; text-align: right; font-size: 0.7rem;">${r.avgDailyCons.toFixed(1)}</td>
-        <td style="padding: 8px 4px; text-align: right; font-size: 0.7rem; font-weight: 600;">${r.daysOfStock}</td>
-        <td style="padding: 4px 4px; text-align: right;">
-          <div style="font-weight: 700; color: #3b82f6;">${r.recQty.toLocaleString('en-IN')}</div>
-          <div style="font-size: 0.7rem; color: var(--text-secondary);">₹${r.value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+        <td style="padding: 4px 6px; text-align: right; font-size: 0.7rem; color: var(--text-secondary);">${r.minStock} / ${r.maxStock}</td>
+        <td style="padding: 4px 6px; text-align: right; font-size: 0.7rem;">${r.avgDailyCons.toFixed(1)}</td>
+        <td style="padding: 4px 6px; text-align: right; font-size: 0.7rem; font-weight: 600;">${r.daysOfStock}</td>
+        <td style="padding: 4px 6px; text-align: right;">
+          <div style="font-weight: 700; color: #3b82f6; font-size: 0.75rem;">${r.recQty.toLocaleString('en-IN')}</div>
+          <div style="font-size: 0.65rem; color: var(--text-secondary);">₹${r.value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
         </td>
-        <td style="padding: 4px 4px;">
-          <div style="font-size: 0.8rem; font-weight: 500; color: ${r.risk.includes('STOCKOUT') ? '#ef4444' : 'inherit'};">${r.risk}</div>
-          <div style="font-size: 0.7rem; color: var(--text-secondary);">${r.reason}</div>
-        </td>
-        <td style="padding: 4px 4px; text-align: center;">
+        <td style="padding: 4px 6px; text-align: center;">
           <button class="btn btn-outline" onclick="window.viewReorderReason(this)" data-reason="${encodeURIComponent(r.reason)}" data-part="${r.partNo}" data-desc="${encodeURIComponent(r.description)}" data-loc="${r.location}" style="padding: 4px 8px; font-size: 0.7rem; color: #3b82f6; border-color: #3b82f6;">View</button>
         </td>
       `;
