@@ -174,6 +174,8 @@ if (toggleLoginPwdBtn && loginPwdInput) {
 
 // --- Excel-Style Advanced Table Filtering ---
 window.activeFilters = new Map();
+// Min/max ranges for numeric columns, parallel to activeFilters.
+window.activeFilterRanges = new Map();
 window.activeSort = new Map();
 window.tableFilterData = {};
 
@@ -250,9 +252,19 @@ const tableFilterConfigs = {
     getRows: () => window.filteredProcessedParts || window.originalProcessedParts || [],
     fields: {
       'Part No.': 'partId', 'Description': 'model', 'Location': 'location',
-      'Category': 'productCategory', 'Stock': 'currentStock',
-      'Stock Value (Γé╣)': 'stockValue', 'Status': 'statusText'
+      'Category': 'productCategory', 'NDP (₹)': 'ndpPrice',
+      'Stock Qty': 'currentStock', 'Total Amount (₹)': 'stockValue',
+      'Ageing (Days)': 'ageingText', 'Status': 'statusText'
     },
+    formatters: {
+      ndpPrice: (r) => '₹' + Number(r.ndpPrice || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      stockValue: (r) => '₹' + Number(r.stockValue || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      ageingText: (r) => (r.ageingDays >= 0 ? `${r.ageingDays} Days` : 'N/A')
+    },
+    // Money/quantity columns have far too many distinct values for a checkbox
+    // list (Total Amount is effectively unique per row), so they get a
+    // min/max range control instead.
+    numeric: { ndpPrice: 'ndpPrice', stockValue: 'stockValue', currentStock: 'currentStock' },
     render: (rows) => { window.tableFilterData['health-table-body'] = rows; window.hCurrentPage = 1; window.renderHealthTable(); }
   },
   'ppni-table-body': {
@@ -261,6 +273,7 @@ const tableFilterConfigs = {
       'Part No.': 'partId', 'Description': 'model', 'Location': 'location', 'Category': 'productCategory',
       'Ageing (Days)': 'ageingDays', 'Receipt Date': 'last_receipt', 'Qty': 'currentStock', 'Value (₹)': 'stockValue'
     },
+    numeric: { currentStock: 'currentStock', stockValue: 'stockValue' },
     render: (rows) => { window.tableFilterData['ppni-table-body'] = rows; window.pCurrentPage = 1; if(typeof window.renderPPNI === 'function') window.renderPPNI();
   if(typeof window.initMovementModule === 'function') window.initMovementModule();
   if(typeof window.initReorderModule === 'function') window.initReorderModule(); }
@@ -308,6 +321,12 @@ const tableFilterConfigs = {
       tax_amount: (r) => '₹' + Number(r.tax_amount || 0).toLocaleString('en-IN'),
       monthYear: (r) => consMonthYear(r),
       velocityTrend: (r) => consVelocityTrend(r.part_no)
+    },
+    numeric: {
+      ndpPrice: (r) => consNdp(r),
+      value: 'value',
+      sold_qty: 'sold_qty',
+      tax_amount: 'tax_amount'
     },
     render: (rows) => { window.tableFilterData['cons-table-body'] = rows; window.cCurrentPage = 1; window.renderConsumptionTable(); }
   },
@@ -440,6 +459,41 @@ window.getFilterFieldValue = function(row, key, tableId) {
   return getFieldValue(row, key, tableId);
 };
 
+// --- Numeric (min/max) column filtering ---
+// Money and quantity columns are effectively unique per row, so a checkbox
+// list capped at MAX_FILTER_VALUES can never reach most values. Those columns
+// get a min/max range control instead.
+// `cfg.numeric[key]` is either a raw field name or a getter for derived values.
+// Formatters are display-only, so the raw number must never be parsed back out
+// of them.
+function getNumericValue(row, key, tableId) {
+  const spec = tableFilterConfigs[tableId]?.numeric?.[key];
+  let v;
+  if (typeof spec === 'function') v = Number(spec(row));
+  else if (typeof spec === 'string') v = Number(row[spec]);
+  else v = Number(row[key]);
+  return isNaN(v) ? 0 : v;
+}
+
+function isNumericColumn(tableId, key) {
+  return !!tableFilterConfigs[tableId]?.numeric?.[key];
+}
+
+function getRange(tableId, key) {
+  return window.activeFilterRanges.get(tableId)?.[key] || null;
+}
+
+function setRange(tableId, key, range) {
+  if (!window.activeFilterRanges.has(tableId)) window.activeFilterRanges.set(tableId, {});
+  const store = window.activeFilterRanges.get(tableId);
+  if (range) store[key] = range;
+  else delete store[key];
+}
+
+function clearRange(tableId, key) {
+  setRange(tableId, key, null);
+}
+
 // Keep a column-filter dropdown glued to its header cell.
 // The dropdown is position:fixed, so we re-place it on every scroll/resize
 // (capture phase catches scrolling of nested overflow containers as well as
@@ -506,11 +560,11 @@ function trackFilterDropdown(div, th) {
 
 // Single place that paints the "filter active" look, so the class and the
 // tooltip can never disagree.
-function paintFilterState(th, count) {
+function paintFilterState(th, count, isRange) {
   const filtered = count > 0;
   th.classList.toggle('th-filtered', filtered);
   th.title = filtered
-    ? `Filtered - ${count} value(s) selected. Click to change.`
+    ? (isRange ? 'Filtered by value range. Click to change.' : `Filtered - ${count} value(s) selected. Click to change.`)
     : 'Click to filter this column';
 }
 
@@ -531,7 +585,8 @@ function markFilterHeaders() {
       th.dataset.colKey = key;
       // Derive the "filter active" look from state, not from the click that set
       // it, so the green survives re-renders, navigation and data reloads.
-      paintFilterState(th, active[key]?.size || 0);
+      const range = window.activeFilterRanges.get(tableId)?.[key];
+      paintFilterState(th, (active[key]?.size || 0) || (range ? 1 : 0), !!range);
       if (!th.querySelector('.th-filter-caret')) {
         const caret = document.createElement('span');
         caret.className = 'th-filter-caret';
@@ -635,9 +690,58 @@ document.addEventListener('click', (e) => {
   // Ensure table filters exist
   if (!window.activeFilters.has(tableId)) window.activeFilters.set(tableId, {});
   if (!window.activeSort.has(tableId)) window.activeSort.set(tableId, { key: '', isAsc: true });
+  if (!window.activeFilterRanges.has(tableId)) window.activeFilterRanges.set(tableId, {});
 
   const currentFilters = window.activeFilters.get(tableId)[key] || new Set();
   const currentSort = window.activeSort.get(tableId);
+  const applyFiltersAndSort = () => {
+    const cfg = tableFilterConfigs[tableId];
+    if (!cfg) return;
+    const filters = window.activeFilters.get(tableId);
+    const ranges = window.activeFilterRanges.get(tableId) || {};
+    let result = cfg.getRows().filter(part => {
+      // Min/max ranges win over the value set for the same column
+      for (const [rKey, range] of Object.entries(ranges)) {
+        if (!range) continue;
+        const n = getNumericValue(part, rKey, tableId);
+        if (range.min !== null && n < range.min) return false;
+        if (range.max !== null && n > range.max) return false;
+      }
+      for (const [fKey, fSet] of Object.entries(filters)) {
+        if (fSet.size > 0) {
+          const rawVal = getFieldValue(part, fKey, tableId);
+          const val = String(rawVal === null || rawVal === undefined ? '' : rawVal);
+          if (!fSet.has(val)) return false;
+        }
+      }
+      return true;
+    });
+
+    const sortConfig = window.activeSort.get(tableId);
+    if (sortConfig.key) {
+      const sortIsNumeric = isNumericColumn(tableId, sortConfig.key);
+      result.sort((a, b) => {
+        // "₹9.00" > "₹100.00" as strings, which is nonsense for money columns
+        if (sortIsNumeric) {
+          const numA = getNumericValue(a, sortConfig.key, tableId);
+          const numB = getNumericValue(b, sortConfig.key, tableId);
+          if (numA !== numB) return sortConfig.isAsc ? numA - numB : numB - numA;
+          return 0;
+        }
+        let valA = getFieldValue(a, sortConfig.key, tableId);
+        let valB = getFieldValue(b, sortConfig.key, tableId);
+        if (typeof valA === 'string') valA = valA.toLowerCase();
+        if (typeof valB === 'string') valB = valB.toLowerCase();
+        
+        if (valA < valB) return sortConfig.isAsc ? -1 : 1;
+        if (valA > valB) return sortConfig.isAsc ? 1 : -1;
+        return 0;
+      });
+    }
+
+    if (typeof cfg.render === 'function') cfg.render(result);
+  };
+
 
   // Get unique values for this column
   const allUniqueValues = [...new Set(sourceRows.map(item => {
@@ -666,10 +770,104 @@ document.addEventListener('click', (e) => {
   div.className = 'column-filter-dropdown';
   div.dataset.colKey = key;
 
+  // Attach before branching: both the numeric range UI and the value checklist
+  // need the dropdown in the DOM, and trackFilterDropdown keeps it anchored.
+  const container = document.getElementById('filter-dropdown-container') || document.body;
+  container.appendChild(div);
+  trackFilterDropdown(div, th);
   placeFilterDropdown(div, th);
 
   // Escape HTML in values to prevent quote breakage
   const escapeHtml = (str) => String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+
+  // --- Numeric columns: min/max range instead of a value checklist ---
+  if (isNumericColumn(tableId, key)) {
+    const nums = sourceRows.map(r => getNumericValue(r, key, tableId));
+    const dataMin = nums.length ? Math.min(...nums) : 0;
+    const dataMax = nums.length ? Math.max(...nums) : 0;
+    const existing = getRange(tableId, key);
+    const curMin = existing && existing.min !== null ? existing.min : dataMin;
+    const curMax = existing && existing.max !== null ? existing.max : dataMax;
+    const isMoney = /Price|Value|Amount|ndp|stock/i.test(key);
+
+    div.innerHTML = `
+      <div class="col-filter-header">
+        <div class="fil-sort">
+          <button class="fil-sort-btn sort-asc-btn ${currentSort.key === key && currentSort.isAsc ? 'active-sort' : ''}"><i data-lucide="arrow-up-az" style="width: 14px; height: 14px; display: inline-block;"></i> Smallest first</button>
+          <button class="fil-sort-btn sort-desc-btn ${currentSort.key === key && !currentSort.isAsc ? 'active-sort' : ''}"><i data-lucide="arrow-down-za" style="width: 14px; height: 14px; display: inline-block;"></i> Largest first</button>
+        </div>
+      </div>
+      <div class="col-filter-body" style="padding: 12px;">
+        <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 10px;">
+          Showing ${sourceRows.length} row(s). Range: ${dataMin.toLocaleString('en-IN')} to ${dataMax.toLocaleString('en-IN')}
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <input type="number" class="range-min" value="${curMin}" step="any"
+            style="flex:1; min-width:0; padding:6px 8px; border:1px solid var(--border-color); border-radius:6px; font-size:0.8rem; font-family:inherit;">
+          <span style="color:var(--text-secondary); font-size:0.8rem;">to</span>
+          <input type="number" class="range-max" value="${curMax}" step="any"
+            style="flex:1; min-width:0; padding:6px 8px; border:1px solid var(--border-color); border-radius:6px; font-size:0.8rem; font-family:inherit;">
+        </div>
+        <div class="range-presets" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;">
+          ${(isMoney ? [[0, 100], [100, 500], [500, 1000], [1000, 5000], [5000, null]]
+                      : [[0, 1], [1, 5], [5, 20], [20, 100], [100, null]])
+            .map(([lo, hi]) => `<button class="fil-btn range-preset" data-lo="${lo}" data-hi="${hi === null ? '' : hi}" style="padding:3px 8px; font-size:0.7rem;">${isMoney ? '₹' : ''}${lo.toLocaleString('en-IN')}${hi === null ? '+' : ` - ${isMoney ? '₹' : ''}${hi.toLocaleString('en-IN')}`}</button>`).join('')}
+        </div>
+      </div>
+      <div class="col-filter-footer">
+        <button class="clear-btn" style="margin-right: auto;">Clear</button>
+        <button class="fil-btn fil-btn-cancel">Cancel</button>
+        <button class="fil-btn fil-btn-ok apply-btn">OK</button>
+      </div>
+    `;
+
+    const minEl = div.querySelector('.range-min');
+    const maxEl = div.querySelector('.range-max');
+    div.querySelectorAll('.range-preset').forEach(b => b.addEventListener('click', () => {
+      minEl.value = b.dataset.lo;
+      maxEl.value = b.dataset.hi;
+    }));
+
+    div.querySelector('.sort-asc-btn').addEventListener('click', () => {
+      window.activeSort.set(tableId, { key, isAsc: true });
+      div.remove(); applyFiltersAndSort();
+    });
+    div.querySelector('.sort-desc-btn').addEventListener('click', () => {
+      window.activeSort.set(tableId, { key, isAsc: false });
+      div.remove(); applyFiltersAndSort();
+    });
+    div.querySelector('.fil-btn-cancel').addEventListener('click', () => div.remove());
+    div.querySelector('.clear-btn').addEventListener('click', () => {
+      clearRange(tableId, key);
+      window.activeFilters.get(tableId)[key] = new Set();
+      window.activeSort.set(tableId, { key: '', isAsc: true });
+      paintFilterState(th, 0);
+      applyFiltersAndSort();
+      div.remove();
+    });
+    div.querySelector('.apply-btn').addEventListener('click', () => {
+      const rawMin = minEl.value.trim();
+      const rawMax = maxEl.value.trim();
+      const min = rawMin === '' ? null : Number(rawMin);
+      const max = rawMax === '' ? null : Number(rawMax);
+      if (min !== null && max !== null && min > max) {
+        div.querySelector('.col-filter-body').insertAdjacentHTML('afterbegin',
+          '<div style="color:#ef4444;font-size:0.75rem;margin-bottom:8px;">Minimum cannot be greater than maximum.</div>');
+        return;
+      }
+      // A range that spans the whole dataset is not a filter
+      const unchanged = (min === null || min <= dataMin) && (max === null || max >= dataMax);
+      if (unchanged) clearRange(tableId, key);
+      else setRange(tableId, key, { min, max });
+      // A range and a value set are mutually exclusive on the same column
+      window.activeFilters.get(tableId)[key] = new Set();
+      paintFilterState(th, unchanged ? 0 : 1, !unchanged);
+      applyFiltersAndSort();
+      div.remove();
+    });
+    if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons({ root: div });
+    return;
+  }
 
   div.innerHTML = `
     <div class="col-filter-header">
@@ -753,10 +951,6 @@ document.addEventListener('click', (e) => {
 
   renderOptionList(uniqueValues);
 
-  const container = document.getElementById('filter-dropdown-container') || document.body;
-  container.appendChild(div);
-  trackFilterDropdown(div, th);
-  
   if (typeof lucide !== 'undefined' && lucide.createIcons) {
     lucide.createIcons({ root: div });
   }
@@ -840,37 +1034,6 @@ document.addEventListener('click', (e) => {
     div.remove();
   });
 
-  const applyFiltersAndSort = () => {
-    const cfg = tableFilterConfigs[tableId];
-    if (!cfg) return;
-    const filters = window.activeFilters.get(tableId);
-    let result = cfg.getRows().filter(part => {
-      for (const [fKey, fSet] of Object.entries(filters)) {
-        if (fSet.size > 0) {
-          const rawVal = getFieldValue(part, fKey, tableId);
-          const val = String(rawVal === null || rawVal === undefined ? '' : rawVal);
-          if (!fSet.has(val)) return false;
-        }
-      }
-      return true;
-    });
-
-    const sortConfig = window.activeSort.get(tableId);
-    if (sortConfig.key) {
-      result.sort((a, b) => {
-        let valA = getFieldValue(a, sortConfig.key, tableId);
-        let valB = getFieldValue(b, sortConfig.key, tableId);
-        if (typeof valA === 'string') valA = valA.toLowerCase();
-        if (typeof valB === 'string') valB = valB.toLowerCase();
-        
-        if (valA < valB) return sortConfig.isAsc ? -1 : 1;
-        if (valA > valB) return sortConfig.isAsc ? 1 : -1;
-        return 0;
-      });
-    }
-
-    if (typeof cfg.render === 'function') cfg.render(result);
-  };
 });
 
 const loginFormElement = document.getElementById('login-form') || document.getElementById('loginForm');

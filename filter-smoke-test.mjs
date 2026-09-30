@@ -56,10 +56,16 @@ const code = [
   sliceByBraces('const tableFilterConfigs = {'),
   sliceByBraces('function getPriceMapCache()'),
   sliceByBraces('function getFieldValue(obj, key, tableId)'),
+  sliceByBraces('function getFieldValue(obj, key, tableId)'),
   sliceByBraces('window.getFilterFieldValue = function'),
   sliceByBraces('function placeFilterDropdown(div, th)'),
   sliceByBraces('function trackFilterDropdown(div, th)'),
-  sliceByBraces('function paintFilterState(th, count)'),
+  sliceByBraces('function getNumericValue(row, key, tableId)'),
+  sliceByBraces('function isNumericColumn(tableId, key)'),
+  sliceByBraces('function getRange(tableId, key)'),
+  sliceByBraces('function setRange(tableId, key, range)'),
+  sliceByBraces('function clearRange(tableId, key)'),
+  sliceByBraces('function paintFilterState(th, count, isRange)'),
   sliceByBraces('function markFilterHeaders()'),
   sliceByBraces("document.addEventListener('click', (e) => {"),
 ].join('\n\n');
@@ -86,6 +92,16 @@ const html = `<!DOCTYPE html><html><body>
     </thead>
     <tbody id="cons-table-body"></tbody>
   </table>
+  <table class="control-tower-table">
+    <thead style="background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);">
+      <tr>
+        <th>Part No.</th><th>Description</th><th>Location</th><th>Category</th>
+        <th>NDP (₹)</th><th>Stock Qty</th><th>Total Amount (₹)</th>
+        <th>Ageing (Days)</th><th>Status</th>
+      </tr>
+    </thead>
+    <tbody id="health-table-body"></tbody>
+  </table>
 </body></html>`;
 
 const dom = new JSDOM(html, { runScripts: 'outside-only', pretendToBeVisual: true });
@@ -106,9 +122,12 @@ window.movementData = [
 window.movCurrentType = 'ALL';
 window.movSearchQuery = '';
 window.movDateFilter = 'all';
-window.rawInventoryData = { consumption: [] };
+window.rawInventoryData = { consumption: [], priceList: [] };
 window.renderConsumptionTable = () => {};
+window.renderHealthTable = () => {};
+window.filteredProcessedParts = [];
 window.activeFilters = new window.Map();
+window.activeFilterRanges = new window.Map();
 window.activeSort = new window.Map();
 window.tableFilterData = {};
 // stand-in for the real movement.js scope resolver
@@ -283,23 +302,113 @@ check('green clears with the filter',
 check('consumption headers all unfiltered', consResetAll() === scopeSize
   && consThs.filter((t) => t.classList.contains('th-filtered')).length === 0, '0 green headers');
 
-console.log('\nPart Consumption - previously broken derived columns:');
-const ndpVals = consOptions('NDP (\u20b9)');
-check('NDP resolves (was "(Blank)")', ndpVals.includes('\u20b9900') && ndpVals.includes('\u20b9700') && ndpVals.includes('\u20b9250'),
-  ndpVals.join(' | '));
-const ndpNarrowed = consNarrowTo('NDP (\u20b9)', ['\u20b9900']);
-check('NDP = \u20b9900 selects the FAST1 rows', ndpNarrowed === 2, ndpNarrowed + ' of 5');
+console.log('\nPart Consumption - derived columns (now range controls):');
+const consRange = (label) => {
+  const dd = openCons(label);
+  if (!dd) return null;
+  return { min: dd.querySelector('.range-min').value, max: dd.querySelector('.range-max').value, dd };
+};
+const consRangeTo = (label, lo, hi) => {
+  consResetAll();
+  const dd = openCons(label);
+  dd.querySelector('.range-min').value = lo;
+  dd.querySelector('.range-max').value = hi;
+  dd.querySelector('.apply-btn').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  return window.tableFilterData['cons-table-body'].length;
+};
+const ndpR = consRange('NDP (\u20b9)');
+check('NDP is a range, not a checklist', !!ndpR, ndpR ? `${ndpR.min} .. ${ndpR.max}` : 'NO DROPDOWN');
+check('NDP range spans priced data', ndpR && ndpR.min === '0' && ndpR.max === '900', ndpR ? `${ndpR.min} .. ${ndpR.max}` : '-');
+const ndpRows = consRangeTo('NDP (\u20b9)', 800, 1000);
+check('NDP 800-1000 selects the FAST1 rows', ndpRows === 2, `${ndpRows} of 5`);
+const qtyR = consRange('Cons. (Qty)');
+check('Cons. (Qty) range spans the data', qtyR && qtyR.min === '0' && qtyR.max === '15', qtyR ? `${qtyR.min} .. ${qtyR.max}` : '-');
+const qtyRows = consRangeTo('Cons. (Qty)', 10, 20);
+check('Cons. (Qty) 10-20 selects 2', qtyRows === 2, `${qtyRows} of 5`);
+check('NDP range clears green on reset', consResetAll() === scopeSize, `${scopeSize} rows restored`);
+
+console.log('\nPart Consumption - Month/Year stays a checklist (was "(Blank)"):');
 const myVals = consOptions('Month/Year');
-check('Month/Year resolves (was "(Blank)")', myVals.includes('Sep 2026') && myVals.includes('Aug 2026') && myVals.includes('-'),
+check('Month/Year resolves', myVals.includes('Sep 2026') && myVals.includes('Aug 2026') && myVals.includes('-'),
   myVals.join(' | '));
 const sepNarrowed = consNarrowTo('Month/Year', ['Sep 2026']);
 check('Month/Year = Sep 2026', sepNarrowed === 2, sepNarrowed + ' of 5');
 const blankNarrowed = consNarrowTo('Month/Year', ['-']);
 check('blank-date row keeps the "-" bucket', blankNarrowed === 1, blankNarrowed + ' of 5');
 
-const qtyVals = consOptions('Cons. (Qty)');
-check('Cons. (Qty) matches raw cell text', qtyVals.includes('12') && qtyVals.includes('15') && !qtyVals.includes('1,234.5'),
-  qtyVals.join(' | '));
+console.log(`\n  ${pass} passed, ${fail} failed`);
+
+// --- Inventory (Part Health): stale config + numeric range -----------------
+// The config used to list 'Stock' and 'Stock Value (₹)', which no longer exist
+// as headers, and omitted NDP/Stock Qty/Total Amount/Ageing entirely - so those
+// four headers had no dropdown at all.
+console.log('\nInventory - header carets (was: 4 of 9 missing):');
+const invRows = [
+  { partId: 'A1', model: 'Oil', location: 'Narwal', productCategory: 'LUBRICANT', ndpPrice: 120.5, currentStock: 10, stockValue: 1205, ageingDays: 12, min: 5 },
+  { partId: 'A2', model: 'Filter', location: 'Kathua', productCategory: 'FILTER', ndpPrice: 450, currentStock: 3, stockValue: 1350, ageingDays: 75, min: 5 },
+  { partId: 'A3', model: 'Belt', location: 'Narwal', productCategory: 'BELT', ndpPrice: 2200, currentStock: 0, stockValue: 0, ageingDays: 200, min: 5 },
+];
+window.filteredProcessedParts = invRows;
+const invThs = [...doc.querySelectorAll('table:nth-of-type(3) thead th')];
+window.markFilterHeaders();
+const invCarets = doc.querySelectorAll('table:nth-of-type(3) .th-filter-caret').length;
+check('all 9 inventory headers filterable', invCarets === 9, `${invCarets}/9 carets`);
+check('NDP has a caret', !!invThs.find((t) => t.textContent.trim().startsWith('NDP')).querySelector('.th-filter-caret'), 'NDP dropdown present');
+
+const openInv = (label) => {
+  doc.querySelectorAll('.column-filter-dropdown').forEach((d) => d.remove());
+  const th = invThs.find((t) => t.textContent.trim().startsWith(label));
+  th.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  return { th, dd: doc.querySelector('.column-filter-dropdown') };
+};
+const invShown = () => window.tableFilterData['health-table-body'].length;
+
+console.log('\nInventory - NDP range filter:');
+let { th: ndpTh, dd: ndpDd } = openInv('NDP');
+check('NDP opens a range control, not a checklist', !!ndpDd && !!ndpDd.querySelector('.range-min') && !ndpDd.querySelector('.col-filter-options'),
+  ndpDd ? `min=${ndpDd.querySelector('.range-min').value} max=${ndpDd.querySelector('.range-max').value}` : 'NO DROPDOWN');
+check('range spans the real data', ndpDd && ndpDd.querySelector('.range-min').value === '120.5' && ndpDd.querySelector('.range-max').value === '2200',
+  ndpDd ? `${ndpDd.querySelector('.range-min').value} .. ${ndpDd.querySelector('.range-max').value}` : '-');
+
+ndpDd.querySelector('.range-min').value = '400';
+ndpDd.querySelector('.range-max').value = '2500';
+ndpDd.querySelector('.apply-btn').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+check('NDP 400-2500 keeps 2 of 3', invShown() === 2, `${invShown()} of ${invRows.length}`);
+check('NDP header turns green', ndpTh.classList.contains('th-filtered'), 'th-filtered set');
+check('tooltip says range', /value range/.test(ndpTh.title), ndpTh.title);
+
+console.log('\nInventory - money sorts numerically, not as text:');
+({ dd: ndpDd } = openInv('NDP'));
+ndpDd.querySelector('.sort-asc-btn').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+const asc = window.tableFilterData['health-table-body'].map((r) => r.ndpPrice);
+check('ascending is 450 then 2200', asc[0] === 450 && asc[1] === 2200, asc.join(' < '));
+({ dd: ndpDd } = openInv('NDP'));
+ndpDd.querySelector('.sort-desc-btn').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+const desc = window.tableFilterData['health-table-body'].map((r) => r.ndpPrice);
+check('descending is 2200 then 450', desc[0] === 2200 && desc[1] === 450, desc.join(' > '));
+
+console.log('\nInventory - range validation and clear:');
+({ dd: ndpDd } = openInv('NDP'));
+ndpDd.querySelector('.clear-btn').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+check('Clear restores all 3', invShown() === 3, `${invShown()} of ${invRows.length}`);
+check('green removed on Clear', !ndpTh.classList.contains('th-filtered'), 'th-filtered removed');
+({ dd: ndpDd } = openInv('NDP'));
+ndpDd.querySelector('.range-min').value = '900';
+ndpDd.querySelector('.range-max').value = '100';
+ndpDd.querySelector('.apply-btn').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+check('min > max is rejected, not applied', invShown() === 3, `${invShown()} rows, error shown`);
+({ dd: ndpDd } = openInv('NDP'));
+ndpDd.querySelector('.range-min').value = '120.5';
+ndpDd.querySelector('.range-max').value = '2200';
+ndpDd.querySelector('.apply-btn').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+check('full-span range is not a filter', invShown() === 3 && !ndpTh.classList.contains('th-filtered'), 'no green, all rows');
+
+console.log('\nInventory - Stock Qty range:');
+let inv2 = openInv('Stock Qty');
+inv2.dd.querySelector('.range-min').value = '0';
+inv2.dd.querySelector('.range-max').value = '3';
+inv2.dd.querySelector('.apply-btn').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+check('Stock Qty 0-3 keeps 2 of 3', invShown() === 2, `${invShown()} of ${invRows.length}`);
 
 console.log(`\n  ${pass} passed, ${fail} failed`);
 process.exit(fail > 0 ? 1 : 0);

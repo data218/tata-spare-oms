@@ -648,6 +648,25 @@ h2.welcome-text {
 .column-filter-dropdown .fil-sort-btn.active-sort { background: #dbeafe; color: #1d4ed8; }
 .column-filter-dropdown .col-filter-checkbox { display: flex; align-items: center; gap: 8px; padding: 6px 12px; cursor: pointer; font-size: 0.75rem; color: var(--text-primary); }
 .column-filter-dropdown .col-filter-checkbox:hover { background: #f1f5f9; }
+.column-filter-dropdown .range-preset {
+  border: 1px solid var(--border-color);
+  background: #f8fafc;
+  color: var(--text-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.column-filter-dropdown .range-preset:hover {
+  background: #10b981;
+  border-color: #10b981;
+  color: #ffffff;
+}
+.column-filter-dropdown .range-min:focus,
+.column-filter-dropdown .range-max:focus {
+  outline: none;
+  border-color: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15);
+}
 .control-tower-table thead th.has-filter:hover {
   color: #ffffff;
   background: rgba(255, 255, 255, 0.12);
