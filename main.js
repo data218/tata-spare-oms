@@ -494,13 +494,6 @@ document.addEventListener('click', (e) => {
   
   const cfg = tableFilterConfigs[tableId];
   if (!cfg) return;
-  // The dropdown only lists values that are reachable in the current view.
-  // The base row set (getRows) must stay unscoped, otherwise applying a column
-  // filter would permanently narrow the data and page-level filters could never
-  // broaden the results back.
-  const sourceRows = (typeof cfg.getScopeRows === 'function')
-    ? cfg.getScopeRows(key)
-    : cfg.getRows();
 
   // Prefer the dataset colKey added by markFilterHeaders
   let key = th.dataset.colKey;
@@ -529,7 +522,36 @@ document.addEventListener('click', (e) => {
   
   if (!key) return; // Action columns
 
-  if (!sourceRows || sourceRows.length === 0) return;
+  // The dropdown only lists values that are reachable in the current view.
+  // The base row set (getRows, used by applyFiltersAndSort) must stay
+  // unscoped, otherwise applying a column filter would permanently narrow the
+  // data and page-level filters could never broaden the results back.
+  let sourceRows;
+  try {
+    sourceRows = (typeof cfg.getScopeRows === 'function')
+      ? cfg.getScopeRows(key)
+      : cfg.getRows();
+  } catch (err) {
+    console.error('Column filter: failed to resolve scope for', key, err);
+    sourceRows = cfg.getRows();
+  }
+  if (!Array.isArray(sourceRows)) sourceRows = [];
+
+  if (sourceRows.length === 0) {
+    // Nothing reachable in the current view - explain instead of failing silently
+    const note = document.createElement('div');
+    note.className = 'column-filter-dropdown';
+    note.style.padding = '12px 14px';
+    note.style.fontSize = '0.8rem';
+    note.style.color = 'var(--text-secondary)';
+    note.textContent = 'No rows in the current view to filter.';
+    document.body.appendChild(note);
+    trackFilterDropdown(note, th);
+    setTimeout(() => {
+      if (document.body.contains(note)) note.remove();
+    }, 2500);
+    return;
+  }
   
   // Ensure table filters exist
   if (!window.activeFilters.has(tableId)) window.activeFilters.set(tableId, {});
@@ -595,18 +617,25 @@ document.addEventListener('click', (e) => {
   const optionsEl = div.querySelector('.col-filter-options');
   const noteEl = div.querySelector('.col-filter-note');
   const selectAll = div.querySelector('.select-all-cb');
-  // Values the user explicitly toggled in this session. Needed because the
-  // visible list can be capped, so we cannot infer intent from the DOM alone.
+  // Values the user explicitly toggled in this session. Needed when the list is
+  // capped or search-narrowed, so intent is not lost for values we cannot show.
   const touched = new Map();
   let currentScope = uniqueValues;
+  let searchActive = false;
+  // When the whole list is on screen the checkboxes ARE the selection, so we can
+  // read it straight off the DOM. Otherwise we must reason about hidden values.
+  const fullListVisible = () => !isCapped && !searchActive;
 
   // Only ever paint MAX_FILTER_VALUES rows, otherwise high-cardinality
   // columns (dates, invoice numbers) lock up the browser.
   const renderOptionList = (values) => {
     currentScope = values;
     const slice = values.slice(0, MAX_FILTER_VALUES);
+    const allSelected = currentFilters.size === 0;
     optionsEl.innerHTML = slice.map(val => {
-      const isChecked = touched.has(val) ? touched.get(val) : currentFilters.has(val) ? 'checked' : '';
+      const isChecked = touched.has(val)
+        ? (touched.get(val) ? 'checked' : '')
+        : (allSelected || currentFilters.has(val)) ? 'checked' : '';
       const displayVal = val === '' ? '(Blank)' : escapeHtml(val);
       const safeVal = escapeHtml(val);
       return `<label class="column-filter-checkbox" style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; cursor: pointer; font-size: 0.85rem; color: var(--text-primary);">
@@ -677,6 +706,7 @@ document.addEventListener('click', (e) => {
   const searchInput = div.querySelector('.col-filter-search');
   searchInput.addEventListener('input', () => {
     const q = searchInput.value.trim().toLowerCase();
+    searchActive = !!q;
     if (!q) {
       renderOptionList(uniqueValues);
       return;
@@ -701,13 +731,21 @@ document.addEventListener('click', (e) => {
   // Handle OK (Apply)
   div.querySelector('.apply-btn').addEventListener('click', () => {
     let nextSet;
-    if (touched.size === 0) {
-      // Nothing was changed - keep whatever filter is already active
+    if (fullListVisible()) {
+      // Every value is on screen, so the ticked boxes are the selection
+      nextSet = new Set(
+        Array.from(optionsEl.querySelectorAll('input[type="checkbox"]'))
+          .filter(cb => cb.checked)
+          .map(readValue)
+      );
+    } else if (touched.size === 0) {
+      // List is capped/narrowed and nothing was changed - leave the filter as is
       nextSet = new Set(currentFilters);
     } else if (currentFilters.size === 0) {
-      // No active filter (everything shown) -> the visible scope becomes the filter
+      // No active filter: the reachable scope becomes the filter
       nextSet = new Set(currentScope.filter(v => touched.get(v) !== false));
     } else {
+      // Adjust the existing selection without disturbing hidden values
       nextSet = new Set(currentFilters);
       touched.forEach((on, v) => { if (on) nextSet.add(v); else nextSet.delete(v); });
     }
