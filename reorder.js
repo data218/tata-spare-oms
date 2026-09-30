@@ -13,158 +13,136 @@ window.initReorderModule = function() {
   populateReorderFilters();
   attachReorderListeners();
   filterReorderData();
-  setTimeout(() => { if(typeof markFilterHeaders === 'function') markFilterHeaders(); }, 500);
 };
 
 function generateReorderData() {
   const recommendations = [];
   const partGroups = new Map();
-
-  // 1. Calculate Average Consumption (OUT logic)
-  const avgConsByPartLoc = {};
-  if (window.consumptionData && window.consumptionData.length > 0) {
-    const minDate = new Date(Math.min(...window.consumptionData.map(c => new Date(c.date))));
-    const maxDate = new Date();
-    let daysDiff = (maxDate - minDate) / (1000 * 60 * 60 * 24);
-    if (daysDiff < 1) daysDiff = 1;
-
-    window.consumptionData.forEach(c => {
-      // Re-use main.js mapLocation or just fallbacks
-      let loc = (c.division || c.dealer || 'Narwal').toUpperCase();
-      if (loc.includes('JAMMU')) loc = 'NARWAL';
-      if (loc.includes('KATHUA') || loc.includes('SMAMKATHUA')) loc = 'KATHUA';
-      if (loc.includes('SUPWAL') || loc.includes('SMAMSAMBA')) loc = 'SUPWAL';
-      if (loc.includes('CHANNIRAMA') || loc.includes('CHHANIRAMA')) loc = 'CHANNIRAMA';
-
-      const key = `${c.part_no}_${loc}`;
-      const qty = parseFloat(c.sold_qty) || 0;
-      avgConsByPartLoc[key] = (avgConsByPartLoc[key] || 0) + qty;
-    });
-
-    Object.keys(avgConsByPartLoc).forEach(k => {
-      avgConsByPartLoc[k] = avgConsByPartLoc[k] / daysDiff;
-    });
-  }
-
-  // Group inventory by part No to check for transfers
   const partsList = window.originalProcessedParts || [];
-  if (partsList.length > 0) {
-    partsList.forEach(p => {
-      if(!partGroups.has(p.partId)) partGroups.set(p.partId, []);
-      partGroups.get(p.partId).push(p);
-    });
+
+  if (partsList.length === 0) {
+    window.reorderData = [];
+    return;
   }
 
-  // 2. Generate Recommendations
-  if (partsList.length > 0) {
-    partsList.forEach((p, index) => {
-      let loc = p.location.toUpperCase();
-      const key = `${p.partId}_${loc}`;
-      
-      const currentStock = parseFloat(p.currentStock) || 0;
-      const minStock = parseFloat(p.min) || 0;
-      const maxStock = parseFloat(p.max) || 0;
-      const avgCons = avgConsByPartLoc[key] || 0;
-      const cost = parseFloat(p.ndpPrice) || 0;
-      
-      const inTransit = parseFloat(p.inTransit) || 0;
-      const pendingDemand = parseFloat(p.demand) || 0;
-      
-      // Calculate Days of Stock
-      let daysOfStock = 'NO RECENT CONSUMPTION';
-      if (avgCons > 0) {
-        daysOfStock = ((currentStock + inTransit) / avgCons).toFixed(1);
-      } else if (currentStock + inTransit > 0 && avgCons === 0) {
-        daysOfStock = '>999';
-      } else if (currentStock + inTransit === 0 && avgCons === 0) {
-        daysOfStock = '0.0';
-      }
+  partsList.forEach(p => {
+    if (!partGroups.has(p.partId)) partGroups.set(p.partId, []);
+    partGroups.get(p.partId).push(p);
+  });
 
-      // 3. Recommended Order Qty Logic
-      let recQty = 0;
-      let targetStock = maxStock > 0 ? maxStock : (minStock > 0 ? minStock * 2 : Math.ceil(avgCons * 30));
-      
-      if (currentStock + inTransit - pendingDemand <= minStock) {
-         recQty = Math.max(targetStock - (currentStock + inTransit - pendingDemand), 0);
-      }
+  const now = new Date();
+  const leadTime = 14;
+  const reviewPeriod = 30;
 
-      // Check if Transfer Possible
-      let transferSource = null;
-      if (recQty > 0) {
-        const peers = partGroups.get(p.partId) || [];
-        for (const peer of peers) {
-           if (peer.location.toUpperCase() !== loc) {
-              const peerStock = parseFloat(peer.currentStock) || 0;
-              const peerMin = parseFloat(peer.min) || 0;
-              const excess = peerStock - peerMin;
-              if (excess >= recQty) {
-                 transferSource = peer.location.toUpperCase();
-                 break;
-              }
-           }
+  partsList.forEach((p, index) => {
+    const loc = p.location.toUpperCase();
+    const currentStock = Number(p.currentStock) || 0;
+    const reserved = Number(p.reserved) || 0;
+    const inTransit = Number(p.inTransit) || 0;
+    const available = currentStock - reserved;
+    const avgDailyCons = Number(p.consumption30d) || 0;
+    const ndp = Number(p.ndpPrice) || 0;
+    const cost = ndp;
+
+    const minStock = Math.max(1, Math.ceil(avgDailyCons * leadTime));
+    const maxStock = Math.max(minStock, Math.ceil(avgDailyCons * (leadTime + reviewPeriod)));
+    const safetyStock = Math.ceil(avgDailyCons * leadTime);
+    const reorderPoint = Math.ceil(avgDailyCons * leadTime) + safetyStock;
+
+    let daysOfStock = 'NO CONSUMPTION';
+    if (avgDailyCons > 0) {
+      daysOfStock = (available / avgDailyCons).toFixed(1);
+    } else if (available > 0) {
+      daysOfStock = '>999';
+    } else {
+      daysOfStock = '0.0';
+    }
+
+    let recQty = 0;
+    const netRequirement = reorderPoint - available - inTransit;
+    if (netRequirement > 0) {
+      recQty = Math.ceil(netRequirement);
+    }
+
+    let transferSource = null;
+    if (recQty > 0) {
+      const peers = partGroups.get(p.partId) || [];
+      for (const peer of peers) {
+        if (peer.location.toUpperCase() !== loc) {
+          const peerAvail = (Number(peer.currentStock) || 0) - (Number(peer.reserved) || 0);
+          const peerMin = Math.max(1, Math.ceil((Number(peer.consumption30d) || 0) * leadTime));
+          const excess = peerAvail - peerMin;
+          if (excess >= recQty) {
+            transferSource = peer.location.toUpperCase();
+            break;
+          }
         }
       }
+    }
 
-      // 4. Determine Priority & Risk
-      let priority = 'NONE';
-      let risk = '🟢 COVERED';
-      let reason = 'Stock is adequate';
+    let priority = 'NONE';
+    let risk = 'COVERED';
+    let reason = 'Stock is adequate';
 
-      if (recQty > 0) {
-        if (transferSource) {
-           priority = 'TRANSFER';
-           risk = '🟡 OPPORTUNITY';
-           reason = `Transfer available from ${transferSource}`;
-        } else if (currentStock + inTransit === 0 && pendingDemand > 0) {
-           priority = 'CRITICAL';
-           risk = '🔴 STOCKOUT';
-           reason = 'OUT OF STOCK + OPEN DEMAND';
-        } else if (currentStock === 0) {
-           priority = 'HIGH';
-           risk = '🔴 STOCKOUT';
-           reason = 'OUT OF STOCK';
-        } else if (currentStock + inTransit - pendingDemand < minStock) {
-           priority = 'HIGH';
-           risk = '🟠 SHORTAGE RISK';
-           reason = 'PROJECTED BELOW MINIMUM';
-        } else if (currentStock + inTransit <= (minStock * 1.2)) {
-           priority = 'MEDIUM';
-           risk = '🟡 MONITOR';
-           reason = 'APPROACHING REORDER POINT';
-        } else {
-           priority = 'PLANNED';
-           risk = '🟢 COVERED';
-           reason = 'MAINTAIN TARGET STOCK';
-        }
+    if (recQty > 0) {
+      if (transferSource) {
+        priority = 'TRANSFER';
+        risk = 'OPPORTUNITY';
+        reason = `Transfer available from ${transferSource}`;
+      } else if (available + inTransit === 0 && avgDailyCons > 0) {
+        priority = 'CRITICAL';
+        risk = 'STOCKOUT';
+        reason = 'OUT OF STOCK + ACTIVE CONSUMPTION';
+      } else if (available === 0 && inTransit > 0) {
+        priority = 'HIGH';
+        risk = 'STOCKOUT';
+        reason = 'OUT OF STOCK (IN TRANSIT)';
+      } else if (available + inTransit < minStock) {
+        priority = 'HIGH';
+        risk = 'SHORTAGE RISK';
+        reason = 'BELOW MINIMUM STOCK LEVEL';
+      } else if (available + inTransit <= reorderPoint) {
+        priority = 'MEDIUM';
+        risk = 'REORDER SOON';
+        reason = 'AT/BELOW REORDER POINT';
+      } else {
+        priority = 'PLANNED';
+        risk = 'MAINTAIN';
+        reason = 'MAINTAIN TARGET STOCK';
       }
+    }
 
-      if (recQty > 0) {
-        recommendations.push({
-          id: `RO-${p.partId}-${index}`,
-          partNo: p.partId,
-          description: p.model,
-          category: p.productCategory || '-',
-          supplier: p.vendor || 'TATA MOTORS',
-          location: loc,
-          currentStock: currentStock,
-          inTransit: inTransit,
-          pendingDemand: pendingDemand,
-          minStock: minStock,
-          maxStock: maxStock,
-          avgCons: avgCons,
-          daysOfStock: daysOfStock,
-          recQty: recQty,
-          value: recQty * cost,
-          priority: priority,
-          risk: risk,
-          reason: reason,
-          transferSource: transferSource
-        });
-      }
-    });
-  }
+    if (recQty > 0) {
+      recommendations.push({
+        id: `RO-${p.partId}-${index}`,
+        partNo: p.partId,
+        description: p.model,
+        category: p.productCategory || '-',
+        supplier: p.vendor || 'TATA MOTORS',
+        location: loc,
+        currentStock: currentStock,
+        reserved: reserved,
+        available: available,
+        inTransit: inTransit,
+        minStock: minStock,
+        maxStock: maxStock,
+        safetyStock: safetyStock,
+        reorderPoint: reorderPoint,
+        avgDailyCons: avgDailyCons,
+        daysOfStock: daysOfStock,
+        recQty: recQty,
+        value: recQty * cost,
+        priority: priority,
+        risk: risk,
+        reason: reason,
+        transferSource: transferSource,
+        ndpPrice: ndp,
+        lastReceipt: p.last_receipt || '',
+        ageingDays: p.ageingDays || -1
+      });
+    }
+  });
 
-  // Sort: CRITICAL > HIGH > MEDIUM > TRANSFER > PLANNED
   const pWeight = { 'CRITICAL': 5, 'HIGH': 4, 'MEDIUM': 3, 'TRANSFER': 2, 'PLANNED': 1, 'NONE': 0 };
   recommendations.sort((a, b) => pWeight[b.priority] - pWeight[a.priority] || b.value - a.value);
 
@@ -173,10 +151,9 @@ function generateReorderData() {
 
 function populateReorderFilters() {
   const sFilter = document.getElementById('reorder-supplier-filter');
-  if(!sFilter) return;
+  if (!sFilter) return;
   const suppliers = new Set();
   window.reorderData.forEach(r => suppliers.add(r.supplier));
-  
   suppliers.forEach(s => {
     const opt = document.createElement('option');
     opt.value = s;
@@ -209,35 +186,33 @@ function attachReorderListeners() {
     filterReorderData();
   });
 
-  // EXPORT LOGIC
   document.getElementById('reorder-export-btn')?.addEventListener('click', () => {
     if (!window.reorderData || window.reorderData.length === 0) {
       alert("No data available to export.");
       return;
     }
-    
-    // Use filtered data if available, otherwise fallback to all data
-    const dataToExport = window.filteredReorderData && window.filteredReorderData.length > 0 ? window.filteredReorderData : window.reorderData;
-    
-    // Prepare data for export, mapping objects to human-readable columns
+    const dataToExport = window.reorderFiltered && window.reorderFiltered.length > 0 ? window.reorderFiltered : window.reorderData;
     const exportData = dataToExport.map(r => ({
       'Priority': r.priority,
-      'Part Number': r.partId,
-      'Description': r.model,
+      'Part Number': r.partNo,
+      'Description': r.description,
       'Location': r.location,
       'Supplier': r.supplier,
       'Current Stock': r.currentStock,
+      'Reserved': r.reserved,
+      'Available': r.available,
       'In Transit Qty': r.inTransit,
-      'Open Demand': r.pendingDemand,
       'Min Stock': r.minStock,
       'Max Stock': r.maxStock,
-      'Average Daily Consumption': r.avgCons,
+      'Safety Stock': r.safetyStock,
+      'Reorder Point': r.reorderPoint,
+      'Avg Daily Consumption': r.avgDailyCons,
       'Days of Stock': r.daysOfStock,
       'Suggested Order Qty': r.recQty,
-      'Estimated Value': r.recValue,
+      'NDP (₹)': r.ndpPrice,
+      'Estimated Value (₹)': r.value,
       'Reason / Risk': r.reason
     }));
-    
     try {
       const ws = XLSX.utils.json_to_sheet(exportData);
       const wb = XLSX.utils.book_new();
@@ -264,12 +239,12 @@ function attachReorderListeners() {
       renderReorderTable();
     }
   });
-  
+
   document.getElementById('ro-check-all')?.addEventListener('change', (e) => {
     const checked = e.target.checked;
     const currentData = window.reorderFiltered.slice((window.roCurrentPage - 1) * RO_ITEMS_PER_PAGE, window.roCurrentPage * RO_ITEMS_PER_PAGE);
     currentData.forEach(r => {
-      if(checked) window.reorderBasket.add(r.id);
+      if (checked) window.reorderBasket.add(r.id);
       else window.reorderBasket.delete(r.id);
     });
     updateBasketCount();
@@ -280,7 +255,7 @@ function attachReorderListeners() {
 window.filterReorderKPI = function(kpi) {
   window.roKpiFilter = kpi;
   filterReorderData();
-}
+};
 
 function filterReorderData() {
   window.roCurrentPage = 1;
@@ -307,8 +282,8 @@ function filterReorderData() {
 
   if (window.roSearchQuery) {
     const q = window.roSearchQuery;
-    filtered = filtered.filter(r => 
-      r.partNo.toLowerCase().includes(q) || 
+    filtered = filtered.filter(r =>
+      r.partNo.toLowerCase().includes(q) ||
       r.description.toLowerCase().includes(q) ||
       r.supplier.toLowerCase().includes(q)
     );
@@ -327,6 +302,8 @@ function updateReorderKPIs() {
   let totalQty = 0;
   let totalVal = 0;
   let transfers = 0;
+  let totalAvailable = 0;
+  let totalInTransit = 0;
 
   window.reorderFiltered.forEach(r => {
     if (r.priority === 'CRITICAL') critical++;
@@ -334,20 +311,22 @@ function updateReorderKPIs() {
     if (r.priority === 'TRANSFER') transfers++;
     totalQty += r.recQty;
     totalVal += r.value;
+    totalAvailable += r.available;
+    totalInTransit += r.inTransit;
   });
 
-  const setT = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+  const setT = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
   setT('ro-kpi-required', required.toLocaleString('en-IN'));
   setT('ro-kpi-critical', critical.toLocaleString('en-IN'));
   setT('ro-kpi-out', outOfStock.toLocaleString('en-IN'));
   setT('ro-kpi-qty', totalQty.toLocaleString('en-IN'));
-  setT('ro-kpi-val', '₹' + totalVal.toLocaleString('en-IN', {maximumFractionDigits:0}));
+  setT('ro-kpi-val', '₹' + totalVal.toLocaleString('en-IN', { maximumFractionDigits: 0 }));
   setT('ro-kpi-transfer', transfers.toLocaleString('en-IN'));
 }
 
 function updateBasketCount() {
   const el = document.getElementById('reorder-basket-count');
-  if(el) el.textContent = window.reorderBasket.size;
+  if (el) el.textContent = window.reorderBasket.size;
 }
 
 window.toggleReorderBasket = function(id) {
@@ -357,7 +336,7 @@ window.toggleReorderBasket = function(id) {
     window.reorderBasket.add(id);
   }
   updateBasketCount();
-}
+};
 
 function renderReorderTable() {
   const tbody = document.getElementById('reorder-table-body');
@@ -365,7 +344,7 @@ function renderReorderTable() {
 
   const totalRecords = window.reorderFiltered.length;
   const totalPages = Math.ceil(totalRecords / RO_ITEMS_PER_PAGE) || 1;
-  
+
   if (window.roCurrentPage > totalPages) window.roCurrentPage = totalPages;
   if (window.roCurrentPage < 1) window.roCurrentPage = 1;
 
@@ -374,24 +353,24 @@ function renderReorderTable() {
   const currentData = window.reorderFiltered.slice(start, end);
 
   tbody.innerHTML = '';
-  
+
   if (currentData.length === 0) {
     tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 40px; color: var(--text-secondary);">No reorder recommendations found based on current filters.</td></tr>';
   } else {
     currentData.forEach(r => {
       let badgeHtml = '';
-      if (r.priority === 'CRITICAL') badgeHtml = '<span style="background: rgba(239, 68, 68, 0.1); color: #ef4444; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700;">🔴 CRITICAL</span>';
-      else if (r.priority === 'HIGH') badgeHtml = '<span style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700;">🟠 HIGH</span>';
-      else if (r.priority === 'MEDIUM') badgeHtml = '<span style="background: rgba(234, 179, 8, 0.1); color: #eab308; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700;">🟡 MEDIUM</span>';
-      else if (r.priority === 'TRANSFER') badgeHtml = '<span style="background: rgba(99, 102, 241, 0.1); color: #6366f1; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700;">🔄 TRANSFER</span>';
-      else badgeHtml = '<span style="background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700;">🟢 PLANNED</span>';
+      if (r.priority === 'CRITICAL') badgeHtml = '<span style="background: rgba(239, 68, 68, 0.1); color: #ef4444; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700;">CRITICAL</span>';
+      else if (r.priority === 'HIGH') badgeHtml = '<span style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700;">HIGH</span>';
+      else if (r.priority === 'MEDIUM') badgeHtml = '<span style="background: rgba(234, 179, 8, 0.1); color: #eab308; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700;">MEDIUM</span>';
+      else if (r.priority === 'TRANSFER') badgeHtml = '<span style="background: rgba(99, 102, 241, 0.1); color: #6366f1; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700;">TRANSFER</span>';
+      else badgeHtml = '<span style="background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700;">PLANNED</span>';
 
       const isChecked = window.reorderBasket.has(r.id) ? 'checked' : '';
 
       const tr = document.createElement('tr');
       tr.style.borderBottom = '1px solid #f1f5f9';
       tr.style.background = isChecked ? '#f8fafc' : 'white';
-      
+
       tr.innerHTML = `
         <td style="padding: 4px 4px; text-align: center;"><input type="checkbox" onchange="window.toggleReorderBasket('${r.id}'); this.closest('tr').style.background = this.checked ? '#f8fafc' : 'white';" ${isChecked}></td>
         <td style="padding: 4px 4px;">${badgeHtml}</td>
@@ -404,16 +383,16 @@ function renderReorderTable() {
           <div style="font-size: 0.7rem; color: var(--text-secondary);">${r.supplier}</div>
         </td>
         <td style="padding: 4px 4px; text-align: right;">
-          <div style="font-weight: ${r.currentStock===0 ? '700' : '500'}; color: ${r.currentStock===0 ? '#ef4444' : 'inherit'};">${r.currentStock.toLocaleString('en-IN')}</div>
+          <div style="font-weight: ${r.currentStock === 0 ? '700' : '500'}; color: ${r.currentStock === 0 ? '#ef4444' : 'inherit'};">${r.currentStock.toLocaleString('en-IN')}</div>
           <div style="font-size: 0.7rem; color: #8b5cf6;">In Transit: ${r.inTransit}</div>
-          <div style="font-size: 0.7rem; color: #f59e0b;">Demand: ${r.pendingDemand}</div>
+          <div style="font-size: 0.7rem; color: #f59e0b;">Available: ${r.available}</div>
         </td>
         <td style="padding: 8px 4px; text-align: right; font-size: 0.7rem; color: var(--text-secondary);">${r.minStock} / ${r.maxStock}</td>
-        <td style="padding: 8px 4px; text-align: right; font-size: 0.7rem;">${r.avgCons.toFixed(1)}</td>
+        <td style="padding: 8px 4px; text-align: right; font-size: 0.7rem;">${r.avgDailyCons.toFixed(1)}</td>
         <td style="padding: 8px 4px; text-align: right; font-size: 0.7rem; font-weight: 600;">${r.daysOfStock}</td>
         <td style="padding: 4px 4px; text-align: right;">
           <div style="font-weight: 700; color: #3b82f6;">${r.recQty.toLocaleString('en-IN')}</div>
-          <div style="font-size: 0.7rem; color: var(--text-secondary);">₹${r.value.toLocaleString('en-IN', {maximumFractionDigits:0})}</div>
+          <div style="font-size: 0.7rem; color: var(--text-secondary);">₹${r.value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
         </td>
         <td style="padding: 4px 4px;">
           <div style="font-size: 0.8rem; font-weight: 500; color: ${r.risk.includes('STOCKOUT') ? '#ef4444' : 'inherit'};">${r.risk}</div>
@@ -429,17 +408,16 @@ function renderReorderTable() {
 
   const pInfo = document.getElementById('ro-page-info');
   if (pInfo) pInfo.textContent = `${start + 1} to ${Math.min(end, totalRecords)} of ${totalRecords}`;
-  
+
   const prevBtn = document.getElementById('ro-prev-btn');
   const nextBtn = document.getElementById('ro-next-btn');
   if (prevBtn) prevBtn.disabled = window.roCurrentPage === 1;
   if (nextBtn) nextBtn.disabled = window.roCurrentPage === totalPages;
-  
-  // Update Check All state
+
   const checkAll = document.getElementById('ro-check-all');
-  if(checkAll) {
-     const allOnPage = currentData.every(r => window.reorderBasket.has(r.id));
-     checkAll.checked = currentData.length > 0 && allOnPage;
+  if (checkAll) {
+    const allOnPage = currentData.every(r => window.reorderBasket.has(r.id));
+    checkAll.checked = currentData.length > 0 && allOnPage;
   }
 }
 
@@ -449,14 +427,14 @@ function renderSupplierSummary() {
 
   const stats = {};
   window.reorderFiltered.forEach(r => {
-    if(!stats[r.supplier]) stats[r.supplier] = { count: 0, qty: 0, value: 0, critical: 0 };
+    if (!stats[r.supplier]) stats[r.supplier] = { count: 0, qty: 0, value: 0, critical: 0 };
     stats[r.supplier].count++;
     stats[r.supplier].qty += r.recQty;
     stats[r.supplier].value += r.value;
-    if(r.priority === 'CRITICAL') stats[r.supplier].critical++;
+    if (r.priority === 'CRITICAL') stats[r.supplier].critical++;
   });
 
-  const sorted = Object.entries(stats).sort((a,b) => b[1].value - a[1].value);
+  const sorted = Object.entries(stats).sort((a, b) => b[1].value - a[1].value);
 
   container.innerHTML = '';
   if (sorted.length === 0) {
@@ -469,7 +447,7 @@ function renderSupplierSummary() {
         <td style="padding: 8px 4px; font-weight: 600; color: #3b82f6; cursor: pointer;">${supp}</td>
         <td style="padding: 8px 4px; text-align: right; font-weight: 500;">${s.count.toLocaleString('en-IN')} parts</td>
         <td style="padding: 8px 4px; text-align: right; font-weight: 600;">${s.qty.toLocaleString('en-IN')}</td>
-        <td style="padding: 8px 4px; text-align: right; font-weight: 700; color: var(--text-primary);">₹${s.value.toLocaleString('en-IN', {maximumFractionDigits:0})}</td>
+        <td style="padding: 8px 4px; text-align: right; font-weight: 700; color: var(--text-primary);">₹${s.value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
         <td style="padding: 8px 4px; text-align: right; font-weight: ${s.critical > 0 ? '700' : '400'}; color: ${s.critical > 0 ? '#ef4444' : 'inherit'};">${s.critical}</td>
       `;
       container.appendChild(tr);
@@ -482,7 +460,7 @@ window.viewReorderReason = function(btn) {
   const partNo = btn.getAttribute('data-part') || 'Unknown Part';
   const desc = decodeURIComponent(btn.getAttribute('data-desc') || '');
   const loc = btn.getAttribute('data-loc') || 'Unknown Location';
-  
+
   const modal = document.createElement('div');
   modal.id = 'reorder-reason-modal';
   modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
