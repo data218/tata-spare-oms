@@ -3744,7 +3744,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // --- PPNI Logic ---
 window.pCurrentPage = 1;
-window.pItemsPerPage = 100;
+window.pItemsPerPage = 50;
 window.pSearchQuery = '';
 
 window.ppniAgeingChartInstance = null;
@@ -3926,7 +3926,26 @@ window._renderPPNI_internal = function() {
   if(totalEl) totalEl.textContent = totalItems;
   if(prevBtn) prevBtn.disabled = window.pCurrentPage === 1;
   if(nextBtn) nextBtn.disabled = window.pCurrentPage === totalPages;
-  if(pageNumContainer) pageNumContainer.innerHTML = `<span style="font-size: 0.85rem; font-weight: 500;">Page ${window.pCurrentPage} of ${totalPages}</span>`;
+
+  if(pageNumContainer) {
+    pageNumContainer.innerHTML = '';
+    const maxVisible = 5;
+    let startPage = Math.max(1, window.pCurrentPage - Math.floor(maxVisible / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+    if (endPage - startPage < maxVisible - 1) {
+      startPage = Math.max(1, endPage - maxVisible + 1);
+    }
+    for (let i = startPage; i <= endPage; i++) {
+      const btn = document.createElement('button');
+      btn.textContent = i;
+      btn.style.cssText = `padding: 6px 12px; border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-family: inherit; background: ${i === window.pCurrentPage ? '#3b82f6' : 'white'}; color: ${i === window.pCurrentPage ? 'white' : 'var(--text-primary)'};`;
+      btn.onclick = () => {
+        window.pCurrentPage = i;
+        if (typeof window.renderPPNI === 'function') window.renderPPNI();
+      };
+      pageNumContainer.appendChild(btn);
+    }
+  }
 };
 
 
@@ -4102,6 +4121,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (pNextBtn) {
       pNextBtn.addEventListener('click', () => {
         window.pCurrentPage++;
+        if(typeof window.renderPPNI === 'function') window.renderPPNI();
+      });
+    }
+
+    const pPageSize = document.getElementById('p-page-size');
+    if (pPageSize) {
+      pPageSize.value = String(window.pItemsPerPage);
+      pPageSize.addEventListener('change', (e) => {
+        window.pItemsPerPage = parseInt(e.target.value) || 50;
+        window.pCurrentPage = 1;
         if(typeof window.renderPPNI === 'function') window.renderPPNI();
       });
     }

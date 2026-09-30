@@ -798,12 +798,20 @@
                 </tbody>
               </table>
               </div>
-              <div class="pagination-controls" style="display: flex; justify-content: space-between; align-items: center; padding: 15px 0;">
-                <span style="font-size: 0.85rem; color: var(--text-secondary);">Showing <span id="p-page-start">0</span>-<span id="p-page-end">0</span> of <span id="p-total-parts">0</span></span>
-                <div style="display: flex; gap: 8px; align-items: center;">
-                  <button id="p-prev-page-btn" class="secondary-btn" disabled=""><i data-lucide="chevron-left" style="width:16px;height:16px;"></i> Prev</button>
-                  <div id="p-page-numbers" style="display:flex; gap:4px;"></div>
-                  <button id="p-next-page-btn" class="secondary-btn" disabled="">Next <i data-lucide="chevron-right" style="width:16px;height:16px;"></i></button>
+              <div class="pagination-controls" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-top: 1px solid var(--border-color); flex-wrap: wrap; gap: 10px;">
+                <div style="font-size: 0.8rem; color: var(--text-secondary);">Showing <span id="p-page-start">0</span> to <span id="p-page-end">0</span> of <span id="p-total-parts">0</span> parts</div>
+                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                  <select id="p-page-size" style="padding: 4px 8px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.8rem; font-family: inherit;">
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50" selected>50</option>
+                    <option value="100">100</option>
+                    <option value="200">200</option>
+                  </select>
+                  <span style="font-size: 0.8rem; color: var(--text-secondary);">Rows per page</span>
+                  <button id="p-prev-page-btn" class="btn btn-outline" style="padding: 6px 12px;" disabled=""><i data-lucide="chevron-left" style="width:16px;height:16px;"></i> Prev</button>
+                  <div id="p-page-numbers" style="display:flex; gap:4px; align-items:center;"></div>
+                  <button id="p-next-page-btn" class="btn btn-outline" style="padding: 6px 12px;" disabled="">Next <i data-lucide="chevron-right" style="width:16px;height:16px;"></i></button>
                 </div>
               </div>
             </div>
