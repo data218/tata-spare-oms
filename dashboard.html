@@ -467,43 +467,47 @@
 
             <div class="table-section">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
-                <h3 style="margin: 0;">Health Status</h3>
+                <h3 style="margin: 0; font-size: 1rem; color: var(--text-primary);">Health Status</h3>
                 <div style="display: flex; align-items: center; gap: 8px;">
-                  <div style="display: flex; gap: 6px; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 6px; padding: 4px;">
-                    <button class="health-filter-btn active" data-filter="all" style="padding: 6px 14px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: 600; background: transparent; color: var(--text-secondary); font-family: inherit;">All</button>
-                    <button class="health-filter-btn" data-filter="critical" style="padding: 6px 14px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: 600; background: transparent; color: var(--text-secondary); font-family: inherit;">Out of Stock</button>
-                    <button class="health-filter-btn" data-filter="low" style="padding: 6px 14px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: 600; background: transparent; color: var(--text-secondary); font-family: inherit;">Low Stock</button>
-                    <button class="health-filter-btn" data-filter="healthy" style="padding: 6px 14px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: 600; background: transparent; color: var(--text-secondary); font-family: inherit;">Healthy</button>
+                  <div style="display: flex; gap: 4px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 4px;">
+                    <button class="health-filter-btn active" data-filter="all" style="padding: 6px 14px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: 600; background: #3b82f6; color: white; font-family: inherit;">All</button>
+                    <button class="health-filter-btn" data-filter="critical" style="padding: 6px 14px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: 600; background: transparent; color: var(--text-secondary); font-family: inherit;">Out of Stock</button>
+                    <button class="health-filter-btn" data-filter="low" style="padding: 6px 14px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: 600; background: transparent; color: var(--text-secondary); font-family: inherit;">Low Stock</button>
+                    <button class="health-filter-btn" data-filter="healthy" style="padding: 6px 14px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: 600; background: transparent; color: var(--text-secondary); font-family: inherit;">Healthy</button>
                   </div>
                   <div style="display: flex; gap: 8px; align-items: center;">
-                    <input type="text" id="global-search-input" placeholder="Search Part No / Description..." style="padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 6px; width: 240px; font-family: inherit;" />
+                    <input type="text" id="global-search-input" placeholder="Search Part No / Description..." style="padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 6px; width: 240px; font-family: inherit;" />
                     <button id="global-search-btn" style="padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600;">Search</button>
                     <button id="global-search-cancel" style="padding: 8px 16px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600;">Cancel</button>
                   </div>
                 </div>
               </div>
-              <table class="control-tower-table">
-                <thead>
-                  <tr>
-                    <th>Part No.</th>
-                    <th>Description</th>
-                    <th>Location</th>
-                    <th>Category</th>
-                    <th>NDP (₹)</th>
-                    <th>Stock Qty</th>
-                    <th>Total Amount (₹)</th>
-                    <th>Ageing (Days)</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody id="health-table-body">
-                  <!-- Data will be populated via main.js -->
-                </tbody>
-              </table>
-              <div class="pagination" style="display: flex; justify-content: center; gap: 10px; margin-top: 15px; align-items: center;">
-                <button id="h-prev-page-btn" style="padding: 5px 10px;">« Prev</button>
-                <span><span id="h-page-start">0</span> to <span id="h-page-end">0</span> of <span id="h-total-parts">0</span></span>
-                <button id="h-next-page-btn" style="padding: 5px 10px;">Next »</button>
+              <div style="background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid var(--border-color); overflow: hidden;">
+                <table class="control-tower-table">
+                  <thead style="background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);">
+                    <tr>
+                      <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: white; font-size: 0.8rem;">Part No.</th>
+                      <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: white; font-size: 0.8rem;">Description</th>
+                      <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: white; font-size: 0.8rem;">Location</th>
+                      <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: white; font-size: 0.8rem;">Category</th>
+                      <th style="padding: 10px 12px; text-align: right; font-weight: 600; color: white; font-size: 0.8rem;">NDP (₹)</th>
+                      <th style="padding: 10px 12px; text-align: right; font-weight: 600; color: white; font-size: 0.8rem;">Stock Qty</th>
+                      <th style="padding: 10px 12px; text-align: right; font-weight: 600; color: white; font-size: 0.8rem;">Total Amount (₹)</th>
+                      <th style="padding: 10px 12px; text-align: right; font-weight: 600; color: white; font-size: 0.8rem;">Ageing (Days)</th>
+                      <th style="padding: 10px 12px; text-align: center; font-weight: 600; color: white; font-size: 0.8rem;">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="health-table-body">
+                    <!-- Data will be populated via main.js -->
+                  </tbody>
+                </table>
+                <div class="pagination" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-top: 1px solid var(--border-color);">
+                  <span style="font-size: 0.8rem; color: var(--text-secondary);"><span id="h-page-start">0</span> to <span id="h-page-end">0</span> of <span id="h-total-parts">0</span></span>
+                  <div style="display: flex; gap: 8px; align-items: center;">
+                    <button id="h-prev-page-btn" style="padding: 6px 12px; border: 1px solid var(--border-color); border-radius: 6px; background: white; cursor: pointer; font-size: 0.8rem;">Prev</button>
+                    <button id="h-next-page-btn" style="padding: 6px 12px; border: 1px solid var(--border-color); border-radius: 6px; background: white; cursor: pointer; font-size: 0.8rem;">Next</button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
