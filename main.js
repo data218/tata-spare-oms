@@ -184,14 +184,14 @@ const tableFilterConfigs = {
     getRows: () => window.reorderData || [],
     fields: {
       'Priority': 'priority',
-      'Part Details': 'partId', 
-      'Location / Supplier': 'location',
+      'Part Details': 'partNo',
+      'Category': 'category',
+      'Location': 'location',
       'Current Stock': 'currentStock',
       'Min / Max': 'minStock',
-      'Avg Cons/Day': 'avgCons',
+      'Avg Cons/Day': 'avgDailyCons',
       'Days Stock': 'daysOfStock',
-      'Order Qty': 'recQty',
-      'Reason / Risk': 'reason'
+      'Order Qty': 'recQty'
     },
     render: (rows) => { 
       if (!window.tableFilterData) window.tableFilterData = {};
@@ -358,7 +358,7 @@ function markFilterHeaders() {
       if (!th.querySelector('.th-filter-caret')) {
         const caret = document.createElement('span');
         caret.className = 'th-filter-caret';
-        caret.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 4px; vertical-align: -2px; display: inline-block; color: var(--text-secondary);"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>';
+        caret.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 5px; vertical-align: -2px; display: inline-block;"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>';
         th.appendChild(caret);
       }
     });

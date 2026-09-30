@@ -13,6 +13,10 @@ window.initReorderModule = function() {
   populateReorderFilters();
   attachReorderListeners();
   filterReorderData();
+  if (typeof markFilterHeaders === 'function') {
+    markFilterHeaders();
+    setTimeout(() => { if (typeof markFilterHeaders === 'function') markFilterHeaders(); }, 300);
+  }
 };
 
 function generateReorderData() {
@@ -357,6 +361,8 @@ function filterReorderData() {
   renderReorderTable();
   renderSupplierSummary();
 }
+window.filterReorderData = filterReorderData;
+window.renderReorderTable = renderReorderTable;
 
 function updateReorderKPIs() {
   let required = window.reorderFiltered.length;
