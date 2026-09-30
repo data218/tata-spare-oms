@@ -45,7 +45,12 @@ function generateReorderData() {
     const reserved = Number(p.reserved) || 0;
     const inTransit = Number(p.inTransit) || 0;
     const available = currentStock - reserved;
-    const avgDailyCons = (Number(p.consumption30d) || 0) / 30;
+    // True rolling six-month average, computed per Part + Location in main.js
+    // over a trailing 180-day window. Do not use consumption30d / 30: that
+    // field is an unfiltered sum of every loaded consumption row, so dividing
+    // it by 30 overstates demand by roughly the length of the feed.
+    const consumption6m = Number(p.consumption6mRolling) || 0;
+    const avgDailyCons = consumption6m / 180;
     const ndp = Number(p.ndpPrice) || 0;
     const cost = ndp;
 
@@ -75,7 +80,8 @@ function generateReorderData() {
       for (const peer of peers) {
         if (peer.location.toUpperCase() !== loc) {
           const peerAvail = (Number(peer.currentStock) || 0) - (Number(peer.reserved) || 0);
-          const peerMin = Math.max(1, Math.ceil((Number(peer.consumption30d) || 0) * leadTime));
+          const peerAvgDaily = (Number(peer.consumption6mRolling) || 0) / 180;
+          const peerMin = Math.max(1, Math.ceil(peerAvgDaily * leadTime));
           const excess = peerAvail - peerMin;
           if (excess >= recQty) {
             transferSource = peer.location.toUpperCase();
@@ -133,6 +139,7 @@ function generateReorderData() {
         maxStock: maxStock,
         safetyStock: safetyStock,
         reorderPoint: reorderPoint,
+        consumption6m: consumption6m,
         avgDailyCons: avgDailyCons,
         daysOfStock: daysOfStock,
         recQty: recQty,
@@ -261,7 +268,8 @@ function attachReorderListeners() {
       'Max Stock': r.maxStock,
       'Safety Stock': r.safetyStock,
       'Reorder Point': r.reorderPoint,
-      'Avg Daily Consumption': r.avgDailyCons,
+      '6-Mth Consumption': r.consumption6m,
+      'Avg Daily Consumption (6-mo)': r.avgDailyCons,
       'Days of Stock': r.daysOfStock,
       'Suggested Order Qty': r.recQty,
       'NDP (₹)': r.ndpPrice,
@@ -517,7 +525,7 @@ function renderReorderTable() {
           <div style="font-weight: ${r.currentStock === 0 ? '700' : '500'}; color: ${r.currentStock === 0 ? '#ef4444' : 'inherit'}; font-size: 0.75rem;">${r.currentStock.toLocaleString('en-IN')}</div>
         </td>
         <td style="padding: 4px 6px; text-align: right; font-size: 0.7rem; color: var(--text-secondary);">${r.minStock} / ${r.maxStock}</td>
-        <td style="padding: 4px 6px; text-align: right; font-size: 0.7rem;">${r.avgDailyCons.toFixed(1)}</td>
+        <td style="padding: 4px 6px; text-align: right; font-size: 0.7rem;" title="Average daily consumption over a rolling 6-month window">${r.avgDailyCons.toFixed(2)}</td>
         <td style="padding: 4px 6px; text-align: right; font-size: 0.7rem; font-weight: 600;">${r.daysOfStock}</td>
         <td style="padding: 4px 6px; text-align: right;">
           <div style="font-weight: 700; color: #3b82f6; font-size: 0.75rem;">${r.recQty.toLocaleString('en-IN')}</div>
@@ -655,8 +663,12 @@ window.viewReorderReason = function(btn) {
           <div style="font-size: 1.1rem; font-weight: 700; color: #0f172a;">${row.safetyStock}</div>
         </div>
         <div style="padding: 10px; background: #f8fafc; border-radius: 8px;">
-          <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 600;">Avg Cons/Day</div>
-          <div style="font-size: 1.1rem; font-weight: 700; color: #0f172a;">${row.avgDailyCons.toFixed(1)}</div>
+          <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 600;">6-Mth Consumption</div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: #0f172a;">${(Number(row.consumption6m) || 0).toLocaleString('en-IN')}</div>
+        </div>
+        <div style="padding: 10px; background: #f8fafc; border-radius: 8px;">
+          <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 600;">Avg Cons/Day (6-mo)</div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: #0f172a;">${row.avgDailyCons.toFixed(2)}</div>
         </div>
         <div style="padding: 10px; background: #f8fafc; border-radius: 8px;">
           <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 600;">Days of Stock</div>

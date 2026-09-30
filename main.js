@@ -1724,6 +1724,26 @@ function processRawData({ inventory, consumption, priceList = [], movementLogs =
       consumptionByPartLoc.set(key, qty);
     }
   });
+
+  // True rolling six-month consumption, per Part + Location.
+  // `consumption30d` above is the sum of every loaded row regardless of date,
+  // and the feed spans months, so it must not be divided by 30. Window each
+  // row to the trailing 180 days before accumulating, and keep the location
+  // in the key so a part is not summed across all depots.
+  const ROLLING_6M_DAYS = 180;
+  const rolling6mStart = new Date(Date.now() - ROLLING_6M_DAYS * 86400000);
+  const consumption6mByPartLoc = new Map();
+  consumption.forEach(row => {
+    const pn = String(row.part_no || row.part_number || '').trim().toUpperCase();
+    const loc = mapLocation(row.division);
+    const key = pn + '_' + loc;
+
+    const d = window.parseTataDate(row.date);
+    if (!d || isNaN(d.getTime()) || d < rolling6mStart) return;
+
+    const qty = parseInt(row.sold_qty) || 0;
+    consumption6mByPartLoc.set(key, (consumption6mByPartLoc.get(key) || 0) + qty);
+  });
   
   inventory.forEach(row => {
     const pn = String(row.part_no || row.part_number || '').trim().toUpperCase();
@@ -1751,6 +1771,7 @@ function processRawData({ inventory, consumption, priceList = [], movementLogs =
         min: 5,
         demand: Math.ceil(consQty / 4),
         consumption30d: consQty,
+        consumption6mRolling: consumption6mByPartLoc.get(consKey) || 0,
         last_receipt: row.last_receipt || '',
         ageingDays: -1
       });
@@ -1833,6 +1854,7 @@ function processRawData({ inventory, consumption, priceList = [], movementLogs =
         min: 5,
         demand: 0, 
         consumption30d: 0,
+        consumption6mRolling: 0,
         last_receipt: log.date || '',
         ageingDays: -1
       });
@@ -1870,20 +1892,16 @@ function calculateRequirements(parts) {
     'SPARE PART': 0
   };
 
-  const cons6mMap = {};
-  if (window.rawInventoryData && window.rawInventoryData.consumption) {
-    window.rawInventoryData.consumption.forEach(r => {
-      const pn = r.part_no || 'Unknown';
-      if (!cons6mMap[pn]) cons6mMap[pn] = 0;
-      cons6mMap[pn] += (Number(r.sold_qty) || 0);
-    });
-  }
+  const ROLLING_6M_DAYS = 180;
 
   const processed = parts.map(part => {
     // Override lead time and safety stock based on business rule: 14 days (7 days internal + 7 days supplier)
     const leadTime = 14;
-    const consumption6m = cons6mMap[part.partId] || (part.consumption30d * 6);
-    const avgDailyConsumption = consumption6m / 180;
+    // Precomputed per Part + Location over a trailing 180-day window.
+    // Never fall back to consumption30d * 6: that field is an unfiltered sum of
+    // every loaded row, so scaling it would not be a real six-month average.
+    const consumption6m = Number(part.consumption6mRolling) || 0;
+    const avgDailyConsumption = consumption6m / ROLLING_6M_DAYS;
     const safetyStock = Math.ceil(avgDailyConsumption * leadTime);
     
     const available = part.currentStock - part.reserved;
