@@ -59,6 +59,7 @@ const code = [
   sliceByBraces('window.getFilterFieldValue = function'),
   sliceByBraces('function placeFilterDropdown(div, th)'),
   sliceByBraces('function trackFilterDropdown(div, th)'),
+  sliceByBraces('function paintFilterState(th, count)'),
   sliceByBraces('function markFilterHeaders()'),
   sliceByBraces("document.addEventListener('click', (e) => {"),
 ].join('\n\n');
@@ -182,6 +183,16 @@ kathuaBox.checked = false;
 kathuaBox.dispatchEvent(new window.Event('change', { bubbles: true }));
 dd2.querySelector('.apply-btn').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
 check('after narrowing to NARWAL', renderedCount() === 2, `${renderedCount()} of ${before} rows`);
+check('header turns green when filtered', locTh.classList.contains('th-filtered'), 'th-filtered set');
+check('tooltip explains the state', /Filtered - 1 value/.test(locTh.title), locTh.title);
+check('other headers stay unmarked', !ths.find((t) => t.textContent.trim() === 'Type').classList.contains('th-filtered'));
+
+// self-heal: the look is derived from state, so a re-render keeps it
+window.markFilterHeaders();
+check('green survives re-render', locTh.classList.contains('th-filtered'), 'still green after markFilterHeaders');
+locTh.classList.remove('th-filtered');
+window.markFilterHeaders();
+check('green is re-derived, not remembered', locTh.classList.contains('th-filtered'), 'restored from activeFilters');
 
 // now Clear it
 locTh.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
@@ -266,6 +277,11 @@ check('clear restores all', (() => {
   dd.querySelector('.clear-btn').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
   return window.tableFilterData['cons-table-body'].length === scopeSize;
 })(), `${scopeSize} of ${scopeSize} restored`);
+check('green clears with the filter',
+  !consThs.find((t) => t.textContent.trim() === 'Velocity Trend').classList.contains('th-filtered'),
+  'th-filtered removed');
+check('consumption headers all unfiltered', consResetAll() === scopeSize
+  && consThs.filter((t) => t.classList.contains('th-filtered')).length === 0, '0 green headers');
 
 console.log('\nPart Consumption - previously broken derived columns:');
 const ndpVals = consOptions('NDP (\u20b9)');

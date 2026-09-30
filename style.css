@@ -657,10 +657,18 @@ h2.welcome-text {
   font-size: 0.7rem;
   opacity: 1;
 }
-.control-tower-table thead th.th-filtered {
+/* Column has an active filter - green so it stands out from the blue header
+   and the blue "hoverable" state. Driven by state, not by hover. */
+.control-tower-table thead th.th-filtered,
+.control-tower-table thead th.th-filtered:hover {
   color: #ffffff !important;
-  background: rgba(59, 130, 246, 0.35) !important;
-  box-shadow: inset 0 -3px 0 #93c5fd;
+  background: linear-gradient(180deg, #15803d 0%, #14532d 100%) !important;
+  box-shadow: inset 0 -3px 0 #4ade80;
+}
+.control-tower-table thead th.th-filtered .th-filter-caret svg {
+  /* must out-rank the !important white caret rule above */
+  stroke: #bbf7d0 !important;
+  color: #bbf7d0 !important;
 }
 .control-tower-table tbody td {
   padding: 6px 10px;

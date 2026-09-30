@@ -504,6 +504,16 @@ function trackFilterDropdown(div, th) {
   requestAnimationFrame(() => placeFilterDropdown(div, th));
 }
 
+// Single place that paints the "filter active" look, so the class and the
+// tooltip can never disagree.
+function paintFilterState(th, count) {
+  const filtered = count > 0;
+  th.classList.toggle('th-filtered', filtered);
+  th.title = filtered
+    ? `Filtered - ${count} value(s) selected. Click to change.`
+    : 'Click to filter this column';
+}
+
 // Add an Excel-style caret to every filterable header
 function markFilterHeaders() {
   Object.entries(tableFilterConfigs).forEach(([tableId, cfg]) => {
@@ -511,6 +521,7 @@ function markFilterHeaders() {
     if (!tbody) return;
     const table = tbody.closest('table');
     if (!table) return;
+    const active = window.activeFilters.get(tableId) || {};
     table.querySelectorAll('thead th').forEach(th => {
       const text = th.textContent.trim();
       const key = cfg.fields[text];
@@ -518,6 +529,9 @@ function markFilterHeaders() {
       th.classList.add('has-filter');
       th.style.cursor = 'pointer';
       th.dataset.colKey = key;
+      // Derive the "filter active" look from state, not from the click that set
+      // it, so the green survives re-renders, navigation and data reloads.
+      paintFilterState(th, active[key]?.size || 0);
       if (!th.querySelector('.th-filter-caret')) {
         const caret = document.createElement('span');
         caret.className = 'th-filter-caret';
@@ -783,7 +797,7 @@ document.addEventListener('click', (e) => {
   div.querySelector('.clear-btn').addEventListener('click', () => {
     window.activeFilters.get(tableId)[key] = new Set();
     window.activeSort.set(tableId, { key: '', isAsc: true });
-    th.classList.remove('th-filtered');
+    paintFilterState(th, 0);
     applyFiltersAndSort();
     div.remove();
   });
@@ -817,10 +831,10 @@ document.addEventListener('click', (e) => {
 
     if (nextSet.size === 0 || nextSet.size === uniqueValues.length) {
       window.activeFilters.get(tableId)[key] = new Set();
-      th.classList.remove('th-filtered');
+      paintFilterState(th, 0);
     } else {
       window.activeFilters.get(tableId)[key] = nextSet;
-      th.classList.add('th-filtered');
+      paintFilterState(th, nextSet.size);
     }
     applyFiltersAndSort();
     div.remove();
