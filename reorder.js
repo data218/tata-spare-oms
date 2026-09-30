@@ -264,6 +264,12 @@ function attachReorderListeners() {
     }
   });
 
+  document.getElementById('ro-page-size')?.addEventListener('change', (e) => {
+    RO_ITEMS_PER_PAGE = parseInt(e.target.value) || 50;
+    window.roCurrentPage = 1;
+    renderReorderTable();
+  });
+
   document.getElementById('ro-check-all')?.addEventListener('change', (e) => {
     const checked = e.target.checked;
     const currentData = window.reorderFiltered.slice((window.roCurrentPage - 1) * RO_ITEMS_PER_PAGE, window.roCurrentPage * RO_ITEMS_PER_PAGE);
@@ -498,6 +504,27 @@ function renderReorderTable() {
   const nextBtn = document.getElementById('ro-next-btn');
   if (prevBtn) prevBtn.disabled = window.roCurrentPage === 1;
   if (nextBtn) nextBtn.disabled = window.roCurrentPage === totalPages;
+
+  const pageNumbers = document.getElementById('ro-page-numbers');
+  if (pageNumbers) {
+    pageNumbers.innerHTML = '';
+    const maxVisible = 5;
+    let startPage = Math.max(1, window.roCurrentPage - Math.floor(maxVisible / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+    if (endPage - startPage < maxVisible - 1) {
+      startPage = Math.max(1, endPage - maxVisible + 1);
+    }
+    for (let i = startPage; i <= endPage; i++) {
+      const btn = document.createElement('button');
+      btn.textContent = i;
+      btn.style.cssText = `padding: 6px 12px; border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; font-size: 0.8rem; background: ${i === window.roCurrentPage ? '#3b82f6' : 'white'}; color: ${i === window.roCurrentPage ? 'white' : 'var(--text-primary)'};`;
+      btn.onclick = () => {
+        window.roCurrentPage = i;
+        renderReorderTable();
+      };
+      pageNumbers.appendChild(btn);
+    }
+  }
 
   const checkAll = document.getElementById('ro-check-all');
   if (checkAll) {
