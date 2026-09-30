@@ -5,6 +5,7 @@ window.reorderData = [];
 window.reorderFiltered = [];
 window.roCurrentPage = 1;
 let RO_ITEMS_PER_PAGE = 50;
+let roListenersAttached = false;
 window.reorderBasket = new Set();
 
 window.initReorderModule = function() {
@@ -153,43 +154,51 @@ function generateReorderData() {
   window.reorderData = recommendations;
 }
 
+// Replace the dynamic options of a <select>, keeping only the first (ALL) option.
+function setUniqueOptions(select, values) {
+  if (!select) return;
+  const seen = new Set();
+  const unique = [];
+  values.forEach(v => {
+    const val = String(v == null ? '' : v).trim();
+    if (!val || seen.has(val)) return;
+    seen.add(val);
+    unique.push(val);
+  });
+  unique.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+  // Keep the placeholder option, drop anything previously appended
+  while (select.options.length > 1) select.remove(1);
+
+  unique.forEach(val => {
+    const opt = document.createElement('option');
+    opt.value = val;
+    opt.textContent = val;
+    select.appendChild(opt);
+  });
+
+  // Never leave the control on a value that no longer exists
+  if (select.value && !seen.has(select.value)) select.value = 'ALL';
+}
+
 function populateReorderFilters() {
-  const sFilter = document.getElementById('reorder-supplier-filter');
-  if (sFilter) {
-    const suppliers = new Set();
-    window.reorderData.forEach(r => suppliers.add(r.supplier));
-    suppliers.forEach(s => {
-      const opt = document.createElement('option');
-      opt.value = s;
-      opt.textContent = s;
-      sFilter.appendChild(opt);
-    });
-  }
-  const lFilter = document.getElementById('reorder-location-filter');
-  if (lFilter) {
-    const locations = new Set();
-    window.reorderData.forEach(r => locations.add(r.location));
-    locations.forEach(l => {
-      const opt = document.createElement('option');
-      opt.value = l;
-      opt.textContent = l;
-      lFilter.appendChild(opt);
-    });
-  }
-  const cFilter = document.getElementById('reorder-category-filter');
-  if (cFilter) {
-    const cats = new Set();
-    window.reorderData.forEach(r => cats.add(r.category));
-    Array.from(cats).sort().forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c;
-      opt.textContent = c;
-      cFilter.appendChild(opt);
-    });
-  }
+  setUniqueOptions(
+    document.getElementById('reorder-supplier-filter'),
+    window.reorderData.map(r => r.supplier)
+  );
+  setUniqueOptions(
+    document.getElementById('reorder-location-filter'),
+    window.reorderData.map(r => r.location)
+  );
+  setUniqueOptions(
+    document.getElementById('reorder-category-filter'),
+    window.reorderData.map(r => r.category)
+  );
 }
 
 function attachReorderListeners() {
+  if (roListenersAttached) return;
+  roListenersAttached = true;
   document.getElementById('reorder-search')?.addEventListener('input', (e) => {
     window.roSearchQuery = e.target.value.toLowerCase();
     filterReorderData();
