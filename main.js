@@ -206,10 +206,12 @@ const tableFilterConfigs = {
     }
   },
   'movement-table-body': {
-    // Only the rows currently reachable in the view, so the filter dropdown
-    // never offers a value that the date/type/search filters would exclude
-    getRows: () => (typeof window.getScopedMovementRows === 'function'
-      ? window.getScopedMovementRows()
+    // Full dataset: the base that column filters are applied to. Must stay
+    // unscoped so that date/type/search filters can always be relaxed again.
+    getRows: () => window.movementData || [],
+    // Rows reachable in the current view - used only to populate the dropdown
+    getScopeRows: (excludeKey) => (typeof window.getScopedMovementRows === 'function'
+      ? window.getScopedMovementRows(excludeKey)
       : (window.movementData || [])),
     fields: {
       'Date': 'date',
@@ -368,6 +370,11 @@ function getFieldValue(obj, key, tableId) {
   return obj[key];
 }
 
+// Exposed so other modules can resolve a field for column-filter scoping
+window.getFilterFieldValue = function(row, key, tableId) {
+  return getFieldValue(row, key, tableId);
+};
+
 // Keep a column-filter dropdown glued to its header cell.
 // The dropdown is position:fixed, so we re-place it on every scroll/resize
 // (capture phase catches scrolling of nested overflow containers as well as
@@ -487,7 +494,13 @@ document.addEventListener('click', (e) => {
   
   const cfg = tableFilterConfigs[tableId];
   if (!cfg) return;
-  const sourceRows = cfg.getRows();
+  // The dropdown only lists values that are reachable in the current view.
+  // The base row set (getRows) must stay unscoped, otherwise applying a column
+  // filter would permanently narrow the data and page-level filters could never
+  // broaden the results back.
+  const sourceRows = (typeof cfg.getScopeRows === 'function')
+    ? cfg.getScopeRows(key)
+    : cfg.getRows();
 
   // Prefer the dataset colKey added by markFilterHeaders
   let key = th.dataset.colKey;

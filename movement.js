@@ -291,12 +291,25 @@ function applyMovementFilters(rows) {
   return filtered;
 }
 
-// Rows currently in scope for the header column filters
-window.getScopedMovementRows = function() {
-  if (window.tableFilterData && window.tableFilterData['movement-table-body']) {
-    return applyMovementFilters(window.tableFilterData['movement-table-body']);
-  }
-  return applyMovementFilters(window.movementData || []);
+// Rows currently in scope for the header column filters: page-level filters
+// plus any column filters already active on OTHER columns. The column being
+// edited is excluded so its own selection doesn't hide the remaining options.
+window.getScopedMovementRows = function(excludeKey) {
+  let rows = applyMovementFilters(window.movementData || []);
+
+  const active = (window.activeFilters && window.activeFilters.get('movement-table-body')) || {};
+  Object.keys(active).forEach(k => {
+    const set = active[k];
+    if (k === excludeKey || !set || set.size === 0) return;
+    rows = rows.filter(r => {
+      const val = (typeof window.getFilterFieldValue === 'function')
+        ? window.getFilterFieldValue(r, k, 'movement-table-body')
+        : r[k];
+      return set.has(String(val === null || val === undefined ? '' : val));
+    });
+  });
+
+  return rows;
 };
 
 function _filterMovementData_internal() {
