@@ -2969,12 +2969,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const currentMonthBtn = document.getElementById('current-month-btn');
     if (currentMonthBtn) {
-      currentMonthBtn.style.background = isCurrentMonthOnly ? '#3b82f6' : 'rgba(59,130,246,0.1)';
-      currentMonthBtn.style.color = isCurrentMonthOnly ? 'white' : 'var(--text-secondary)';
-      currentMonthBtn.onclick = () => {
-        window.consTrendCurrentMonth = !isCurrentMonthOnly;
-        if (typeof renderConsumptionAnalytics === 'function') renderConsumptionAnalytics();
+      const updateBtnStyle = () => {
+        const active = window.consTrendCurrentMonth === true;
+        currentMonthBtn.style.background = active ? '#3b82f6' : 'rgba(59,130,246,0.1)';
+        currentMonthBtn.style.color = active ? 'white' : 'var(--text-secondary)';
       };
+      currentMonthBtn.onclick = () => {
+        window.consTrendCurrentMonth = window.consTrendCurrentMonth !== true;
+        updateBtnStyle();
+        if (typeof window.renderConsumptionAnalytics === 'function') window.renderConsumptionAnalytics();
+      };
+      updateBtnStyle();
     }
 
     // Top 5 consumed parts by value
