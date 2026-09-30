@@ -2960,6 +2960,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Daily trend (Current Month)
     const now = new Date();
     const currentMonthPrefix = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    if (window.consTrendCurrentMonth === undefined) window.consTrendCurrentMonth = true;
     const isCurrentMonthOnly = window.consTrendCurrentMonth === true;
     const sortedDays = isCurrentMonthOnly
       ? Object.keys(dayQty).filter(d => d.startsWith(currentMonthPrefix)).sort()
@@ -2975,7 +2976,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentMonthBtn.style.color = active ? 'white' : 'var(--text-secondary)';
       };
       currentMonthBtn.onclick = () => {
-        window.consTrendCurrentMonth = window.consTrendCurrentMonth !== true;
+        window.consTrendCurrentMonth = !window.consTrendCurrentMonth;
         updateBtnStyle();
         if (typeof window.renderConsumptionAnalytics === 'function') window.renderConsumptionAnalytics();
       };
