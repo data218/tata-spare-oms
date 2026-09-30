@@ -576,6 +576,11 @@ h2.welcome-text {
   text-transform: none !important;
   letter-spacing: normal !important;
 }
+.control-tower-table thead[style*="linear-gradient"] th .th-filter-caret svg {
+  color: white !important;
+  stroke: white !important;
+  stroke-width: 3 !important;
+}
 .control-tower-table thead th.has-filter {
   user-select: none;
 }

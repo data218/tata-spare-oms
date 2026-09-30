@@ -40,7 +40,7 @@ function generateReorderData() {
     const reserved = Number(p.reserved) || 0;
     const inTransit = Number(p.inTransit) || 0;
     const available = currentStock - reserved;
-    const avgDailyCons = Number(p.consumption30d) || 0;
+    const avgDailyCons = (Number(p.consumption30d) || 0) / 30;
     const ndp = Number(p.ndpPrice) || 0;
     const cost = ndp;
 
