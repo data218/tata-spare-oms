@@ -341,6 +341,70 @@ function getFieldValue(obj, key, tableId) {
   return obj[key];
 }
 
+// Keep a column-filter dropdown glued to its header cell.
+// The dropdown is position:fixed, so we re-place it on every scroll/resize
+// (capture phase catches scrolling of nested overflow containers as well as
+// window scrolling). If the header scrolls out of view the dropdown closes.
+function placeFilterDropdown(div, th) {
+  const r = th.getBoundingClientRect();
+  const width = div.offsetWidth || 220;
+  const height = div.offsetHeight || 340;
+
+  let left = r.left;
+  if (left + width > window.innerWidth - 8) left = window.innerWidth - width - 8;
+  if (left < 8) left = 8;
+
+  let top = r.bottom + 4;
+  // Flip above the header when there is no room below
+  if (top + height > window.innerHeight - 8 && r.top - height - 4 > 8) {
+    top = Math.max(8, r.top - height - 4);
+  }
+
+  div.style.left = `${left}px`;
+  div.style.top = `${top}px`;
+}
+
+function trackFilterDropdown(div, th) {
+  if (div._trackHandler) {
+    div._trackHandler();
+  }
+  const handler = () => {
+    if (!document.body.contains(div)) {
+      if (div._trackHandler) div._trackHandler();
+      return;
+    }
+    const r = th.getBoundingClientRect();
+    const offscreen = r.bottom < 0 || r.top > window.innerHeight;
+    if (offscreen || !th.closest('table')) {
+      div.remove();
+      if (div._trackHandler) div._trackHandler();
+      return;
+    }
+    placeFilterDropdown(div, th);
+  };
+  div._trackHandler = null;
+  const register = () => {
+    window.addEventListener('scroll', handler, true);
+    window.addEventListener('resize', handler);
+  };
+  const unregister = () => {
+    window.removeEventListener('scroll', handler, true);
+    window.removeEventListener('resize', handler);
+  };
+  const observer = new MutationObserver(() => {
+    if (!document.body.contains(div)) unregister();
+  });
+  observer.observe(document.body, { childList: true });
+
+  div._trackHandler = () => {
+    unregister();
+    observer.disconnect();
+  };
+  register();
+  // Re-place once the dropdown has its real measured size
+  requestAnimationFrame(() => placeFilterDropdown(div, th));
+}
+
 // Add an Excel-style caret to every filterable header
 function markFilterHeaders() {
   Object.entries(tableFilterConfigs).forEach(([tableId, cfg]) => {
@@ -454,11 +518,8 @@ document.addEventListener('click', (e) => {
   const div = document.createElement('div');
   div.className = 'column-filter-dropdown';
   div.dataset.colKey = key;
-  
-  const leftPos = rect.left + window.scrollX;
-  const finalLeft = (leftPos + 220 > window.innerWidth) ? (window.innerWidth - 240) : leftPos;
-  div.style.top = `${rect.bottom + window.scrollY}px`;
-  div.style.left = `${finalLeft}px`;
+
+  placeFilterDropdown(div, th);
 
   // Escape HTML in values to prevent quote breakage
   const escapeHtml = (str) => String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
@@ -495,6 +556,7 @@ document.addEventListener('click', (e) => {
 
   const container = document.getElementById('filter-dropdown-container') || document.body;
   container.appendChild(div);
+  trackFilterDropdown(div, th);
   
   if (typeof lucide !== 'undefined' && lucide.createIcons) {
     lucide.createIcons({ root: div });

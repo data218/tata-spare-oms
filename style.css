@@ -595,7 +595,7 @@ h2.welcome-text {
   user-select: none;
 }
 .column-filter-dropdown {
-  position: absolute;
+  position: fixed;
   z-index: 10000;
   width: 220px;
   max-height: 340px;
