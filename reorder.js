@@ -151,15 +151,27 @@ function generateReorderData() {
 
 function populateReorderFilters() {
   const sFilter = document.getElementById('reorder-supplier-filter');
-  if (!sFilter) return;
-  const suppliers = new Set();
-  window.reorderData.forEach(r => suppliers.add(r.supplier));
-  suppliers.forEach(s => {
-    const opt = document.createElement('option');
-    opt.value = s;
-    opt.textContent = s;
-    sFilter.appendChild(opt);
-  });
+  if (sFilter) {
+    const suppliers = new Set();
+    window.reorderData.forEach(r => suppliers.add(r.supplier));
+    suppliers.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s;
+      opt.textContent = s;
+      sFilter.appendChild(opt);
+    });
+  }
+  const lFilter = document.getElementById('reorder-location-filter');
+  if (lFilter) {
+    const locations = new Set();
+    window.reorderData.forEach(r => locations.add(r.location));
+    locations.forEach(l => {
+      const opt = document.createElement('option');
+      opt.value = l;
+      opt.textContent = l;
+      lFilter.appendChild(opt);
+    });
+  }
 }
 
 function attachReorderListeners() {
@@ -175,13 +187,25 @@ function attachReorderListeners() {
     window.roSupplierFilter = e.target.value;
     filterReorderData();
   });
+  document.getElementById('reorder-location-filter')?.addEventListener('change', (e) => {
+    window.roLocationFilter = e.target.value;
+    filterReorderData();
+  });
+  document.getElementById('reorder-stock-filter')?.addEventListener('change', (e) => {
+    window.roStockFilter = e.target.value;
+    filterReorderData();
+  });
   document.getElementById('reorder-clear-filters')?.addEventListener('click', () => {
     document.getElementById('reorder-search').value = '';
     document.getElementById('reorder-priority-filter').value = 'ALL';
     document.getElementById('reorder-supplier-filter').value = 'ALL';
+    document.getElementById('reorder-location-filter').value = 'ALL';
+    document.getElementById('reorder-stock-filter').value = 'ALL';
     window.roSearchQuery = '';
     window.roPriorityFilter = 'ALL';
     window.roSupplierFilter = 'ALL';
+    window.roLocationFilter = 'ALL';
+    window.roStockFilter = 'ALL';
     window.roKpiFilter = null;
     filterReorderData();
   });
@@ -279,6 +303,16 @@ function filterReorderData() {
   if (sF !== 'ALL') {
     filtered = filtered.filter(r => r.supplier === sF);
   }
+  const lF = window.roLocationFilter || 'ALL';
+  if (lF !== 'ALL') {
+    filtered = filtered.filter(r => r.location === lF);
+  }
+  const stF = window.roStockFilter || 'ALL';
+  if (stF !== 'ALL') {
+    if (stF === 'OUT') filtered = filtered.filter(r => r.currentStock === 0);
+    else if (stF === 'LOW') filtered = filtered.filter(r => r.currentStock > 0 && r.currentStock < r.minStock);
+    else if (stF === 'OK') filtered = filtered.filter(r => r.currentStock >= r.minStock);
+  }
 
   if (window.roSearchQuery) {
     const q = window.roSearchQuery;
@@ -304,9 +338,15 @@ function updateReorderKPIs() {
   let transfers = 0;
   let totalAvailable = 0;
   let totalInTransit = 0;
+  let high = 0;
+  let medium = 0;
+  let planned = 0;
 
   window.reorderFiltered.forEach(r => {
     if (r.priority === 'CRITICAL') critical++;
+    if (r.priority === 'HIGH') high++;
+    if (r.priority === 'MEDIUM') medium++;
+    if (r.priority === 'PLANNED') planned++;
     if (r.currentStock === 0) outOfStock++;
     if (r.priority === 'TRANSFER') transfers++;
     totalQty += r.recQty;
@@ -315,6 +355,7 @@ function updateReorderKPIs() {
     totalInTransit += r.inTransit;
   });
 
+  const total = window.originalProcessedParts ? window.originalProcessedParts.length : 1;
   const setT = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
   setT('ro-kpi-required', required.toLocaleString('en-IN'));
   setT('ro-kpi-critical', critical.toLocaleString('en-IN'));
@@ -322,6 +363,50 @@ function updateReorderKPIs() {
   setT('ro-kpi-qty', totalQty.toLocaleString('en-IN'));
   setT('ro-kpi-val', '₹' + totalVal.toLocaleString('en-IN', { maximumFractionDigits: 0 }));
   setT('ro-kpi-transfer', transfers.toLocaleString('en-IN'));
+
+  setT('ro-kpi-required-sub', ((required / total) * 100).toFixed(0) + '% of total parts');
+  setT('ro-kpi-critical-sub', critical > 0 ? 'Needs immediate action' : 'No critical items');
+  setT('ro-kpi-out-sub', ((outOfStock / total) * 100).toFixed(0) + '% of total parts');
+  setT('ro-kpi-qty-sub', 'Across ' + required + ' parts');
+  setT('ro-kpi-val-sub', 'Pending supplier pricing');
+  setT('ro-kpi-transfer-sub', transfers + ' eligible transfers');
+
+  const riskTotal = critical + high + medium + planned + transfers;
+  const critPct = riskTotal > 0 ? (critical / riskTotal) * 100 : 0;
+  const reqPct = riskTotal > 0 ? ((critical + high) / riskTotal) * 100 : 0;
+  const lowPct = riskTotal > 0 ? ((medium + planned + transfers) / riskTotal) * 100 : 0;
+
+  const rcBar = document.getElementById('ro-risk-critical');
+  const rrBar = document.getElementById('ro-risk-required');
+  const rlBar = document.getElementById('ro-risk-low');
+  if (rcBar) rcBar.style.width = critPct + '%';
+  if (rrBar) rrBar.style.width = reqPct + '%';
+  if (rlBar) rlBar.style.width = lowPct + '%';
+  setT('ro-risk-critical-pct', critPct.toFixed(0) + '%');
+  setT('ro-risk-required-pct', reqPct.toFixed(0) + '%');
+  setT('ro-risk-low-pct', lowPct.toFixed(0) + '%');
+
+  const allParts = window.originalProcessedParts || [];
+  const inStock = allParts.filter(p => p.currentStock > p.min).length;
+  const lowStock = allParts.filter(p => p.currentStock > 0 && p.currentStock <= p.min).length;
+  const outStock = allParts.filter(p => p.currentStock === 0).length;
+  const totalParts = allParts.length || 1;
+
+  const inPct = (inStock / totalParts) * 100;
+  const lowPct2 = (lowStock / totalParts) * 100;
+  const outPct = (outStock / totalParts) * 100;
+
+  setT('ro-health-instock-pct', inPct.toFixed(0) + '%');
+  setT('ro-health-low-pct', lowPct2.toFixed(0) + '%');
+  setT('ro-health-out-pct', outPct.toFixed(0) + '%');
+  const inBar = document.getElementById('ro-health-instock-bar');
+  const lowBar = document.getElementById('ro-health-low-bar');
+  const outBar = document.getElementById('ro-health-out-bar');
+  if (inBar) inBar.style.width = inPct + '%';
+  if (lowBar) lowBar.style.width = lowPct2 + '%';
+  if (outBar) outBar.style.width = outPct + '%';
+
+  setT('ro-total-count', required + ' parts');
 }
 
 function updateBasketCount() {
