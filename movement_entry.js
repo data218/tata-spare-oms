@@ -338,6 +338,10 @@ document.addEventListener('DOMContentLoaded', () => {
         let errorCount = 0;
         const errors = [];
         const logsToInsert = [];
+        // Stock is adjusted optimistically while the rows are validated. If the
+        // insert then fails we must undo every adjustment, otherwise the on-screen
+        // stock stays wrong until the next full refresh.
+        const appliedStock = [];
 
         rows.forEach((row, index) => {
           const date = row['Date'] || new Date().toISOString().split('T')[0];
@@ -378,6 +382,7 @@ document.addEventListener('DOMContentLoaded', () => {
           } else {
             item.currentStock -= qty;
           }
+          appliedStock.push({ item, qty, type });
 
           if (!window.consumptionData) window.consumptionData = [];
           window.consumptionData.unshift({
@@ -386,7 +391,9 @@ document.addEventListener('DOMContentLoaded', () => {
             "Part ID": part,
             Location: loc,
             Qty: qty,
-            Reference: ref
+            Reference: ref,
+            // Marks this row as uncommitted so a failed insert can remove it
+            __bulkPending: true
           });
           
           logsToInsert.push({
@@ -404,6 +411,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (logsToInsert.length > 0) {
           const { error } = await supabase.from('tata_movement_logs').insert(logsToInsert);
           if (error) {
+            // Roll back the optimistic stock edits and drop the synthetic rows so
+            // the UI does not keep showing movements that were never saved.
+            appliedStock.forEach(({ item, qty, type }) => {
+              item.currentStock += (type === 'IN' ? -qty : qty);
+            });
+            if (window.consumptionData) {
+              window.consumptionData = window.consumptionData.filter(r => r.__bulkPending !== true);
+            }
             bulkError.textContent = "Error saving to database: " + error.message;
             bulkError.style.display = 'block';
             return;
