@@ -193,6 +193,12 @@ const tableFilterConfigs = {
       'Days Stock': 'daysOfStock',
       'Order Qty': 'recQty'
     },
+    formatters: {
+      currentStock: (r) => Number(r.currentStock || 0).toLocaleString('en-IN'),
+      minStock: (r) => Number(r.minStock || 0).toLocaleString('en-IN'),
+      avgDailyCons: (r) => Number(r.avgDailyCons || 0).toLocaleString('en-IN', { maximumFractionDigits: 1 }),
+      recQty: (r) => Number(r.recQty || 0).toLocaleString('en-IN')
+    },
     render: (rows) => { 
       if (!window.tableFilterData) window.tableFilterData = {};
       window.tableFilterData['reorder-table-body'] = rows; 
@@ -211,6 +217,13 @@ const tableFilterConfigs = {
       'Qty': 'qty',
       'Value': 'value',
       'Reference': 'reference'
+    },
+    formatters: {
+      date: (r) => (r.date instanceof Date && !isNaN(r.date))
+        ? r.date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+        : '-',
+      qty: (r) => Number(r.qty || 0).toLocaleString('en-IN'),
+      value: (r) => '₹' + Number(r.value || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })
     },
     render: (rows) => { 
       if (!window.tableFilterData) window.tableFilterData = {};
@@ -281,6 +294,11 @@ const tableFilterConfigs = {
       'Tax (₹)': 'tax_amount', 'Billing Type': 'billing_type', 'Order Type': 'order_type',
       'Mode of Pmt': 'mode_of_payment'
     },
+    formatters: {
+      sold_qty: (r) => Number(r.sold_qty || 0).toLocaleString('en-IN'),
+      value: (r) => '₹' + Number(r.value || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 }),
+      tax_amount: (r) => '₹' + Number(r.tax_amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })
+    },
     render: (rows) => { window.tableFilterData['cons-table-body'] = rows; window.cCurrentPage = 1; window.renderConsumptionTable(); }
   },
   'users-table-body': {
@@ -292,6 +310,9 @@ const tableFilterConfigs = {
     render: (rows) => { window.tableFilterData['users-table-body'] = rows; if (typeof window.renderUsers === 'function') window.renderUsers(); }
   }
 };
+
+// Cap on how many distinct values a column filter will list at once.
+const MAX_FILTER_VALUES = 300;
 
 function getPriceMapCache() {
   const rows = (window.rawInventoryData && window.rawInventoryData.priceList) || [];
@@ -308,6 +329,8 @@ function getPriceMapCache() {
 }
 
 function getFieldValue(obj, key, tableId) {
+  const fmt = tableFilterConfigs[tableId]?.formatters?.[key];
+  if (fmt) return fmt(obj);
   if (key === 'statusText') {
     if (tableId === 'demand-table-body') {
       return (obj.orderQty || 0) > 0 ? 'REORDER' : 'SUFFICIENT';
@@ -499,11 +522,11 @@ document.addEventListener('click', (e) => {
   const currentSort = window.activeSort.get(tableId);
 
   // Get unique values for this column
-  const uniqueValues = [...new Set(sourceRows.map(item => {
+  const allUniqueValues = [...new Set(sourceRows.map(item => {
     const val = getFieldValue(item, key, tableId);
     return String(val === null || val === undefined ? '' : val);
   }))];
-  uniqueValues.sort((a, b) => {
+  allUniqueValues.sort((a, b) => {
     const numA = Number(a);
     const numB = Number(b);
     if (!isNaN(numA) && !isNaN(numB) && a !== '' && b !== '') {
@@ -511,6 +534,12 @@ document.addEventListener('click', (e) => {
     }
     return a.localeCompare(b, undefined, {numeric: true});
   });
+
+  // Guard against high-cardinality columns (dates, invoice numbers, values).
+  // Rendering tens of thousands of checkboxes freezes the tab, so we cap the
+  // list and let the user narrow it with the search box.
+  const uniqueValues = allUniqueValues;
+  const isCapped = uniqueValues.length > MAX_FILTER_VALUES;
 
   if (dropdown) dropdown.remove();
 
@@ -524,15 +553,6 @@ document.addEventListener('click', (e) => {
   // Escape HTML in values to prevent quote breakage
   const escapeHtml = (str) => String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 
-  const checkboxesHtml = uniqueValues.map(val => {
-    const isChecked = currentFilters.has(val) ? 'checked' : '';
-    const displayVal = val === '' ? '(Blank)' : escapeHtml(val);
-    const safeVal = escapeHtml(val);
-    return `<label class="column-filter-checkbox" style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; cursor: pointer; font-size: 0.85rem; color: var(--text-primary);">
-      <input type="checkbox" value="${safeVal}" ${isChecked} style="cursor: pointer;"> <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px;">${displayVal}</span>
-    </label>`;
-  }).join('');
-
   div.innerHTML = `
     <div class="col-filter-header">
       <div class="fil-sort">
@@ -545,7 +565,8 @@ document.addEventListener('click', (e) => {
       <label class="col-filter-checkbox" style="font-weight: 600; border-bottom: 1px solid var(--border-color);">
         <input type="checkbox" class="select-all-cb" ${currentFilters.size === 0 || currentFilters.size === uniqueValues.length ? 'checked' : ''} style="cursor: pointer;"> <span>Select All</span>
       </label>
-      ${checkboxesHtml}
+      <div class="col-filter-note" style="display: ${isCapped ? 'block' : 'none'}; padding: 6px 12px; font-size: 0.7rem; color: var(--text-secondary); background: #f8fafc; border-bottom: 1px solid var(--border-color);"></div>
+      <div class="col-filter-options"></div>
     </div>
     <div class="col-filter-footer">
       <button class="clear-btn" style="margin-right: auto;">Clear</button>
@@ -553,6 +574,59 @@ document.addEventListener('click', (e) => {
       <button class="fil-btn fil-btn-ok apply-btn">OK</button>
     </div>
   `;
+
+  const optionsEl = div.querySelector('.col-filter-options');
+  const noteEl = div.querySelector('.col-filter-note');
+  const selectAll = div.querySelector('.select-all-cb');
+  // Values the user explicitly toggled in this session. Needed because the
+  // visible list can be capped, so we cannot infer intent from the DOM alone.
+  const touched = new Map();
+  let currentScope = uniqueValues;
+
+  // Only ever paint MAX_FILTER_VALUES rows, otherwise high-cardinality
+  // columns (dates, invoice numbers) lock up the browser.
+  const renderOptionList = (values) => {
+    currentScope = values;
+    const slice = values.slice(0, MAX_FILTER_VALUES);
+    optionsEl.innerHTML = slice.map(val => {
+      const isChecked = touched.has(val) ? touched.get(val) : currentFilters.has(val) ? 'checked' : '';
+      const displayVal = val === '' ? '(Blank)' : escapeHtml(val);
+      const safeVal = escapeHtml(val);
+      return `<label class="column-filter-checkbox" style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; cursor: pointer; font-size: 0.85rem; color: var(--text-primary);">
+        <input type="checkbox" value="${safeVal}" ${isChecked} style="cursor: pointer;"> <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px;">${displayVal}</span>
+      </label>`;
+    }).join('');
+
+    if (values.length > MAX_FILTER_VALUES) {
+      noteEl.style.display = 'block';
+      noteEl.textContent = `${values.length.toLocaleString('en-IN')} values — showing ${MAX_FILTER_VALUES}. Use the search box to narrow.`;
+    } else {
+      noteEl.style.display = 'none';
+    }
+
+    if (values.length === 0) {
+      optionsEl.innerHTML = '<div style="padding: 12px; font-size: 0.8rem; color: var(--text-secondary); text-align: center;">No matching values</div>';
+    }
+
+    const visibleBoxes = Array.from(optionsEl.querySelectorAll('input[type="checkbox"]'));
+    selectAll.checked = visibleBoxes.length > 0 && visibleBoxes.every(c => c.checked);
+  };
+
+  const readValue = (cb) => {
+    const txt = document.createElement('textarea');
+    txt.innerHTML = cb.value;
+    return txt.value;
+  };
+
+  optionsEl.addEventListener('change', (e) => {
+    const cb = e.target;
+    if (!cb || cb.type !== 'checkbox') return;
+    touched.set(readValue(cb), cb.checked);
+    const visibleBoxes = Array.from(optionsEl.querySelectorAll('input[type="checkbox"]'));
+    selectAll.checked = visibleBoxes.length > 0 && visibleBoxes.every(c => c.checked);
+  });
+
+  renderOptionList(uniqueValues);
 
   const container = document.getElementById('filter-dropdown-container') || document.body;
   container.appendChild(div);
@@ -574,26 +648,23 @@ document.addEventListener('click', (e) => {
     div.remove();
   });
 
-  // Handle Select All
-  const selectAll = div.querySelector('.select-all-cb');
-  const checkboxes = Array.from(div.querySelectorAll('input[type="checkbox"]:not(.select-all-cb)'));
+  // Handle Select All (operates on the currently visible options)
   selectAll.addEventListener('change', (e) => {
-    checkboxes.forEach(cb => cb.checked = e.target.checked);
-  });
-  checkboxes.forEach(cb => {
-    cb.addEventListener('change', () => {
-      selectAll.checked = checkboxes.every(c => c.checked);
+    optionsEl.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+      cb.checked = e.target.checked;
+      touched.set(readValue(cb), e.target.checked);
     });
   });
 
   // Search within dropdown (Excel-style live filter of the value list)
   const searchInput = div.querySelector('.col-filter-search');
   searchInput.addEventListener('input', () => {
-    const q = searchInput.value.toLowerCase();
-    Array.from(div.querySelectorAll('label.col-filter-checkbox:not(:first-of-type)')).forEach(label => {
-      const valText = (label.querySelector('input')?.value || '').toLowerCase();
-      label.style.display = !q || valText.includes(q) || (label.querySelector('span')?.textContent || '').toLowerCase().includes(q) ? '' : 'none';
-    });
+    const q = searchInput.value.trim().toLowerCase();
+    if (!q) {
+      renderOptionList(uniqueValues);
+      return;
+    }
+    renderOptionList(uniqueValues.filter(v => v.toLowerCase().includes(q)));
   });
 
   // Handle Clear
@@ -612,21 +683,23 @@ document.addEventListener('click', (e) => {
 
   // Handle OK (Apply)
   div.querySelector('.apply-btn').addEventListener('click', () => {
-    const checked = checkboxes.filter(cb => cb.checked).map(cb => cb.value);
-    
-    // Un-escape HTML to match original string
-    const unescapeHtml = (str) => {
-      const txt = document.createElement("textarea");
-      txt.innerHTML = str;
-      return txt.value;
-    };
-    const finalChecked = checked.map(unescapeHtml);
+    let nextSet;
+    if (touched.size === 0) {
+      // Nothing was changed - keep whatever filter is already active
+      nextSet = new Set(currentFilters);
+    } else if (currentFilters.size === 0) {
+      // No active filter (everything shown) -> the visible scope becomes the filter
+      nextSet = new Set(currentScope.filter(v => touched.get(v) !== false));
+    } else {
+      nextSet = new Set(currentFilters);
+      touched.forEach((on, v) => { if (on) nextSet.add(v); else nextSet.delete(v); });
+    }
 
-    if (finalChecked.length === 0 || finalChecked.length === uniqueValues.length) {
+    if (nextSet.size === 0 || nextSet.size === uniqueValues.length) {
       window.activeFilters.get(tableId)[key] = new Set();
       th.classList.remove('th-filtered');
     } else {
-      window.activeFilters.get(tableId)[key] = new Set(finalChecked);
+      window.activeFilters.get(tableId)[key] = nextSet;
       th.classList.add('th-filtered');
     }
     applyFiltersAndSort();
