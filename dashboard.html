@@ -629,7 +629,7 @@
 
             <!-- Filter Bar -->
             <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 16px; background: white; padding: 12px 16px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); flex-wrap: wrap;">
-              <select id="reorder-priority-filter" class="form-select" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color);">
+              <select id="reorder-priority-filter" class="form-select" style="padding: 8px 12px; border-radius: 6px; border: 1px solid #3b82f6; background: #eff6ff; color: #1e40af; font-weight: 500;">
                 <option value="ALL">All Priorities</option>
                 <option value="CRITICAL">Critical</option>
                 <option value="HIGH">High</option>
@@ -637,25 +637,25 @@
                 <option value="PLANNED">Planned</option>
                 <option value="TRANSFER">Transfer Possible</option>
               </select>
-              <select id="reorder-supplier-filter" class="form-select" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color);">
+              <select id="reorder-supplier-filter" class="form-select" style="padding: 8px 12px; border-radius: 6px; border: 1px solid #8b5cf6; background: #f5f3ff; color: #5b21b6; font-weight: 500;">
                 <option value="ALL">All Suppliers</option>
               </select>
-              <select id="reorder-location-filter" class="form-select" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color);">
+              <select id="reorder-location-filter" class="form-select" style="padding: 8px 12px; border-radius: 6px; border: 1px solid #10b981; background: #ecfdf5; color: #065f46; font-weight: 500;">
                 <option value="ALL">All Locations</option>
               </select>
-              <select id="reorder-stock-filter" class="form-select" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color);">
+              <select id="reorder-stock-filter" class="form-select" style="padding: 8px 12px; border-radius: 6px; border: 1px solid #f59e0b; background: #fffbeb; color: #92400e; font-weight: 500;">
                 <option value="ALL">Stock Status</option>
                 <option value="OUT">Out of Stock</option>
                 <option value="LOW">Low Stock</option>
                 <option value="OK">In Stock</option>
               </select>
-              <button id="reorder-clear-filters" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 0.85rem; display: flex; align-items: center; gap: 4px;">
+              <button id="reorder-clear-filters" style="background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; cursor: pointer; font-size: 0.85rem; display: flex; align-items: center; gap: 4px; padding: 8px 12px; border-radius: 6px; font-weight: 500;">
                 <i data-lucide="x" style="width: 14px; height: 14px;"></i> Clear all
               </button>
               <div style="flex-grow: 1;"></div>
               <div style="position: relative;">
                 <i data-lucide="search" style="width: 14px; height: 14px; position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
-                <input type="text" id="reorder-search" placeholder="Search Part, Desc, Supplier..." style="padding: 8px 16px 8px 32px; border: 1px solid var(--border-color); border-radius: 6px; width: 280px;">
+                <input type="text" id="reorder-search" placeholder="Search Part, Desc, Supplier..." style="padding: 8px 16px 8px 32px; border: 1px solid #e2e8f0; border-radius: 6px; width: 280px; background: #f8fafc;">
               </div>
             </div>
 
