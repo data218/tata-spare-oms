@@ -172,6 +172,17 @@ function populateReorderFilters() {
       lFilter.appendChild(opt);
     });
   }
+  const cFilter = document.getElementById('reorder-category-filter');
+  if (cFilter) {
+    const cats = new Set();
+    window.reorderData.forEach(r => cats.add(r.category));
+    Array.from(cats).sort().forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c;
+      opt.textContent = c;
+      cFilter.appendChild(opt);
+    });
+  }
 }
 
 function attachReorderListeners() {
@@ -195,17 +206,23 @@ function attachReorderListeners() {
     window.roStockFilter = e.target.value;
     filterReorderData();
   });
+  document.getElementById('reorder-category-filter')?.addEventListener('change', (e) => {
+    window.roCategoryFilter = e.target.value;
+    filterReorderData();
+  });
   document.getElementById('reorder-clear-filters')?.addEventListener('click', () => {
     document.getElementById('reorder-search').value = '';
     document.getElementById('reorder-priority-filter').value = 'ALL';
     document.getElementById('reorder-supplier-filter').value = 'ALL';
     document.getElementById('reorder-location-filter').value = 'ALL';
     document.getElementById('reorder-stock-filter').value = 'ALL';
+    document.getElementById('reorder-category-filter').value = 'ALL';
     window.roSearchQuery = '';
     window.roPriorityFilter = 'ALL';
     window.roSupplierFilter = 'ALL';
     window.roLocationFilter = 'ALL';
     window.roStockFilter = 'ALL';
+    window.roCategoryFilter = 'ALL';
     window.roKpiFilter = null;
     filterReorderData();
   });
@@ -220,6 +237,7 @@ function attachReorderListeners() {
       'Priority': r.priority,
       'Part Number': r.partNo,
       'Description': r.description,
+      'Category': r.category,
       'Location': r.location,
       'Supplier': r.supplier,
       'Current Stock': r.currentStock,
@@ -319,13 +337,18 @@ function filterReorderData() {
     else if (stF === 'LOW') filtered = filtered.filter(r => r.currentStock > 0 && r.currentStock < r.minStock);
     else if (stF === 'OK') filtered = filtered.filter(r => r.currentStock >= r.minStock);
   }
+  const cF = window.roCategoryFilter || 'ALL';
+  if (cF !== 'ALL') {
+    filtered = filtered.filter(r => r.category === cF);
+  }
 
   if (window.roSearchQuery) {
     const q = window.roSearchQuery;
     filtered = filtered.filter(r =>
       r.partNo.toLowerCase().includes(q) ||
       r.description.toLowerCase().includes(q) ||
-      r.supplier.toLowerCase().includes(q)
+      r.supplier.toLowerCase().includes(q) ||
+      r.category.toLowerCase().includes(q)
     );
   }
 
@@ -470,6 +493,9 @@ function renderReorderTable() {
           <div style="font-size: 0.65rem; color: var(--text-secondary); max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${r.description}">${r.description}</div>
         </td>
         <td style="padding: 4px 6px;">
+          <span style="display: inline-block; font-size: 0.65rem; font-weight: 600; color: #9d174d; background: #fdf2f8; border: 1px solid #fbcfe8; border-radius: 2px; padding: 2px 6px; max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${r.category}">${r.category}</span>
+        </td>
+        <td style="padding: 4px 6px;">
           <div style="font-size: 0.7rem; font-weight: 500;">${r.location}</div>
         </td>
         <td style="padding: 4px 6px; text-align: right;">
@@ -582,6 +608,7 @@ window.viewReorderReason = function(btn) {
       <div style="margin-bottom: 16px; padding: 12px; background: #f8fafc; border-radius: 8px;">
         <div style="font-weight: 700; font-size: 1.1rem; color: #0f172a;">${row.partNo}</div>
         <div style="font-size: 0.9rem; color: #475569; margin-top: 2px;">${row.description}</div>
+        <div style="font-size: 0.75rem; color: #9d174d; margin-top: 4px; display: inline-block; background: #fdf2f8; border: 1px solid #fbcfe8; border-radius: 2px; padding: 2px 6px; font-weight: 600;">${row.category}</div>
         <div style="font-size: 0.85rem; color: #64748b; margin-top: 6px; display: flex; align-items: center; gap: 4px;">
           <i data-lucide="map-pin" style="width: 14px; height: 14px;"></i>
           ${row.location} | ${row.supplier}

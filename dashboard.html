@@ -645,13 +645,16 @@
                 <option value="LOW">Low Stock</option>
                 <option value="OK">In Stock</option>
               </select>
+              <select id="reorder-category-filter" class="form-select" style="padding: 8px 12px; border-radius: 6px; border: 1px solid #ec4899; background: #fdf2f8; color: #9d174d; font-weight: 500;">
+                <option value="ALL">All Categories</option>
+              </select>
               <button id="reorder-clear-filters" style="background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; cursor: pointer; font-size: 0.85rem; display: flex; align-items: center; gap: 4px; padding: 8px 12px; border-radius: 6px; font-weight: 500;">
                 <i data-lucide="x" style="width: 14px; height: 14px;"></i> Clear all
               </button>
               <div style="flex-grow: 1;"></div>
               <div style="position: relative;">
                 <i data-lucide="search" style="width: 14px; height: 14px; position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
-                <input type="text" id="reorder-search" placeholder="Search Part, Desc, Supplier..." style="padding: 8px 16px 8px 32px; border: 1px solid #e2e8f0; border-radius: 6px; width: 280px; background: #f8fafc;">
+                <input type="text" id="reorder-search" placeholder="Search Part, Desc, Supplier, Category..." style="padding: 8px 16px 8px 32px; border: 1px solid #e2e8f0; border-radius: 6px; width: 280px; background: #f8fafc;">
               </div>
             </div>
 
@@ -679,12 +682,14 @@
                       <th style="padding: 10px 8px; text-align: center; font-weight: 600; color: white; font-size: 0.8rem;"><input type="checkbox" id="ro-check-all"></th>
                       <th style="padding: 10px 8px; text-align: left; font-weight: 600; color: white; font-size: 0.8rem;">Priority</th>
                       <th style="padding: 10px 8px; text-align: left; font-weight: 600; color: white; font-size: 0.8rem;">Part Details</th>
+                      <th style="padding: 10px 8px; text-align: left; font-weight: 600; color: white; font-size: 0.8rem;">Category</th>
                       <th style="padding: 10px 8px; text-align: left; font-weight: 600; color: white; font-size: 0.8rem;">Location</th>
                       <th style="padding: 10px 8px; text-align: right; font-weight: 600; color: white; font-size: 0.8rem;">Current Stock</th>
                       <th style="padding: 10px 8px; text-align: right; font-weight: 600; color: white; font-size: 0.8rem;">Min / Max</th>
                       <th style="padding: 10px 8px; text-align: right; font-weight: 600; color: white; font-size: 0.8rem;">Avg Cons/Day</th>
                       <th style="padding: 10px 8px; text-align: right; font-weight: 600; color: white; font-size: 0.8rem;">Days Stock</th>
                       <th style="padding: 10px 8px; text-align: right; font-weight: 600; color: white; font-size: 0.8rem;">Order Qty</th>
+                      <th style="padding: 10px 8px; text-align: center; font-weight: 600; color: white; font-size: 0.8rem;">Action</th>
                     </tr>
                   </thead>
                   <tbody id="reorder-table-body">
