@@ -1,7 +1,7 @@
-import { fetchConsumptionData } from './_src/consumption_scraper.js';
-import { fetchInventoryData } from './_src/inventory_scraper.js';
-import { supabase } from './_src/server-config.js';
-import { waitUntil } from './_src/wait-until.js';
+import { fetchConsumptionData } from '../src/consumption_scraper.js';
+import { fetchInventoryData } from '../src/inventory_scraper.js';
+import { supabase } from '../src/server-config.js';
+import { waitUntil } from '../src/wait-until.js';
 
 const JOB_KEY = 'fetch_job';
 const MAX_LOG_CHARS = 40000;
