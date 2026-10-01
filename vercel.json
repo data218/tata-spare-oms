@@ -6,7 +6,11 @@
   "functions": {
     "api/**/*.js": {
       "maxDuration": 300,
-      "includeFiles": "node_modules/{@sparticuz,puppeteer-extra-plugin-*,fs-extra,rimraf,deepmerge}/**/*"
+      "includeFiles": [
+        "node_modules/{@sparticuz,puppeteer-extra-plugin-*,fs-extra,rimraf,deepmerge}/**/*",
+        "src/**/*.js",
+        "server.js"
+      ]
     }
   },
   "crons": [
