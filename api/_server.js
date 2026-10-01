@@ -115,6 +115,12 @@ async function unitsForSpec(spec) {
   const units = [];
 
   if (type === 'consumption' || type === 'all') {
+    // The consumption scraper cannot run without a date range. Reject it here
+    // with a clear 400 instead of queueing a unit that is guaranteed to fail
+    // and burn through its retries.
+    if (!spec || !spec.fromDate || !spec.toDate) {
+      throw new Error('fromDate and toDate are required for a consumption fetch.');
+    }
     units.push({ kind: 'consumption' });
   }
   if (type === 'inventory' || type === 'all') {
@@ -434,7 +440,13 @@ export default async function handler(req, res) {
       if (!isAuthorized(req)) {
         return send(res, 401, { success: false, message: 'Unauthorized' });
       }
-      await startOrMergeJob(await readSpec(req));
+      // A bad request must not create a job row: the unit would be queued and
+      // then fail on every retry. Reject it before anything is written.
+      try {
+        await startOrMergeJob(await readSpec(req));
+      } catch (err) {
+        return send(res, 400, { success: false, message: err.message });
+      }
       return await kickOff(req, res);
     }
 

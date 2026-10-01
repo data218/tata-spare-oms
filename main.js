@@ -1393,21 +1393,35 @@ if (addLocForm) {
 const fetchForm = document.getElementById('fetch-data-form');
 if (fetchForm) {
   fetchForm.addEventListener('submit', (e) => e.preventDefault());
-  
+
+  // Pre-fill the consumption date range so a fetch can never be submitted
+  // with empty dates. The scraper rejects a missing range outright, and a
+  // blank submission used to queue a unit that failed on every retry.
+  const fromDateEl = document.getElementById('from-date');
+  const toDateEl = document.getElementById('to-date');
+  if (fromDateEl && toDateEl && !fromDateEl.value && !toDateEl.value) {
+    const to = new Date();
+    const from = new Date(to);
+    from.setDate(from.getDate() - 30);
+    const iso = (d) => d.toISOString().split('T')[0];
+    fromDateEl.value = iso(from);
+    toDateEl.value = iso(to);
+  }
+
   const handleFetch = async (btnId, type) => {
     const btn = document.getElementById(btnId);
     const statusDiv = document.getElementById('fetch-status');
     const rawFromDate = document.getElementById('from-date').value;
     const rawToDate = document.getElementById('to-date').value;
     const targetLocation = document.getElementById('fetch-target-location').value;
-    
+
     if (type === 'consumption' && (!rawFromDate || !rawToDate)) {
       statusDiv.style.display = 'block';
       statusDiv.style.color = '#ef4444';
       statusDiv.textContent = 'Please select both dates for consumption data.';
       return;
     }
-    
+
     let fromDate = '', toDate = '';
     if (rawFromDate && rawToDate) {
       // Convert YYYY-MM-DD to MM/DD/YYYY
@@ -1416,7 +1430,7 @@ if (fetchForm) {
       const [tY, tM, tD] = rawToDate.split('-');
       toDate = `${tM}/${tD}/${tY}`;
     }
-    
+
     const originalText = btn.innerHTML;
     const originalBg = btn.style.background;
     btn.innerHTML = '<i data-lucide="loader" class="lucide-spin"></i> Fetching...';
@@ -1449,7 +1463,14 @@ if (fetchForm) {
         body: JSON.stringify({ type, fromDate, toDate, targetLocation })
       });
       if (!response.ok) {
-        throw new Error('Could not start the scraper: HTTP ' + response.status);
+        // The server returns the real reason in the body. Surfacing only the
+        // status code hid things like a missing date range behind "HTTP 500".
+        let detail = 'HTTP ' + response.status;
+        try {
+          const payload = await response.json();
+          if (payload && payload.message) detail = payload.message;
+        } catch { /* keep the status-code fallback */ }
+        throw new Error('Could not start the scraper: ' + detail);
       }
 
       // Progress is read from the job row below while it runs in the background.
