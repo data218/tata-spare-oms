@@ -4,7 +4,10 @@ import 'puppeteer-extra-plugin-user-data-dir';
 import 'puppeteer-extra-plugin-user-preferences';
 
 // Apply stealth evasions directly, bypassing puppeteer-extra's dynamic require
-// system which Vercel's file tracer cannot follow.
+// system. puppeteer-extra resolves a plugin's evasions with `require(<name>/evasions/<id>)`,
+// which Vercel's dependency tracer cannot follow, so the lambda shipped without them and
+// launch failed with MODULE_NOT_FOUND. The `puppeteer-extra-plugin-stealth` package is
+// deliberately NOT a dependency; these vendored copies are registered one by one instead.
 import ChromeApp from './stealth-plugin/evasions/chrome.app/index.js';
 import ChromeCsi from './stealth-plugin/evasions/chrome.csi/index.js';
 import ChromeLoadTimes from './stealth-plugin/evasions/chrome.loadTimes/index.js';
@@ -55,6 +58,12 @@ export async function launchBrowser(overrides = {}) {
   };
 
   if (process.env.VERCEL) {
+    // @sparticuz/chromium unpacks the headless shell into /tmp and extracts the shared
+    // libraries it needs (libnss3.so et al) to /tmp/al2023/lib, which it adds to
+    // LD_LIBRARY_PATH. Both only happen on v129+: older builds gated the library
+    // extraction on AWS_EXECUTION_ENV, which is never set on Vercel, so the binary
+    // unpacked but could not resolve libnss3.so. Keep this package on the version
+    // matching the Chromium revision that `puppeteer` pins.
     const { default: chromium } = await import('@sparticuz/chromium');
     options.executablePath = await chromium.executablePath();
     options.headless = process.env.SCRAPER_HEADLESS === 'false' ? false : 'shell';
