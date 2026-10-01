@@ -470,20 +470,42 @@ export default async function handler(req, res) {
     // Reports the actual lambda runtime, so packaging problems can be measured
     // instead of guessed at.
     if (path === '/api/health' || path === '/health') {
-      let requireEsm;
+      const { major } = { major: Number(process.versions.node.split('.')[0]) };
+
+      // Load the scraper runtime the same way the scrapers do. This used to probe
+      // `createRequire()('puppeteer-core')`, which reported ok:false on Node 24.21
+      // and looked alarming, but nothing depends on it: puppeteer-runtime.js imports
+      // puppeteer as ESM and hands the real instance to addExtra(), so the CommonJS
+      // interop path was never on the fetch path.
+      let runtime;
       try {
-        const { createRequire } = await import('module');
-        // Exactly the operation that fails: CJS requiring an ESM package.
-        createRequire(import.meta.url)('puppeteer-core');
-        requireEsm = { ok: true };
+        await import('../src/puppeteer-runtime.js');
+        runtime = { ok: true };
       } catch (e) {
-        requireEsm = { ok: false, error: e.message.split('\n')[0] };
+        runtime = { ok: false, error: e.message.split('\n')[0] };
       }
+
+      // @sparticuz/chromium only unpacks libnss3.so and friends on AL2023 or
+      // Vercel. Elsewhere the browser cannot start, which is worth stating plainly
+      // instead of surfacing later as "error while loading shared libraries".
+      let chromium;
+      try {
+        const { default: chromiumPkg } = await import('@sparticuz/chromium');
+        chromium = {
+          ok: true,
+          version: chromiumPkg.headless ? 'headless-shell' : 'chromium',
+          al2023: Boolean(process.env.VERCEL) && major >= 20,
+        };
+      } catch (e) {
+        chromium = { ok: false, error: e.message.split('\n')[0] };
+      }
+
       return send(res, 200, {
         success: true,
         node: process.version,
-        major: Number(process.versions.node.split('.')[0]),
-        requireEsm,
+        major,
+        runtime,
+        chromium,
       });
     }
 
