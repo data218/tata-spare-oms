@@ -75,16 +75,16 @@ if ($Time -notmatch '^([01]\d|2[0-3]):([0-5]\d)$') {
 }
 
 $node = (Get-Command node -ErrorAction Stop).Source
-$logDir = Join-Path $RepoRoot 'logs'
-New-Item -ItemType Directory -Path $logDir -Force | Out-Null
-$stamp = Get-Date -Format 'yyyy-MM-dd'
-$logFile = Join-Path $logDir "fetch-$stamp.log"
+$script = Join-Path $RepoRoot 'run-fetch.mjs'
+if (-not (Test-Path $script)) { throw "Cannot find $script" }
 
-# The task must not start a second run while one is still going: the Siebel
-# portal allows only one session per user, and overlapping runs collide.
+# Node is invoked directly rather than through cmd.exe: wrapping a path with spaces
+# in cmd /c "..." strips the inner quotes and node then tries to load a module whose
+# name ends in a stray quote. run-fetch.mjs writes logs/log-YYYY-MM-DD.log itself.
 $action = New-ScheduledTaskAction `
-  -Execute 'cmd.exe' `
-  -Argument "/c `"$node`" `"$RepoRoot\run-fetch.mjs`" $Target >> `"$logFile`" 2>&1"
+  -Execute $node `
+  -Argument "`"$script`" $Target" `
+  -WorkingDirectory $RepoRoot
 
 $trigger = New-ScheduledTaskTrigger -Daily -At $Time
 
@@ -99,6 +99,9 @@ Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Se
   -Description 'Fetches Tata BI consumption and inventory data into Supabase.' -Force | Out-Null
 
 Write-Host "Registered '$TaskName' to run daily at $Time."
-Write-Host "  target : $Target"
-Write-Host "  logs   : $logDir"
+Write-Host "  node    : $node"
+Write-Host "  script  : $script"
+Write-Host "  target  : $Target"
+Write-Host '  logs    : logs\fetch-YYYY-MM-DD.log'
 Write-Host 'The machine must be on and connected to the network at that time.'
+Write-Host 'If it was off, the task runs at the next sign-in (StartWhenAvailable).'

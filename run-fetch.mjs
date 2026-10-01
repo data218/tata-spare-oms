@@ -15,6 +15,9 @@
  *
  * Intended to be driven by the Windows Task Scheduler (see run-fetch-scheduled.ps1).
  */
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { fetchConsumptionData } from './src/consumption_scraper.js';
 import { fetchInventoryData } from './src/inventory_scraper.js';
 import { supabase } from './src/server-config.js';
@@ -22,6 +25,24 @@ import { supabase } from './src/server-config.js';
 const JOB_KEY = 'fetch_job';
 const MAX_LOG_CHARS = 40000;
 const MAX_UNIT_ATTEMPTS = 3;
+
+const REPO_ROOT = path.dirname(fileURLToPath(import.meta.url));
+
+// Task Scheduler gives the task no console, so tee everything to a dated file.
+// Writing the log here rather than in the task definition avoids cmd.exe quoting.
+const LOG_DIR = path.join(REPO_ROOT, 'logs');
+fs.mkdirSync(LOG_DIR, { recursive: true });
+const LOG_FILE = path.join(LOG_DIR, `fetch-${new Date().toISOString().slice(0, 10)}.log`);
+fs.appendFileSync(LOG_FILE, `\n===== run started ${new Date().toISOString()} =====\n`);
+
+for (const level of ['log', 'warn', 'error']) {
+  const original = console[level].bind(console);
+  console[level] = (...args) => {
+    const line = args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ');
+    try { fs.appendFileSync(LOG_FILE, `${line}\n`); } catch { /* logging must never fail the run */ }
+    original(...args);
+  };
+}
 
 const pad = (n) => String(n).padStart(2, '0');
 const formatDate = (d) => `${pad(d.getMonth() + 1)}/${pad(d.getDate())}/${d.getFullYear()}`;
