@@ -5,6 +5,7 @@ import path from 'path';
 import csv from 'csv-parser';
 import { supabase } from './server-config.js';
 import { downloadDir, scratch } from './scratch-paths.js';
+import { loginToPortal } from './portal-login.js';
 dotenv.config();
 
 async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
@@ -45,66 +46,16 @@ async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
     await page.setViewport({ width: 1366, height: 768 });
 
     try {
-        // Navigate to the provided URL
-        console.log('Navigating to login page...');
-        await page.goto('https://insights.inservices.pv.tatamotors/bi-security-login/login.jsp;jsessionid=88qnqGtWzPcCQ8wukvy-OV4WucW5kFiuZ7vH5WZn7Rs3JPXNJMRs!614236238?msi=false&mt=false&profileMust=true&redirect=L2FuYWx5dGljcy9zYXcuZGxsP0Rhc2hib2FyZCZwb3J0YWxQYXRoPSUyZnNoYXJlZCUyZlN0YXJ0JTIwdXAlMmZfcG9ydGFsJTJmRGFzaGJvYXJkJmhhc2g9R2Q5bm5fWmkwcVpMNTlUd3ZBNkhzaGpMLU1MZE5jamJqdEdDa0FlTzMtX2UwRFl1cTVoenlWNjl4UkowMDVrcw==', { waitUntil: 'networkidle2' });
+        // Sign in. The portal issues its own short-lived redirect token when we ask
+        // for the app URL, so nothing about the login URL is hardcoded here.
+        await loginToPortal(page, { username: location.username, password: location.password }, notify);
 
         const html = await page.content();
         fs.writeFileSync(scratch('page.html'), html);
         console.log('Saved page.html for inspection');
 
-        // Wait for login fields to appear
-        await page.waitForSelector('input[name="j_username"]', { visible: true, timeout: 10000 }).catch(() => console.log('Username field not found, might have different selector'));
-        
-        // Add random wait before typing
-        await new Promise(r => setTimeout(r, 1000 + Math.random() * 1000));
-        
-        // Enter credentials with human-like typing delays
-        // ---------------------------------------------------------
-        // FETCH CREDENTIALS FROM SUPABASE
-        // ---------------------------------------------------------
-        let botUser = location.username;
-        let botPass = location.password;
-        notify(`Logging in as: ${botUser}...`);
 
-        // Wait for the login form to be ready
-        await page.waitForSelector('input[name="j_username"]', { visible: true });
-        
-        // Fill credentials
-        await page.type('input[name="j_username"]', botUser, { delay: 100 + Math.random() * 100 });
-        await page.type('input[name="j_password"]', botPass, { delay: 100 + Math.random() * 100 });
-
-        // Add random wait before clicking
-        await new Promise(r => setTimeout(r, 500 + Math.random() * 1000));
-
-        // Submit login form
-        notify('Submitting login credentials...');
-        await page.click('#btn_login');
-
-        // Add an extra wait for any subsequent client-side redirects or dashboard loading
-        await new Promise(r => setTimeout(r, 5000));
-        
-        // Check if login failed, safely ignoring execution context destroyed errors during navigation
-        try {
-            const errorMsg = await page.$('.bitech-errormsg-container');
-            if (errorMsg) {
-                const isVisible = await page.evaluate(el => {
-                    const style = window.getComputedStyle(el);
-                    return style && style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
-                }, errorMsg);
-                
-                if (isVisible) {
-                    const errText = await page.evaluate(el => el.textContent, errorMsg);
-                    throw new Error(`Login failed for ${botUser}: ${errText.trim()}`);
-                }
-            }
-        } catch (e) {
-            if (e.message.includes('Login failed')) throw e;
-            // Execution context destroyed means navigation happened, so login likely succeeded!
-            console.log('Navigation occurred, assuming login success.');
-        }
-
-        notify('Login successful. Navigating to PCBU Spares report...');
+        notify('Navigating to PCBU Spares report...');
         
         // Click on the Dashboards dropdown
         await page.waitForSelector('#dashboard', { visible: true });
