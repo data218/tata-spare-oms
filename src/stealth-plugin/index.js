@@ -75,7 +75,17 @@ class StealthPlugin extends PuppeteerExtraPlugin {
   }
 
   get name() {
-    return 'stealth'
+    return 'stealth';
+  }
+
+  // Override the dependency paths so puppeteer-extra resolves evasions from
+  // this vendored location instead of node_modules/puppeteer-extra-plugin-stealth.
+  get dependencies() {
+    const path = require('path');
+    const evasionsDir = path.join(__dirname, 'evasions');
+    return new Set(
+      [...this.opts.enabledEvasions].map(e => path.join(evasionsDir, e))
+    );
   }
 
   get defaults() {
