@@ -253,9 +253,8 @@ let botUser = location.username;
             }
         }
 
-            console.log(`FAILED: Could not find any of: ${textArr.join(', ')}`);
-            return false;
-        }
+  return false;
+}
 
         // Retries a click until the element appears. The Siebel Site Map builds
         // its category tree asynchronously and, on the slower serverless CPU, the
