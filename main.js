@@ -2025,32 +2025,65 @@ async function checkMissingDataAlerts() {
 }
 
 async function loadDataAndRender() {
+  // Show the full-screen spinner for the whole fetch + render cycle. The network
+  // round-trip dominates here (40k+ consumption rows), so this stays up for far
+  // longer than the brief render pass that renderDashboard() wraps.
+  showLoadingOverlay('Fetching inventory, consumption and price list...');
+
   const tbody = document.getElementById('inventory-table-body');
   if(tbody) tbody.innerHTML = '<tr><td colspan="12" style="text-align:center; padding: 40px; color: var(--text-secondary);"><div class="spin-animation" style="display:inline-block; margin-right:12px; width:24px; height:24px; border:3px solid #e2e8f0; border-top-color:#3b82f6; border-radius:50%; vertical-align:middle;"></div><span style="font-size: 1.1rem; vertical-align:middle;">Loading live data from Supabase...</span></td></tr>';
   
-  rawInventoryData = await fetchInventoryData();
-  window.rawInventoryData = rawInventoryData;
-  aggregatedParts = processRawData(rawInventoryData);
-  
-  const updatedEl = document.getElementById('last-updated-text');
-  if (updatedEl && rawInventoryData.inventory && rawInventoryData.inventory.length > 0) {
-    // Grab the updated_at from the first row (they should all be similar from the bulk insert)
-    const latestDateStr = rawInventoryData.inventory[0].updated_at || rawInventoryData.inventory[0].fetched_at;
-    if (latestDateStr) {
-      updatedEl.textContent = formatBeautifulDate(latestDateStr);
-    } else {
-      updatedEl.textContent = 'Unknown';
-    }
-  } else if (updatedEl) {
-    updatedEl.textContent = 'No data available';
-  }
+  try {
+    rawInventoryData = await fetchInventoryData();
+    window.rawInventoryData = rawInventoryData;
+    aggregatedParts = processRawData(rawInventoryData);
 
-  renderDashboard();
-  renderDashboardAnalytics();
-  await checkMissingDataAlerts();
-  await populateLocationSelect();
-  if (typeof window.renderRecentActivity === 'function' && typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+    const updatedEl = document.getElementById('last-updated-text');
+    if (updatedEl && rawInventoryData.inventory && rawInventoryData.inventory.length > 0) {
+      // Grab the updated_at from the first row (they should all be similar from the bulk insert)
+      const latestDateStr = rawInventoryData.inventory[0].updated_at || rawInventoryData.inventory[0].fetched_at;
+      if (latestDateStr) {
+        updatedEl.textContent = formatBeautifulDate(latestDateStr);
+      } else {
+        updatedEl.textContent = 'Unknown';
+      }
+    } else if (updatedEl) {
+      updatedEl.textContent = 'No data available';
+    }
+
+    renderDashboard();
+    renderDashboardAnalytics();
+    await checkMissingDataAlerts();
+    await populateLocationSelect();
+    if (typeof window.renderRecentActivity === 'function' && typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+  } catch (err) {
+    console.error('Failed to load dashboard data:', err);
+    const banner = document.getElementById('data-load-error');
+    if (banner) {
+      banner.textContent = 'Failed to load data: ' + (err && err.message ? err.message : err);
+      banner.style.display = 'block';
+    }
+  } finally {
+    hideLoadingOverlay();
+  }
 }
+
+// Full-screen loading spinner helpers. The overlay element lives in dashboard.html.
+function showLoadingOverlay(detailText) {
+  const overlay = document.getElementById('loading-overlay');
+  if (overlay) overlay.style.display = 'flex';
+  const detail = document.getElementById('loading-overlay-detail');
+  if (detail) detail.textContent = detailText || '';
+}
+
+function hideLoadingOverlay() {
+  const overlay = document.getElementById('loading-overlay');
+  if (overlay) overlay.style.display = 'none';
+  const banner = document.getElementById('data-load-error');
+  if (banner) banner.style.display = 'none';
+}
+window.showLoadingOverlay = showLoadingOverlay;
+window.hideLoadingOverlay = hideLoadingOverlay;
 
 // --- Date Range Filter Event Listeners (all pages) ---
 document.querySelectorAll('.filter-from-date').forEach(el => {
@@ -2078,15 +2111,9 @@ document.querySelectorAll('.filter-clear-btn').forEach(el => {
 });
 
 function renderDashboard() {
-  const overlay = document.getElementById('loading-overlay');
-  if (overlay) overlay.style.display = 'flex';
-  setTimeout(() => {
-    try {
-      _renderDashboard_internal();
-    } finally {
-      if (overlay) overlay.style.display = 'none';
-    }
-  }, 50);
+  // The heavy lifting is already covered by the full-screen spinner in
+  // loadDataAndRender. Keep renderDashboard instant to avoid double spinners.
+  _renderDashboard_internal();
 }
 
 function _renderDashboard_internal() {
