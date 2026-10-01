@@ -15,7 +15,7 @@
     "vite": "^8.3.0"
   },
   "dependencies": {
-    "@sparticuz/chromium": "153.0.0",
+    "@sparticuz/chromium": "^127.0.0",
     "@supabase/supabase-js": "^2.116.0",
     "@vercel/functions": "^3.9.9",
     "chart.js": "^4.5.1",
@@ -25,7 +25,7 @@
     "express": "^5.2.1",
     "jsdom": "^29.1.1",
     "node-cron": "^4.6.0",
-    "puppeteer": "^25.11.0",
+    "puppeteer": "^22.15.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
     "puppeteer-extra-plugin-user-preferences": "^2.4.1"
