@@ -17,6 +17,14 @@ const MAX_UNIT_ATTEMPTS = 3;
 const pad = (n) => n.toString().padStart(2, '0');
 const formatDate = (d) => `${pad(d.getMonth() + 1)}/${pad(d.getDate())}/${d.getFullYear()}`;
 
+/** The trailing window used when a request does not name an explicit range. */
+const trailingDays = (days) => {
+  const to = new Date();
+  const from = new Date();
+  from.setDate(from.getDate() - days);
+  return { from: formatDate(from), to: formatDate(to) };
+};
+
 const describeUnit = (u) => (u.kind === 'consumption' ? 'consumption report' : `inventory for ${u.location}`);
 const unitKey = (u) => `${u.kind}:${u.location || ''}`;
 const countDone = (queue) => queue.units.filter((u) => u.status === 'done').length;
@@ -115,13 +123,17 @@ async function unitsForSpec(spec) {
   const units = [];
 
   if (type === 'consumption' || type === 'all') {
-    // The consumption scraper cannot run without a date range. Reject it here
-    // with a clear 400 instead of queueing a unit that is guaranteed to fail
-    // and burn through its retries.
-    if (!spec || !spec.fromDate || !spec.toDate) {
+    // The consumption scraper needs a date range. The "Sync Database" button posts
+    // type:'all' with no dates, which used to be rejected with a 400, so the
+    // button could never start a run. Default it to the same trailing 30 days the
+    // daily cron uses, and keep the explicit 400 when the caller does send dates
+    // but one of them is empty.
+    const fromDate = spec?.fromDate || trailingDays(30).from;
+    const toDate = spec?.toDate || trailingDays(30).to;
+    if (!fromDate || !toDate) {
       throw new Error('fromDate and toDate are required for a consumption fetch.');
     }
-    units.push({ kind: 'consumption' });
+    units.push({ kind: 'consumption', fromDate, toDate });
   }
   if (type === 'inventory' || type === 'all') {
     const locations = await listLocations(target);
@@ -231,7 +243,10 @@ async function claimNextUnit() {
 async function runUnit(unit, job) {
   const broadcast = (msg) => appendLog(`&nbsp;&nbsp;&nbsp;${msg}`);
   if (unit.kind === 'consumption') {
-    return await fetchConsumptionData(job.fromDate, job.toDate, broadcast);
+    // Read the range off the unit, not the job: a merged run can queue several
+    // units and the job-level fields only ever describe the first request.
+    const fallback = trailingDays(30);
+    return await fetchConsumptionData(unit.fromDate || job?.fromDate || fallback.from, unit.toDate || job?.toDate || fallback.to, broadcast);
   }
   return await fetchInventoryData(broadcast, unit.location);
 }
