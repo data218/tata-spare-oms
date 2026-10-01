@@ -1,4 +1,4 @@
-import { fetchInventoryData } from './src/inventory_scraper.js';
+import { fetchInventoryData } from './api/_src/inventory_scraper.js';
 
 try {
   const messages = await fetchInventoryData(console.log, 'KATHUA');
