@@ -4,9 +4,8 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "functions": {
-    "api/**/*.js": {
-      "maxDuration": 300,
-      "includeFiles": "node_modules/{@sparticuz,puppeteer-extra-plugin-*,fs-extra,rimraf,deepmerge}/**/*"
+    "api/*.js": {
+      "maxDuration": 300
     }
   },
   "crons": [
