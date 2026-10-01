@@ -1,6 +1,6 @@
 import puppeteer from 'puppeteer';
 import { addExtra } from 'puppeteer-extra';
-import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import StealthPlugin from './stealth-plugin/index.js';
 // puppeteer-extra resolves any plugin it considers "missing" through a dynamic
 // `require(name)` that Vercel's dependency tracer cannot follow. Importing them
 // statically keeps them and their transitive deps inside the lambda bundle.
