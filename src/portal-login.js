@@ -35,7 +35,16 @@ export async function loginToPortal(page, credentials, notify = () => {}) {
 
     // Without a server-issued token the login page renders with an empty body and
     // no fields at all, so this wait doubles as a check that the redirect happened.
-    await page.waitForSelector(LOGIN_READY_SELECTOR, { visible: true, timeout: 30000 });
+    //
+    // The portal serves the login page only to browsers that look like browsers:
+    // from a datacentre IP it can answer with a Cloudflare interstitial or an
+    // empty shell instead. When that happens a bare "waiting for selector" timeout
+    // says nothing about why, so report what actually came back.
+    try {
+        await page.waitForSelector(LOGIN_READY_SELECTOR, { visible: true, timeout: 30000 });
+    } catch (cause) {
+        throw new Error(`Login form never appeared. ${await describePage(page)}`, { cause });
+    }
     notify(`Logging in as ${username}...`);
 
     await page.type(LOGIN_READY_SELECTOR, username, { delay: 100 + Math.random() * 100 });
@@ -47,7 +56,11 @@ export async function loginToPortal(page, credentials, notify = () => {}) {
         page.click('#btn_login'),
     ]);
     // The dashboard is a Knockout/Oracle JET app that keeps hydrating after load.
-    await page.waitForSelector('#dashboard', { visible: true, timeout: 60000 });
+    try {
+        await page.waitForSelector('#dashboard', { visible: true, timeout: 60000 });
+    } catch (cause) {
+        throw new Error(`Signed in but the dashboard did not load. ${await describePage(page)}`, { cause });
+    }
 
     const onLoginPage = await page.$('input[name="j_username"]');
     if (onLoginPage) {
@@ -62,6 +75,32 @@ export async function loginToPortal(page, credentials, notify = () => {}) {
 
     notify('Login successful.');
     return page;
+}
+
+/**
+ * Summarises what the portal actually served, so a failed login is diagnosable
+ * from the job log alone instead of "waiting for selector failed".
+ */
+async function describePage(page) {
+    try {
+        const info = await page.evaluate(() => ({
+            title: document.title,
+            inputs: document.querySelectorAll('input').length,
+            scripts: document.querySelectorAll('script').length,
+            text: (document.body?.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 200),
+        }));
+        const cloudflare = /just a moment|checking your browser|cf-|enable javascript and cookies/i.test(info.title + ' ' + info.text);
+        return [
+            `url=${page.url().replace(PORTAL_ORIGIN, '').slice(0, 90)}`,
+            `title="${info.title}"`,
+            `inputs=${info.inputs}`,
+            `scripts=${info.scripts}`,
+            cloudflare ? 'BLOCKED by Cloudflare challenge' : null,
+            info.text ? `text="${info.text}"` : 'body was empty',
+        ].filter(Boolean).join(' | ');
+    } catch (e) {
+        return `could not inspect page: ${e.message.split('\n')[0]}`;
+    }
 }
 
 /** Saves the current page markup for debugging a broken selector. */
