@@ -7,6 +7,28 @@ import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import 'puppeteer-extra-plugin-user-data-dir';
 import 'puppeteer-extra-plugin-user-preferences';
 
+// The stealth plugin lazy-requires each evasion by name at runtime. Vercel's
+// file tracer cannot follow those dynamic requires, so every evasion is missing
+// from the bundle and the first one to load throws MODULE_NOT_FOUND. Import
+// them statically so they are traced and included.
+import 'puppeteer-extra-plugin-stealth/evasions/chrome.app/index.js';
+import 'puppeteer-extra-plugin-stealth/evasions/chrome.csi/index.js';
+import 'puppeteer-extra-plugin-stealth/evasions/chrome.loadTimes/index.js';
+import 'puppeteer-extra-plugin-stealth/evasions/chrome.runtime/index.js';
+import 'puppeteer-extra-plugin-stealth/evasions/defaultArgs/index.js';
+import 'puppeteer-extra-plugin-stealth/evasions/iframe.contentWindow/index.js';
+import 'puppeteer-extra-plugin-stealth/evasions/media.codecs/index.js';
+import 'puppeteer-extra-plugin-stealth/evasions/navigator.hardwareConcurrency/index.js';
+import 'puppeteer-extra-plugin-stealth/evasions/navigator.languages/index.js';
+import 'puppeteer-extra-plugin-stealth/evasions/navigator.permissions/index.js';
+import 'puppeteer-extra-plugin-stealth/evasions/navigator.plugins/index.js';
+import 'puppeteer-extra-plugin-stealth/evasions/navigator.vendor/index.js';
+import 'puppeteer-extra-plugin-stealth/evasions/navigator.webdriver/index.js';
+import 'puppeteer-extra-plugin-stealth/evasions/sourceurl/index.js';
+import 'puppeteer-extra-plugin-stealth/evasions/user-agent-override/index.js';
+import 'puppeteer-extra-plugin-stealth/evasions/webgl.vendor/index.js';
+import 'puppeteer-extra-plugin-stealth/evasions/window.outerdimensions/index.js';
+
 // puppeteer-extra's default export is built by require()ing 'puppeteer' and then
 // 'puppeteer-core' from its CommonJS bundle. puppeteer 25.x is ESM-only, so those
 // require() calls throw ERR_REQUIRE_ESM on any runtime without require(esm) support.
