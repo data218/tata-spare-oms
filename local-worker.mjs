@@ -62,6 +62,9 @@ async function processQueue() {
   next.attempts = (next.attempts || 0) + 1;
   job.status = 'processing';
   
+  const completed = job.queue.units.filter(u => u.status === 'done' || u.status === 'failed').length;
+  job.progress = { step: completed + 1, total: job.queue.units.length };
+  
   const label = next.kind === 'consumption' ? 'consumption report' : `inventory for ${next.location}`;
   job.logs += `<div>${new Date().toISOString()} - Picked up ${label}.</div>`;
   
@@ -105,6 +108,8 @@ async function processQueue() {
       freshJob.queue.units[unitIndex] = next;
       if (job.logs.length > 40000) job.logs = '<div>... earlier steps truncated ...</div>' + job.logs.slice(-40000);
       freshJob.logs = job.logs;
+      const totalCompleted = freshJob.queue.units.filter(u => u.status === 'done' || u.status === 'failed').length;
+      freshJob.progress = { step: totalCompleted, total: freshJob.queue.units.length };
       freshJob.status = 'processing'; // will be marked complete on next loop
       await supabase.from('tata_bot_settings').upsert({ key: JOB_KEY, value: JSON.stringify(freshJob) }, { onConflict: 'key' });
     }
