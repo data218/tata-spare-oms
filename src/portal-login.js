@@ -45,6 +45,16 @@ export async function loginToPortal(page, credentials, notify = () => {}) {
     // Reaching the app URL first is what makes the portal mint a valid redirect
     // token and put the login form on screen.
     notify('Opening Tata BI portal...');
+    
+    // First visit the root domain to silently pass any Cloudflare JS challenges
+    // and pick up the cf_clearance cookie before requesting the sensitive app path.
+    try {
+        await page.goto(PORTAL_ORIGIN, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await new Promise(r => setTimeout(r, 4000));
+    } catch(e) {
+        // Ignore errors here, just trying to get cookies
+    }
+
     await page.goto(APP_URL, { waitUntil: 'networkidle2', timeout: 60000 });
 
     // Without a server-issued token the login page renders with an empty body and
@@ -60,6 +70,18 @@ export async function loginToPortal(page, credentials, notify = () => {}) {
         throw new Error(`Login form never appeared. ${await describePage(page)}`, { cause });
     }
     notify(`Logging in as ${username}...`);
+
+    // Simulate human-like mouse movements to pass bot checks
+    try {
+        const target = await page.$(LOGIN_READY_SELECTOR);
+        if (target) {
+            const box = await target.boundingBox();
+            if (box) {
+                await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 10 });
+                await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+            }
+        }
+    } catch(e) {}
 
     await page.type(LOGIN_READY_SELECTOR, username, { delay: 100 + Math.random() * 100 });
     await page.type('input[name="j_password"]', password, { delay: 100 + Math.random() * 100 });
