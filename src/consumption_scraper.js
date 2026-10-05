@@ -242,6 +242,7 @@ async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
 
         console.log('Clicking CSV...');
         let foundCSV = false;
+        const filesBeforeDownload = new Set(fs.readdirSync(downloadPath));
         for(let i = 0; i < 10; i++) {
             foundCSV = await robustClick('CSV');
             if (foundCSV) break;
@@ -255,7 +256,6 @@ async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
 
         console.log('Waiting for download to complete (polling downloads folder)...');
         let downloadedFile = null;
-        const filesBeforeDownload = new Set(fs.readdirSync(downloadPath));
         const start = Date.now();
         for (let i = 0; i < 60; i++) {
             await new Promise(r => setTimeout(r, 2000));

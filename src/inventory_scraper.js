@@ -472,6 +472,7 @@ let botUser = location.username;
         console.log('Saved all_elements.json');
 
         let foundDownload = false;
+        const filesBeforeDownload = new Set(fs.readdirSync(downloadPath));
         for (let i = 0; i < 6; i++) {
             notify(`Clicking Download to Excel... (Attempt ${i+1})`);
             foundDownload = await robustClickText(['Download to Excel', 'Download To Excel', 'Download excel']);
@@ -510,7 +511,6 @@ let botUser = location.username;
         }
         
         notify('Waiting for file to download (handling popups if any)...');
-        const filesBeforeDownload = new Set(fs.readdirSync(downloadPath));
         let downloadedFile = null;
         const timeout = 120000; // 2 minutes
         const start = Date.now();
