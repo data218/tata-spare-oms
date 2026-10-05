@@ -1516,7 +1516,13 @@ if (fetchForm) {
                     if (!window.__tataLocationAlerts.has(sig)) {
                       window.__tataLocationAlerts.add(sig);
                       if (plain.includes('ERROR:') || plain.includes('FATAL ERROR:')) {
-                        showLocationAlert('error', plain.replace(/^.*FATAL ERROR:\s*/, '').replace(/^.*ERROR:\s*/, ''));
+                        let errMsg = plain.replace(/^.*FATAL ERROR:\s*/, '').replace(/^.*ERROR:\s*/, '');
+                        // If it's a huge Cloudflare block, shorten it
+                        if (errMsg.includes('url=') || errMsg.length > 100) {
+                          const simple = errMsg.split('url=')[0].trim();
+                          errMsg = simple || errMsg.substring(0, 100) + '...';
+                        }
+                        showLocationAlert('error', errMsg);
                       } else if (/UPLOADED \d+ ROWS/i.test(plain)) {
                         const loc = (plain.match(/^.*-\s+(.+?)\s+(?:CONSUMPTION|INVENTORY)?\s*DATA/i) || [])[1] || plain.split(' ')[0];
                         showLocationAlert('success', `${loc.trim().replace(/\s+$/, '')} data fetched successfully`);
