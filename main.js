@@ -2935,7 +2935,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (kpiOos) kpiOos.textContent = stats.oos.toLocaleString('en-IN');
     if (kpiLow) kpiLow.textContent = stats.low.toLocaleString('en-IN');
     
-    if (kpiLube) kpiLube.textContent = (stats.lubeQty / 1000).toLocaleString('en-IN', { maximumFractionDigits: 2 }) + ' L';
+    if (kpiLube) kpiLube.textContent = stats.lubeQty.toLocaleString('en-IN', { maximumFractionDigits: 2 }) + ' L';
     if (kpiLubeVal) kpiLubeVal.textContent = '₹' + stats.lubeVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
 
     let age0_30 = { qty: 0, val: 0 };
