@@ -302,6 +302,8 @@ const tableFilterConfigs = {
         if (lowerD.includes('smamsamba') || lowerD.includes('supwal')) return 'Supwal';
         if (lowerD.includes('smamkathua') || lowerD.includes('kathua')) return 'Kathua';
         if (lowerD.includes('jammu') || lowerD.includes('narwal') || lowerD.includes('narval')) return 'Narwal';
+        if (lowerD.includes('lambheri')) return 'Lambheri';
+        if (lowerD.includes('poonch')) return 'Poonch';
         return d;
       };
       
@@ -1623,8 +1625,8 @@ async function fetchTableData(tableName, locationFilter = null, columns = '*') {
   }
   if (!count) return [];
 
-  // 2. Fetch first chunk (asking for 100,000 rows) to detect Supabase's max-rows limit
-  let firstQuery = supabase.from(tableName).select(columns).range(0, 99999);
+  // 2. Fetch first chunk to detect Supabase's max-rows limit, but cap at 10,000 to avoid statement timeouts
+  let firstQuery = supabase.from(tableName).select(columns).range(0, 9999);
   if (locationFilter) {
     firstQuery = firstQuery.eq('division', locationFilter);
   }
@@ -1758,6 +1760,8 @@ function processRawData({ inventory, consumption, priceList = [], movementLogs =
     if (lowerD.includes('supwal') || lowerD.includes('smamsamba')) return 'SUPWAL';
     if (lowerD.includes('kathua') || lowerD.includes('smamkathua')) return 'KATHUA';
     if (lowerD.includes('jammu') || lowerD.includes('narwal') || lowerD.includes('narval')) return 'NARWAL';
+      if (lowerD.includes('lambheri')) return 'LAMBHERI';
+      if (lowerD.includes('poonch')) return 'POONCH';
     return divisionStr; // Default
   };
 
@@ -3360,6 +3364,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (d.includes('channirama') || d.includes('chhanirama')) return 'Channi Rama';
         if (d.includes('smamsamba') || d.includes('supwal')) return 'Supwal';
         if (d.includes('smamkathua') || d.includes('kathua')) return 'Kathua';
+        if (d.includes('lambheri')) return 'Lambheri';
+        if (d.includes('poonch')) return 'Poonch';
         return 'Narwal';
       };
       cons = cons.filter(r => mapLocation(r.division || r.dealer).toUpperCase().replace(/\s+/g, '') === sLoc);
