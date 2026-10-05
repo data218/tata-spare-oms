@@ -242,7 +242,13 @@ async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
 
         console.log('Clicking CSV...');
         let foundCSV = false;
-        const filesBeforeDownload = new Set(fs.readdirSync(downloadPath));
+        const os = await import('os');
+        const userDownloadsPath = path.join(os.homedir(), 'Downloads');
+        const filesBeforeDownload1 = new Set(fs.readdirSync(downloadPath));
+        let filesBeforeDownload2 = new Set();
+        if (fs.existsSync(userDownloadsPath)) {
+            filesBeforeDownload2 = new Set(fs.readdirSync(userDownloadsPath));
+        }
         for(let i = 0; i < 10; i++) {
             foundCSV = await robustClick('CSV');
             if (foundCSV) break;
@@ -259,18 +265,27 @@ async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
         const start = Date.now();
         for (let i = 0; i < 60; i++) {
             await new Promise(r => setTimeout(r, 2000));
-            const files = fs.readdirSync(downloadPath);
-            const crdownload = files.find(f => f.endsWith('.crdownload') || f.endsWith('.tmp'));
-            if (!crdownload) {
-                const newFiles = files.filter(f => !filesBeforeDownload.has(f));
+            
+            const dirsToCheck = [downloadPath, userDownloadsPath];
+            for (const dir of dirsToCheck) {
+                if (!fs.existsSync(dir)) continue;
+                const files = fs.readdirSync(dir);
+                const crdownload = files.find(f => f.endsWith('.crdownload') || f.endsWith('.tmp'));
+                if (crdownload) continue;
+                
+                const oldFiles = dir === downloadPath ? filesBeforeDownload1 : filesBeforeDownload2;
+                const newFiles = files.filter(f => !oldFiles.has(f) && !f.endsWith('.crdownload') && !f.endsWith('.tmp'));
                 if (newFiles.length > 0) {
-                    const newestFile = path.join(downloadPath, newFiles[0]);
-                    downloadedFile = newestFile + '.csv';
-                    fs.renameSync(newestFile, downloadedFile);
-                    console.log('Download complete and renamed to CSV: ', downloadedFile);
+                    const newestFile = path.join(dir, newFiles[0]);
+                    downloadedFile = newestFile + (newestFile.endsWith('.csv') ? '' : '.csv');
+                    if (newestFile !== downloadedFile) {
+                        fs.renameSync(newestFile, downloadedFile);
+                    }
+                    console.log('Download complete and found CSV: ', downloadedFile);
                     break;
                 }
             }
+            if (downloadedFile) break;
         }
         
         if (downloadedFile) {

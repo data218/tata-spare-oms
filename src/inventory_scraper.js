@@ -469,10 +469,13 @@ let botUser = location.username;
             } catch (e) {}
         }
         fs.writeFileSync(scratch('all_elements.json'), JSON.stringify(allElements, null, 2));
-        console.log('Saved all_elements.json');
-
-        let foundDownload = false;
-        const filesBeforeDownload = new Set(fs.readdirSync(downloadPath));
+        const os = await import('os');
+        const userDownloadsPath = path.join(os.homedir(), 'Downloads');
+        const filesBeforeDownload1 = new Set(fs.readdirSync(downloadPath));
+        let filesBeforeDownload2 = new Set();
+        if (fs.existsSync(userDownloadsPath)) {
+            filesBeforeDownload2 = new Set(fs.readdirSync(userDownloadsPath));
+        }
         for (let i = 0; i < 6; i++) {
             notify(`Clicking Download to Excel... (Attempt ${i+1})`);
             foundDownload = await robustClickText(['Download to Excel', 'Download To Excel', 'Download excel']);
@@ -527,18 +530,26 @@ let botUser = location.username;
             } catch(e) {}
             
             // 2. Check for downloaded file
-            const files = fs.readdirSync(downloadPath);
-            const crdownload = files.find(f => f.endsWith('.crdownload') || f.endsWith('.tmp'));
-            if (!crdownload) {
-                const newFiles = files.filter(f => !filesBeforeDownload.has(f));
+            const dirsToCheck = [downloadPath, userDownloadsPath];
+            for (const dir of dirsToCheck) {
+                if (!fs.existsSync(dir)) continue;
+                const files = fs.readdirSync(dir);
+                const crdownload = files.find(f => f.endsWith('.crdownload') || f.endsWith('.tmp'));
+                if (crdownload) continue;
+                
+                const oldFiles = dir === downloadPath ? filesBeforeDownload1 : filesBeforeDownload2;
+                const newFiles = files.filter(f => !oldFiles.has(f) && !f.endsWith('.crdownload') && !f.endsWith('.tmp'));
                 if (newFiles.length > 0) {
-                    const newestFile = path.join(downloadPath, newFiles[0]);
-                    downloadedFile = newestFile + '.csv';
-                    fs.renameSync(newestFile, downloadedFile);
-                    notify(`Download complete and renamed to CSV: ${downloadedFile}`);
+                    const newestFile = path.join(dir, newFiles[0]);
+                    downloadedFile = newestFile + (newestFile.endsWith('.csv') ? '' : '.csv');
+                    if (newestFile !== downloadedFile) {
+                        fs.renameSync(newestFile, downloadedFile);
+                    }
+                    notify(`Download complete and found CSV: ${downloadedFile}`);
                     break;
                 }
             }
+            if (downloadedFile) break;
             await new Promise(r => setTimeout(r, 2000));
         }
         
