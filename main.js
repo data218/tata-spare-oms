@@ -1502,19 +1502,27 @@ if (fetchForm) {
                       wrap.style.display = 'none';
                   }
                   
-                  const plain = (statusDiv.textContent || '').replace(/\s+/g, ' ').trim();
-                  
+                  // Better log parsing for alerts
                   if (!window.__tataLocationAlerts) window.__tataLocationAlerts = new Set();
-                  const sig = plain.slice(0, 90);
-                  if (plain && !window.__tataLocationAlerts.has(sig)) {
-                    window.__tataLocationAlerts.add(sig);
-                    if (plain.includes('ERROR:') || plain.includes('FATAL ERROR:')) {
-                      showLocationAlert('error', plain.replace(/^FATAL ERROR:\s*/, '').replace(/^ERROR:\s*/, ''));
-                    } else if (/UPLOADED \d+ ROWS/i.test(plain)) {
-                      const loc = (plain.match(/^(.+?)\s+(?:CONSUMPTION|INVENTORY)?\s*DATA/i) || [])[1] || plain.split(' ')[0];
-                      showLocationAlert('success', `${loc.trim().replace(/\s+$/, '')} data fetched successfully`);
-                    } else if (plain.includes('successfully')) {
-                      showLocationAlert('success', 'All requested scrapers finished successfully');
+                  
+                  // Extract raw text lines from div tags
+                  const tempDiv = document.createElement('div');
+                  tempDiv.innerHTML = updatedJob.logs || '';
+                  const lines = Array.from(tempDiv.querySelectorAll('div')).map(d => d.textContent.trim());
+                  
+                  for (const plain of lines) {
+                    if (!plain) continue;
+                    const sig = plain.slice(0, 90);
+                    if (!window.__tataLocationAlerts.has(sig)) {
+                      window.__tataLocationAlerts.add(sig);
+                      if (plain.includes('ERROR:') || plain.includes('FATAL ERROR:')) {
+                        showLocationAlert('error', plain.replace(/^.*FATAL ERROR:\s*/, '').replace(/^.*ERROR:\s*/, ''));
+                      } else if (/UPLOADED \d+ ROWS/i.test(plain)) {
+                        const loc = (plain.match(/^.*-\s+(.+?)\s+(?:CONSUMPTION|INVENTORY)?\s*DATA/i) || [])[1] || plain.split(' ')[0];
+                        showLocationAlert('success', `${loc.trim().replace(/\s+$/, '')} data fetched successfully`);
+                      } else if (plain.includes('successfully')) {
+                        showLocationAlert('success', 'All requested scrapers finished successfully');
+                      }
                     }
                   }
 
@@ -1567,6 +1575,21 @@ if (fetchForm) {
 
   document.getElementById('fetch-consumption-btn').addEventListener('click', () => handleFetch('fetch-consumption-btn', 'consumption'));
   document.getElementById('fetch-inventory-btn').addEventListener('click', () => handleFetch('fetch-inventory-btn', 'inventory'));
+
+  const stopBtn = document.getElementById('stop-fetch-btn');
+  if (stopBtn) {
+    stopBtn.addEventListener('click', async () => {
+      const originalHtml = stopBtn.innerHTML;
+      stopBtn.innerHTML = '<i data-lucide="loader" class="lucide-spin" style="width: 16px; height: 16px;"></i> Cancelling...';
+      try {
+        await fetch('/api/cancel', { method: 'POST' });
+      } catch (e) {
+        console.error('Cancel failed', e);
+      } finally {
+        setTimeout(() => { stopBtn.innerHTML = originalHtml; lucide.createIcons(); }, 2000);
+      }
+    });
+  }
 }
 
 

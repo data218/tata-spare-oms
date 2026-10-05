@@ -477,6 +477,22 @@ export default async function handler(req, res) {
       return await kickOff(req, res);
     }
 
+    if (path === '/api/cancel' || path === '/cancel') {
+      if (req.method !== 'POST') {
+        return send(res, 405, { success: false, message: 'Method not allowed' });
+      }
+      if (!isAuthorized(req)) {
+        return send(res, 401, { success: false, message: 'Unauthorized' });
+      }
+      await updateJob((cur) => {
+        if (cur && (cur.status === 'pending' || cur.status === 'processing')) {
+          cur.status = 'failed';
+          pushLog(cur, '<strong>Stopped by user</strong>');
+        }
+      });
+      return send(res, 200, { success: true, message: 'Job cancelled' });
+    }
+
     if (path === '/api/status' || path === '/status') {
       const job = await readJob();
       return send(res, 200, { success: true, job });
