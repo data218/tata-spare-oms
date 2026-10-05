@@ -297,12 +297,12 @@ const tableFilterConfigs = {
       const sLoc = (selectedLoc || '').toUpperCase().replace(/\s+/g, '');
       const mapLocation = (d) => {
         if (!d) return 'Narwal';
-        d = d.toLowerCase();
-        if (d.includes('channirama') || d.includes('chhanirama')) return 'Channi Rama';
-        if (d.includes('smamsamba') || d.includes('supwal')) return 'Supwal';
-        if (d.includes('smamkathua') || d.includes('kathua')) return 'Kathua';
-        if (d.includes('jammu') || d.includes('narwal') || d.includes('narval')) return 'Narwal';
-        return 'Narwal';
+        const lowerD = d.toLowerCase();
+        if (lowerD.includes('channirama') || lowerD.includes('chhanirama')) return 'Channi Rama';
+        if (lowerD.includes('smamsamba') || lowerD.includes('supwal')) return 'Supwal';
+        if (lowerD.includes('smamkathua') || lowerD.includes('kathua')) return 'Kathua';
+        if (lowerD.includes('jammu') || lowerD.includes('narwal') || lowerD.includes('narval')) return 'Narwal';
+        return d;
       };
       
       return allCons.filter(r => mapLocation(r.division || r.dealer).toUpperCase().replace(/\s+/g, '') === sLoc);
@@ -1753,12 +1753,12 @@ function processRawData({ inventory, consumption, priceList = [], movementLogs =
   // Helper to map raw division strings to standard location names
   const mapLocation = (divisionStr) => {
     if (!divisionStr) return 'NARWAL';
-    const d = divisionStr.toLowerCase().replace(/\s+/g, '');
-    if (d.includes('channirama') || d.includes('chhanirama')) return 'CHANNIRAMA';
-    if (d.includes('supwal') || d.includes('smamsamba')) return 'SUPWAL';
-    if (d.includes('kathua') || d.includes('smamkathua')) return 'KATHUA';
-    if (d.includes('jammu') || d.includes('narwal') || d.includes('narval')) return 'NARWAL';
-    return 'NARWAL'; // Default
+    const lowerD = divisionStr.toLowerCase().replace(/\s+/g, '');
+    if (lowerD.includes('channirama') || lowerD.includes('chhanirama')) return 'CHANNIRAMA';
+    if (lowerD.includes('supwal') || lowerD.includes('smamsamba')) return 'SUPWAL';
+    if (lowerD.includes('kathua') || lowerD.includes('smamkathua')) return 'KATHUA';
+    if (lowerD.includes('jammu') || lowerD.includes('narwal') || lowerD.includes('narval')) return 'NARWAL';
+    return divisionStr; // Default
   };
 
   // Pre-process consumption data grouped by Part + Location
