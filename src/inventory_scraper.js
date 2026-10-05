@@ -290,6 +290,7 @@ let botUser = location.username;
         }, encodeURIComponent(viewName).replace(/%20/g, '+'));
 
         const inventoryViewLoaded = async () => {
+            if (page.url().includes('Auto+Home+Page+View')) return false;
             for (const frame of page.frames()) {
                 try {
                     const ok = await frame.evaluate(() =>
