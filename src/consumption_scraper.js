@@ -42,7 +42,7 @@ async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
     const page = await browser.newPage();
     
     // Set a realistic user agent
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    // User agent is handled by stealth plugin
     await page.setViewport({ width: 1366, height: 768 });
 
     try {

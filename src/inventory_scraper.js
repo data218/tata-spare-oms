@@ -71,7 +71,7 @@ async function fetchInventoryData(onProgress = null, targetLocation = 'ALL') {
         const page = await browser.newPage();
         // Present as a normal desktop Chrome; the portal can serve a degraded
         // page to a "HeadlessChrome" user agent.
-        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36');
+        // User agent is handled by stealth plugin
     
     // Auto-dismiss dialogs so page.screenshot and evaluation don't hang
     page.on('dialog', async dialog => {
@@ -80,7 +80,7 @@ async function fetchInventoryData(onProgress = null, targetLocation = 'ALL') {
     });
 
     // Set a realistic user agent
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    // User agent is handled by stealth plugin
     await page.setViewport({ width: 1366, height: 768 });
 
     const LOGIN_URL = 'https://carsdms.inservices.tatamotors.com/siebel/app/workshop/enu?SWECmd=Start';
