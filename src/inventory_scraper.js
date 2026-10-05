@@ -522,7 +522,7 @@ let botUser = location.username;
         
         notify('Waiting for file to download (handling popups if any)...');
         let downloadedFile = null;
-        const timeout = 120000; // 2 minutes
+        const timeout = 300000; // 5 minutes
         const start = Date.now();
         
         while (Date.now() - start < timeout) {

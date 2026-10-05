@@ -263,8 +263,18 @@ async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
         console.log('Waiting for download to complete (polling downloads folder)...');
         let downloadedFile = null;
         const start = Date.now();
-        for (let i = 0; i < 60; i++) {
+        const maxWaitIterations = 150; // 5 minutes at 2 seconds per iteration
+        for (let i = 0; i < maxWaitIterations; i++) {
             await new Promise(r => setTimeout(r, 2000));
+            
+            // 1. Try to click Next on any popup
+            try {
+                const clicked = await robustClick(['Next', 'NEXT', 'next', 'Next >', '>>'], false);
+                if (clicked) {
+                    console.log('Found and clicked Next button on the popup!');
+                    await new Promise(r => setTimeout(r, 2000));
+                }
+            } catch(e) {}
             
             const dirsToCheck = [downloadPath, userDownloadsPath];
             for (const dir of dirsToCheck) {
