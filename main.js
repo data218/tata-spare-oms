@@ -1541,6 +1541,7 @@ if (fetchForm) {
                           if (doneBar) doneBar.style.width = '100%';
                           if (donePct) donePct.textContent = '100%';
                           if (doneLabel) doneLabel.textContent = 'Completed';
+                          setTimeout(() => location.reload(), 3000);
                       } else if (doneLabel) {
                           doneLabel.textContent = `Stopped at step ${(updatedJob.progress && updatedJob.progress.step) || 0}`;
                       }
