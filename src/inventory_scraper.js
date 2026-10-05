@@ -476,6 +476,7 @@ let botUser = location.username;
         if (fs.existsSync(userDownloadsPath)) {
             filesBeforeDownload2 = new Set(fs.readdirSync(userDownloadsPath));
         }
+        let foundDownload = false;
         for (let i = 0; i < 6; i++) {
             notify(`Clicking Download to Excel... (Attempt ${i+1})`);
             foundDownload = await robustClickText(['Download to Excel', 'Download To Excel', 'Download excel']);
