@@ -479,7 +479,13 @@ let botUser = location.username;
         let foundDownload = false;
         for (let i = 0; i < 6; i++) {
             notify(`Clicking Download to Excel... (Attempt ${i+1})`);
-            foundDownload = await robustClickText(['Download to Excel', 'Download To Excel', 'Download excel']);
+            
+            // Try clicking the first 3 visible matches of "Download to Excel" just in case there are multiple applets
+            for (let matchIndex = 0; matchIndex < 3; matchIndex++) {
+                const clicked = await robustClickText(['Download to Excel', 'Download To Excel', 'Download excel'], true, matchIndex);
+                if (clicked) foundDownload = true;
+            }
+            
             if (foundDownload) break;
             await new Promise(r => setTimeout(r, 5000));
         }
@@ -522,7 +528,7 @@ let botUser = location.username;
         while (Date.now() - start < timeout) {
             // 1. Try to click Next on any popup
             try {
-                const clicked = await robustClickText(['Next', 'NEXT'], true);
+                const clicked = await robustClickText(['Next', 'NEXT', 'next', 'Next >', '>>'], false);
                 if (clicked) {
                     notify('Found and clicked Next button on the popup!');
                     // Wait a bit after clicking Next so we don't spam click it
