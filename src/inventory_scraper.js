@@ -510,6 +510,7 @@ let botUser = location.username;
         }
         
         notify('Waiting for file to download (handling popups if any)...');
+        const filesBeforeDownload = new Set(fs.readdirSync(downloadPath));
         let downloadedFile = null;
         const timeout = 120000; // 2 minutes
         const start = Date.now();
@@ -527,20 +528,11 @@ let botUser = location.username;
             
             // 2. Check for downloaded file
             const files = fs.readdirSync(downloadPath);
-            const crdownload = files.find(f => f.endsWith('.crdownload'));
+            const crdownload = files.find(f => f.endsWith('.crdownload') || f.endsWith('.tmp'));
             if (!crdownload) {
-                let newestFile = null;
-                let newestTime = 0;
-                for (const file of files) {
-                    const fullPath = path.join(downloadPath, file);
-                    const stats = fs.statSync(fullPath);
-                    if (stats.mtimeMs > newestTime) {
-                        newestTime = stats.mtimeMs;
-                        newestFile = fullPath;
-                    }
-                }
-                
-                if (newestFile && newestTime > start - 15000) {
+                const newFiles = files.filter(f => !filesBeforeDownload.has(f));
+                if (newFiles.length > 0) {
+                    const newestFile = path.join(downloadPath, newFiles[0]);
                     downloadedFile = newestFile + '.csv';
                     fs.renameSync(newestFile, downloadedFile);
                     notify(`Download complete and renamed to CSV: ${downloadedFile}`);

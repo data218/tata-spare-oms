@@ -255,24 +255,16 @@ async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
 
         console.log('Waiting for download to complete (polling downloads folder)...');
         let downloadedFile = null;
+        const filesBeforeDownload = new Set(fs.readdirSync(downloadPath));
         const start = Date.now();
         for (let i = 0; i < 60; i++) {
             await new Promise(r => setTimeout(r, 2000));
             const files = fs.readdirSync(downloadPath);
-            const crdownload = files.find(f => f.endsWith('.crdownload'));
+            const crdownload = files.find(f => f.endsWith('.crdownload') || f.endsWith('.tmp'));
             if (!crdownload) {
-                let newestFile = null;
-                let newestTime = 0;
-                for (const file of files) {
-                    const fullPath = path.join(downloadPath, file);
-                    const stats = fs.statSync(fullPath);
-                    if (stats.mtimeMs > newestTime) {
-                        newestTime = stats.mtimeMs;
-                        newestFile = fullPath;
-                    }
-                }
-                
-                if (newestFile && newestTime > start - 10000) {
+                const newFiles = files.filter(f => !filesBeforeDownload.has(f));
+                if (newFiles.length > 0) {
+                    const newestFile = path.join(downloadPath, newFiles[0]);
                     downloadedFile = newestFile + '.csv';
                     fs.renameSync(newestFile, downloadedFile);
                     console.log('Download complete and renamed to CSV: ', downloadedFile);
