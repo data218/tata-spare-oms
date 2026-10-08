@@ -34,7 +34,7 @@
           </a>
           <a href="#" class="nav-item" data-target="view-ppni">
             <i data-lucide="shopping-bag"></i>
-            <span>PPNI</span>
+            <span>PART AGEING</span>
           </a>
           <a href="#" class="nav-item" data-target="view-claims">
             <i data-lucide="file-spreadsheet"></i>
@@ -717,12 +717,12 @@
         </div>
 <div id="view-ppni" class="view-section" style="display: none; padding: 0 20px 20px 20px; overflow-y: auto; overflow-x: auto;">
           <div class="dashboard-content" style="max-width: 1400px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; min-height: min-content; padding-top: 20px; min-width: 1200px; overflow: visible;">
-            <h2 class="welcome-text">Parts Purchased Not Installed (PPNI)</h2>
+            <h2 class="welcome-text">PART AGEING</h2>
             <p style="color: var(--text-secondary); margin-bottom: 20px;">Analysis of parts currently in stock (Not Installed).</p>
             
             <div class="kpi-grid" style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
               <div class="kpi-card" style="padding: 10px 14px; flex: 1 1 0; min-width: 150px; background: white; border-radius: 8px; border: 1px solid var(--border-color); box-shadow: none;">
-                <div class="kpi-title" style="font-size: 0.75rem; margin-bottom: 4px; color: var(--text-secondary); text-transform: uppercase;">Total PPNI Value</div>
+                <div class="kpi-title" style="font-size: 0.75rem; margin-bottom: 4px; color: var(--text-secondary); text-transform: uppercase;">Total PART AGEING Value</div>
                 <div class="kpi-value" id="ppni-kpi-value" style="font-size: 1.1rem; color: var(--text-primary); font-weight: bold;">₹0</div>
               </div>
               <div class="kpi-card" style="padding: 10px 14px; flex: 1 1 0; min-width: 150px; background: white; border-radius: 8px; border: 1px solid var(--border-color); box-shadow: none;">
@@ -743,21 +743,21 @@
             <div style="display: flex; gap: 15px; margin-bottom: 20px;">
               <!-- Location Wise -->
               <div class="card" style="flex: 1; padding: 15px; min-width: 0; background: white; border-radius: 8px; border: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                <h3 style="margin-top: 0; margin-bottom: 10px; font-size: 0.9rem; color: var(--text-primary);">Location Wise PPNI Value (₹)</h3>
+                <h3 style="margin-top: 0; margin-bottom: 10px; font-size: 0.9rem; color: var(--text-primary);">Location Wise PART AGEING Value (₹)</h3>
                 <div style="height: 200px;">
                   <canvas id="ppni-location-chart"></canvas>
                 </div>
               </div>
               <!-- Year Wise -->
               <div class="card" style="flex: 1; padding: 15px; min-width: 0; background: white; border-radius: 8px; border: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                <h3 style="margin-top: 0; margin-bottom: 10px; font-size: 0.9rem; color: var(--text-primary);">Year Wise PPNI Value (₹)</h3>
+                <h3 style="margin-top: 0; margin-bottom: 10px; font-size: 0.9rem; color: var(--text-primary);">Year Wise PART AGEING Value (₹)</h3>
                 <div style="height: 200px;">
                   <canvas id="ppni-year-chart"></canvas>
                 </div>
               </div>
               <!-- Month Wise -->
               <div class="card" style="flex: 1; padding: 15px; min-width: 0; background: white; border-radius: 8px; border: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                <h3 style="margin-top: 0; margin-bottom: 10px; font-size: 0.9rem; color: var(--text-primary);">Month Wise PPNI Value (Refreshed)</h3>
+                <h3 style="margin-top: 0; margin-bottom: 10px; font-size: 0.9rem; color: var(--text-primary);">Month Wise PART AGEING Value (Refreshed)</h3>
                 <div style="height: 200px;">
                   <canvas id="ppni-month-chart"></canvas>
                 </div>
@@ -776,7 +776,7 @@
 
             <div class="table-container" style="display: flex; flex-direction: column; background: white; border: 1px solid var(--border-color); border-radius: 6px; overflow: visible;">
               <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border-color); flex-shrink: 0; position: sticky; top: 0; background: white; z-index: 60; border-top-left-radius: 6px; border-top-right-radius: 6px;">
-                <h3 style="margin: 0;">PPNI Part Details</h3>
+                <h3 style="margin: 0;">PART AGEING Details</h3>
                 <input type="text" id="ppni-search-input" placeholder="Search Part No..." style="padding: 6px 12px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.8rem;">
               </div>
               <div style="overflow: visible;">
@@ -1634,7 +1634,7 @@
                   </ul>
                 </div>
                 <div style="background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid var(--border-color); margin-bottom: 10px;">
-                  <h4 style="margin: 0 0 8px 0; color: #334155;">2. PPNI (Parts Purchased Not Installed)</h4>
+                  <h4 style="margin: 0 0 8px 0; color: #334155;">2. PART AGEING</h4>
                   <ul style="margin: 0; padding-left: 20px;">
                     <li><strong>Condition:</strong> Parts with <code>Stock &gt; 0</code> but lacking recent billing or installation activity.</li>
                     <li><strong>Ageing (Days):</strong> <code>Current Date - Part Received Date</code></li>
