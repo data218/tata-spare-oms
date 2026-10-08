@@ -3493,15 +3493,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Daily trend (Current Month)
-    const now = new Date();
-    const currentMonthPrefix = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+        const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonthNum = now.getMonth() + 1;
+    const currentMonthPrefix = currentYear + '-' + String(currentMonthNum).padStart(2, '0');
+    
     if (window.consTrendCurrentMonth === undefined) window.consTrendCurrentMonth = true;
     const isCurrentMonthOnly = window.consTrendCurrentMonth === true;
-    const sortedDays = isCurrentMonthOnly
-      ? Object.keys(dayQty).filter(d => d.startsWith(currentMonthPrefix)).sort()
-      : Object.keys(dayQty).sort();
-    const trendLabels = sortedDays;
-    const trendData = sortedDays.map(d => Number(dayQty[d]) || 0);
+    
+    let trendLabels = [];
+    let trendData = [];
+    
+    if (isCurrentMonthOnly) {
+      const today = now.getDate();
+      for (let i = 1; i <= today; i++) {
+        const dStr = currentMonthPrefix + '-' + String(i).padStart(2, '0');
+        trendLabels.push(dStr);
+        trendData.push(Number(dayQty[dStr]) || 0);
+      }
+    } else {
+      trendLabels = Object.keys(dayQty).sort();
+      trendData = trendLabels.map(d => Number(dayQty[d]) || 0);
+    }
 
     const currentMonthBtn = document.getElementById('current-month-btn');
     if (currentMonthBtn) {
