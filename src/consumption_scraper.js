@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import csv from 'csv-parser';
 import { supabase } from './server-config.js';
-import { downloadDir, scratch } from './scratch-paths.js';
+import { profileDir, downloadDir, scratch } from './scratch-paths.js';
 import { loginToPortal } from './portal-login.js';
 dotenv.config();
 
@@ -35,7 +35,9 @@ async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
 
     notify(`Starting automated bot for Consumption Data (Date Range: ${fromDate} to ${toDate})...`);
         const browser = await launchBrowser({
+            userDataDir: profileDir,
             args: [
+                '--window-size=1920,1080',
                 '--disable-blink-features=AutomationControlled'
             ]
         });
