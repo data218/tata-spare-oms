@@ -4713,6 +4713,15 @@ function renderPriceList(page = 0) {
   if (pageInfo) {
      const totalPages = Math.max(1, Math.ceil(filteredPriceList.length / PRICE_LIST_PAGE_SIZE));
      pageInfo.textContent = `Page ${page + 1} of ${totalPages}`;
+     
+     if (document.getElementById('price-prev-btn')) {
+         document.getElementById('price-prev-btn').disabled = (page === 0);
+         document.getElementById('price-prev-btn').style.opacity = (page === 0) ? '0.5' : '1';
+     }
+     if (document.getElementById('price-next-btn')) {
+         document.getElementById('price-next-btn').disabled = (page >= totalPages - 1);
+         document.getElementById('price-next-btn').style.opacity = (page >= totalPages - 1) ? '0.5' : '1';
+     }
   }
   
   // Attach Event Listeners
@@ -4831,22 +4840,22 @@ document.addEventListener('DOMContentLoaded', () => {
   const nextBtn = document.getElementById('price-next-btn');
   
   if (prevBtn) {
-    prevBtn.addEventListener('click', () => {
+    prevBtn.onclick = () => {
        if (currentPriceListPage > 0) {
           currentPriceListPage--;
           renderPriceList(currentPriceListPage);
        }
-    });
+    };
   }
   
   if (nextBtn) {
-    nextBtn.addEventListener('click', () => {
+    nextBtn.onclick = () => {
        const totalPages = Math.ceil(filteredPriceList.length / PRICE_LIST_PAGE_SIZE);
        if (currentPriceListPage < totalPages - 1) {
           currentPriceListPage++;
           renderPriceList(currentPriceListPage);
        }
-    });
+    };
   }
   
   // Tie the view switch to loading data
