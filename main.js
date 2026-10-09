@@ -194,6 +194,37 @@ window.tableFilterData = {};
 
 // Per-table filter config: header text -> field key, row source, and re-render callback.
 const tableFilterConfigs = {
+  'price-list-body': {
+    getRows: () => window.masterPriceList || [],
+    fields: {
+      'Part Number': 'part_number',
+      'Description': 'description',
+      'Category': 'category',
+      'NDP (₹)': 'ndp'
+    },
+    formatters: {
+      ndp: (r) => Number(r.ndp || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})
+    },
+    render: (rows) => {
+      // Re-apply search filter if any
+      const searchVal = (document.getElementById('price-list-search')?.value || '').toLowerCase();
+      if (searchVal) {
+        filteredPriceList = rows.filter(p => 
+          (p.part_number && p.part_number.toLowerCase().includes(searchVal)) || 
+          (p.description && p.description.toLowerCase().includes(searchVal)) ||
+          (p.category && p.category.toLowerCase().includes(searchVal))
+        );
+      } else {
+        filteredPriceList = rows;
+      }
+      currentPriceListPage = 0;
+      // We need to bypass the 'page === 0' search reset in renderPriceList, 
+      // so we call a slightly modified inner logic or just reset search input?
+      if (!window.tableFilterData) window.tableFilterData = {};
+      window.tableFilterData['price-list-body'] = rows;
+      renderPriceList(0);
+    }
+  },
   
   'reorder-table-body': {
     getRows: () => window.reorderData || [],
@@ -4636,7 +4667,8 @@ function renderPriceList(page = 0) {
   
   if (page === 0) {
     const searchVal = (document.getElementById('price-list-search')?.value || '').toLowerCase();
-    let sourceData = window.masterPriceList || [];
+    // Use column-filtered data if available, else master
+    let sourceData = (window.tableFilterData && window.tableFilterData['price-list-body']) ? window.tableFilterData['price-list-body'] : (window.masterPriceList || []);
     
     if (searchVal) {
       filteredPriceList = sourceData.filter(p => 
@@ -4667,14 +4699,15 @@ function renderPriceList(page = 0) {
       <td>${p.description || '-'}</td>
       <td><span class="status-badge status-good">${p.category || '-'}</span></td>
       <td style="text-align: right; font-weight: bold;">₹${Number(p.ndp || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-      <td style="text-align: right;">
-        <button class="btn btn-primary btn-edit-price" style="padding: 4px 8px; font-size: 12px; margin-right: 5px;" data-part="${p.part_number}" data-ndp="${p.ndp}">Edit</button>
-        <button class="btn btn-remove-price" style="padding: 4px 8px; font-size: 12px; background-color: #ef4444; color: white;" data-part="${p.part_number}">Remove</button>
+      <td style="text-align: right; display: flex; justify-content: flex-end; gap: 8px;">
+        <button class="btn-edit-price" style="padding: 6px 12px; font-size: 0.75rem; font-weight: 500; background-color: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.backgroundColor='#2563eb'" onmouseout="this.style.backgroundColor='#3b82f6'" data-part="${p.part_number}" data-ndp="${p.ndp}">Edit</button>
+        <button class="btn-remove-price" style="padding: 6px 12px; font-size: 0.75rem; font-weight: 500; background-color: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.backgroundColor='#dc2626'" onmouseout="this.style.backgroundColor='#ef4444'" data-part="${p.part_number}">Remove</button>
       </td>
     </tr>`;
   });
   
   tbody.innerHTML = html;
+  if (page === 0 && typeof window.markFilterHeaders === 'function') window.markFilterHeaders();
   
   const pageInfo = document.getElementById('price-page-info');
   if (pageInfo) {
@@ -4687,32 +4720,77 @@ function renderPriceList(page = 0) {
     btn.addEventListener('click', async (e) => {
       const partNo = e.target.getAttribute('data-part');
       const oldNdp = e.target.getAttribute('data-ndp');
-      const newNdpStr = prompt(`Enter new NDP for part ${partNo}:`, oldNdp);
       
-      if (newNdpStr !== null && newNdpStr.trim() !== '') {
-        const newNdp = parseFloat(newNdpStr);
-        if (isNaN(newNdp)) {
-           alert('Invalid number');
-           return;
-        }
+      const modal = document.getElementById('edit-price-modal');
+      const input = document.getElementById('edit-price-input');
+      const label = document.getElementById('edit-price-part-label').querySelector('span');
+      const cancelBtn = document.getElementById('edit-price-cancel');
+      const saveBtn = document.getElementById('edit-price-save');
+      
+      if (modal && input && label && cancelBtn && saveBtn) {
+        label.textContent = partNo;
+        input.value = oldNdp;
         
-        try {
-          const { error } = await supabase.from('tata_price_list').update({ ndp: newNdp }).eq('part_number', partNo);
-          if (error) throw error;
+        // Show modal
+        modal.classList.remove('hidden');
+        modal.style.opacity = '1';
+        modal.style.pointerEvents = 'auto';
+        modal.querySelector('.modal-content').style.transform = 'translateY(0)';
+        
+        const closeModal = () => {
+          modal.style.opacity = '0';
+          modal.style.pointerEvents = 'none';
+          modal.querySelector('.modal-content').style.transform = 'translateY(-20px)';
+          setTimeout(() => modal.classList.add('hidden'), 300);
           
-          // Update local data
-          const idx = window.masterPriceList.findIndex(p => p.part_number === partNo);
-          if (idx > -1) window.masterPriceList[idx].ndp = newNdp;
-          
-          alert(`NDP for ${partNo} successfully updated to ₹${newNdp}`);
-          
-          // Trigger a silent reload of dashboard logic if necessary
-          if (typeof loadDashboardData === 'function') loadDashboardData(true);
-          else renderPriceList(0); // At least refresh the list
-          
-        } catch (err) {
-          alert('Error updating: ' + err.message);
-        }
+          cancelBtn.onclick = null;
+          saveBtn.onclick = null;
+        };
+        
+        cancelBtn.onclick = closeModal;
+        
+        saveBtn.onclick = async () => {
+          const newNdpStr = input.value;
+          if (newNdpStr !== null && newNdpStr.trim() !== '') {
+            const newNdp = parseFloat(newNdpStr);
+            if (isNaN(newNdp)) {
+               alert('Invalid number');
+               return;
+            }
+            
+            // Show loading state on button
+            const originalText = saveBtn.textContent;
+            saveBtn.textContent = 'Saving...';
+            saveBtn.disabled = true;
+            
+            try {
+              const { error } = await supabase.from('tata_price_list').update({ ndp: newNdp }).eq('part_number', partNo);
+              if (error) throw error;
+              
+              // Update local data
+              const idx = window.masterPriceList.findIndex(p => p.part_number === partNo);
+              if (idx > -1) window.masterPriceList[idx].ndp = newNdp;
+              
+              // If filtered view is active, update it there too
+              if (window.tableFilterData && window.tableFilterData['price-list-body']) {
+                 const fIdx = window.tableFilterData['price-list-body'].findIndex(p => p.part_number === partNo);
+                 if (fIdx > -1) window.tableFilterData['price-list-body'][fIdx].ndp = newNdp;
+              }
+              
+              // Trigger a silent reload of dashboard logic if necessary
+              if (typeof loadDashboardData === 'function') loadDashboardData(true);
+              else renderPriceList(currentPriceListPage);
+              
+              closeModal();
+              
+            } catch (err) {
+              alert('Error updating: ' + err.message);
+            } finally {
+              saveBtn.textContent = originalText;
+              saveBtn.disabled = false;
+            }
+          }
+        };
       }
     });
   });
