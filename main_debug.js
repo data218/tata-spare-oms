@@ -15,6 +15,14 @@ const sidebar = document.getElementById('sidebar');
 const hamburgerBtn = document.getElementById('hamburger-btn');
 
 // --- Live Clock & Beautiful Date Formatter ---
+window.isLubePart = function(category, description) {
+  const cat = (category || '').toUpperCase();
+  if (['LUBRICANT', 'LUBRICANTS', 'LUBE', 'LUBES', 'OIL'].includes(cat)) return true;
+  const desc = (description || '').toUpperCase();
+  if (desc.includes('15W40') || desc.includes('MOBIL') || desc.includes('LUBE') || desc.includes('OIL') || desc.includes('GREASE') || desc.includes('DEF ')) return true;
+  return false;
+};
+
 window.parseTataDate = function(dateStr) {
   if (!dateStr) return null;
   if (typeof dateStr === 'number') return new Date(Math.round((dateStr - 25569) * 86400 * 1000));

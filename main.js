@@ -15,6 +15,14 @@ const sidebar = document.getElementById('sidebar');
 const hamburgerBtn = document.getElementById('hamburger-btn');
 
 // --- Live Clock & Beautiful Date Formatter ---
+window.isLubePart = function(category, description) {
+  const cat = (category || '').toUpperCase();
+  if (['LUBRICANT', 'LUBRICANTS', 'LUBE', 'LUBES', 'OIL'].includes(cat)) return true;
+  const desc = (description || '').toUpperCase();
+  if (desc.includes('15W40') || desc.includes('MOBIL') || desc.includes('LUBE') || desc.includes('OIL') || desc.includes('GREASE') || desc.includes('DEF ')) return true;
+  return false;
+};
+
 window.parseTataDate = function(dateStr) {
   if (!dateStr) return null;
   if (typeof dateStr === 'number') return new Date(Math.round((dateStr - 25569) * 86400 * 1000));
@@ -2923,7 +2931,7 @@ document.addEventListener('DOMContentLoaded', () => {
        stats.resVal += (p.reserved || 0) * (p.ndpPrice || 0);
        if (p.currentStock === 0) stats.oos++;
        else if (p.currentStock < p.min) stats.low++;
-        if (['LUBRICANT', 'LUBRICANTS', 'LUBE', 'LUBES', 'OIL'].includes((p.productCategory || '').toUpperCase())) {
+        if (window.isLubePart(p.productCategory, p.description || p.part_desc)) {
           const lubeQtyLtr = (p.currentStock || 0) / 1000;
           stats.lubeQty += lubeQtyLtr;
           stats.lubeVal += lubeQtyLtr * (p.ndpPrice || 0);
@@ -3118,7 +3126,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (p.reserved > 0) { resQty += p.reserved; resVal += (p.reserved * (p.ndpPrice || 0)); }
         if (p.currentStock === 0) oos++;
         else if (p.currentStock < (p.min || 5)) low++;
-        if (['LUBRICANT', 'LUBRICANTS', 'LUBE', 'LUBES', 'OIL'].includes((p.productCategory || '').toUpperCase())) {
+        if (window.isLubePart(p.productCategory, p.description || p.part_desc)) {
           lubeQty += p.currentStock || 0;
           lubeVal += p.stockValue || 0;
         }
@@ -3170,7 +3178,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (p.reserved > 0) { resQty += p.reserved; resVal += (p.reserved * (p.ndpPrice || 0)); }
           if (p.currentStock === 0) oos++;
           else if (p.currentStock < (p.min || 5)) low++;
-          if (['LUBRICANT', 'LUBRICANTS', 'LUBE', 'LUBES', 'OIL'].includes((p.productCategory || '').toUpperCase())) {
+          if (window.isLubePart(p.productCategory, p.description || p.part_desc)) {
             lubeQty += p.currentStock || 0;
             lubeVal += p.stockValue || 0;
           }
