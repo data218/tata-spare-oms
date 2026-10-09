@@ -2518,7 +2518,13 @@ document.addEventListener('DOMContentLoaded', () => {
       // We must scope this to the current dataset since it recalculates
       billingTypeAggLocal[btype] = (billingTypeAggLocal[btype] || 0) + val;
 
-      const day = (r.date || '').slice(0, 10);
+      let day = '';
+      if (r.date) {
+        const d = window.parseTataDate(r.date);
+        if (d && !isNaN(d.getTime())) {
+          day = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        }
+      }
       if (day) dayQty[day] = (dayQty[day] || 0) + val;
     });
 
@@ -2534,8 +2540,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const val = Number(r.value) || 0;
       let dStr = r.date || r.fetched_at || '';
       if (!dStr) return;
-      const d = new Date(dStr);
-      if (!isNaN(d)) {
+      const d = window.parseTataDate(dStr);
+      if (d && !isNaN(d.getTime())) {
         const key = d.toLocaleString('en-US', { month: 'short', year: 'numeric' }); // "Jan 2026"
         monthAgg[key] = (monthAgg[key] || 0) + val;
       }
@@ -2826,7 +2832,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const slowMoving = uniquePartsArray.filter(qty => qty > 0 && qty < 5).length;
     
     const tEl = document.getElementById('cons-kpi-total');
-    if (tEl) tEl.textContent = totalConsumed;
+    if (tEl) tEl.textContent = totalConsumed.toLocaleString('en-IN');
     
     const fEl = document.getElementById('cons-kpi-fast');
     if (fEl) fEl.textContent = fastMoving;
