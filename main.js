@@ -4653,7 +4653,7 @@ function renderPriceList(page = 0) {
   const end = Math.min(start + PRICE_LIST_PAGE_SIZE, filteredPriceList.length);
   const pageData = filteredPriceList.slice(start, end);
   
-  if (page === 0) tbody.innerHTML = '';
+  tbody.innerHTML = '';
   
   if (filteredPriceList.length === 0 && page === 0) {
     tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px;">No price records found.</td></tr>';
@@ -4674,10 +4674,12 @@ function renderPriceList(page = 0) {
     </tr>`;
   });
   
-  if (page === 0) {
-    tbody.innerHTML = html;
-  } else {
-    tbody.insertAdjacentHTML('beforeend', html);
+  tbody.innerHTML = html;
+  
+  const pageInfo = document.getElementById('price-page-info');
+  if (pageInfo) {
+     const totalPages = Math.max(1, Math.ceil(filteredPriceList.length / PRICE_LIST_PAGE_SIZE));
+     pageInfo.textContent = `Page ${page + 1} of ${totalPages}`;
   }
   
   // Attach Event Listeners
@@ -4744,6 +4746,28 @@ document.addEventListener('DOMContentLoaded', () => {
     searchInput.addEventListener('input', () => {
       currentPriceListPage = 0;
       renderPriceList(0);
+    });
+  }
+  
+  const prevBtn = document.getElementById('price-prev-btn');
+  const nextBtn = document.getElementById('price-next-btn');
+  
+  if (prevBtn) {
+    prevBtn.addEventListener('click', () => {
+       if (currentPriceListPage > 0) {
+          currentPriceListPage--;
+          renderPriceList(currentPriceListPage);
+       }
+    });
+  }
+  
+  if (nextBtn) {
+    nextBtn.addEventListener('click', () => {
+       const totalPages = Math.ceil(filteredPriceList.length / PRICE_LIST_PAGE_SIZE);
+       if (currentPriceListPage < totalPages - 1) {
+          currentPriceListPage++;
+          renderPriceList(currentPriceListPage);
+       }
     });
   }
   
