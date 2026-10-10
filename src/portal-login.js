@@ -38,8 +38,12 @@ export async function loginToPortal(page, credentials, notify = () => {}) {
     // First visit the root domain to silently pass any Cloudflare JS challenges
     // and pick up the cf_clearance cookie before requesting the sensitive app path.
     try {
-        await page.goto(PORTAL_ORIGIN, { waitUntil: 'networkidle2', timeout: 30000 });
-        await new Promise(r => setTimeout(r, 8000));
+        await page.goto(PORTAL_ORIGIN, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        // Jiggle the mouse for a few seconds to help pass Turnstile challenges
+        for (let i = 0; i < 20; i++) {
+            await page.mouse.move(100 + (Math.random() * 400), 100 + (Math.random() * 400));
+            await new Promise(r => setTimeout(r, 400));
+        }
     } catch(e) {
         // Ignore errors here, just trying to get cookies
     }

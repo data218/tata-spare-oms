@@ -50,7 +50,7 @@ const baseArgs = [
 export async function launchBrowser(overrides = {}) {
   const { args: extraArgs = [], ...rest } = overrides;
   const options = {
-    headless: process.env.SCRAPER_HEADLESS === 'false' ? false : 'new',
+    headless: process.env.SCRAPER_HEADLESS === 'false' ? false : true,
     protocolTimeout: Number(process.env.SCRAPER_PROTOCOL_TIMEOUT || 180000),
     defaultViewport: null,
     ...rest,
@@ -66,7 +66,7 @@ export async function launchBrowser(overrides = {}) {
     // matching the Chromium revision that `puppeteer` pins.
     const { default: chromium } = await import('@sparticuz/chromium');
     options.executablePath = await chromium.executablePath();
-    options.headless = process.env.SCRAPER_HEADLESS === 'false' ? false : 'shell';
+    options.headless = process.env.SCRAPER_HEADLESS === 'false' ? false : true;
     options.args = [...chromium.args.filter(a => a !== '--single-process'), ...baseArgs, ...extraArgs];
   } else if (process.env.SCRAPER_CHANNEL) {
     options.channel = process.env.SCRAPER_CHANNEL;
