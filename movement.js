@@ -89,7 +89,7 @@ async function generateMovementData() {
 
       transactions.push({
         id: `OUT-${c.id || index}`,
-        date: c.date ? new Date(c.date) : new Date(),
+        date: c.date ? (window.parseTataDate ? window.parseTataDate(c.date) : new Date(c.date)) : new Date(),
         direction: 'OUT',
         type: c.order_type || 'ISSUE',
         partNo: c.part_no,
@@ -121,7 +121,7 @@ async function generateMovementData() {
       
       transactions.push({
         id: `MANUAL-${log.id || index}`,
-        date: log.date ? new Date(log.date) : new Date(),
+        date: log.date ? (window.parseTataDate ? window.parseTataDate(log.date) : new Date(log.date)) : new Date(),
         direction: log.movement_type === 'IN' ? 'IN' : 'OUT',
         type: 'MANUAL',
         partNo: log.part_id,
