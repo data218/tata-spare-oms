@@ -446,7 +446,7 @@ function consNdp(row) {
 // Month/Year label, identical to the badge in the cell
 function consMonthYear(row) {
   const dStr = row.date || row.fetched_at || '';
-  const d = dStr ? new Date(dStr) : null;
+  const d = dStr ? (window.parseTataDate ? window.parseTataDate(dStr) : new Date(dStr)) : null;
   return d && !isNaN(d) ? d.toLocaleString('en-US', { month: 'short', year: 'numeric' }) : '-';
 }
 
@@ -3704,8 +3704,8 @@ document.addEventListener('DOMContentLoaded', () => {
       consRecords = consRecords.filter(r => {
         const dStr = r.date || r.fetched_at || '';
         if (!dStr) return false;
-        const d = new Date(dStr);
-        if (isNaN(d)) return false;
+        const d = window.parseTataDate ? window.parseTataDate(dStr) : new Date(dStr);
+        if (!d || isNaN(d)) return false;
         const key = d.toLocaleString('en-US', { month: 'short', year: 'numeric' });
         return key === window.consSelectedMonth;
       });
