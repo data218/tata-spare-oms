@@ -1812,10 +1812,13 @@ function processRawData({ inventory, consumption, priceList = [], movementLogs =
 
   // Pre-process consumption data grouped by Part + Location
   const consumptionByPartLoc = new Map();
+  const descByPart = new Map();
   consumption.forEach(row => {
     const pn = String(row.part_no || row.part_number || '').trim().toUpperCase(); 
     const loc = mapLocation(row.division);
     const key = pn + '_' + loc;
+    
+    if (row.part_desc) descByPart.set(pn, row.part_desc);
     
     const qty = parseInt(row.sold_qty) || 0;
     if (consumptionByPartLoc.has(key)) {
@@ -1854,7 +1857,7 @@ function processRawData({ inventory, consumption, priceList = [], movementLogs =
     const consQty = consumptionByPartLoc.get(consKey) || 0;
     const priceData = priceByPart.get(pn) || {};
     const finalNdp = priceData.ndp || 0;
-    const finalDesc = priceData.description || row.description || 'Unknown';
+    const finalDesc = priceData.description || row.description || descByPart.get(pn) || 'Unknown';
     const finalCategory = (row.product_category || priceData.category || 'Uncategorized').trim().toUpperCase();
 
     if (!grouped.has(key)) {
@@ -1908,7 +1911,7 @@ function processRawData({ inventory, consumption, priceList = [], movementLogs =
 
       grouped.set(key, {
         partId: pn,
-        model: priceData.description || 'Unknown',
+        model: priceData.description || descByPart.get(pn) || 'Unknown',
         location: loc,
         productCategory: (priceData.category || 'Uncategorized').trim().toUpperCase(),
         currentStock: 0,
@@ -1943,7 +1946,7 @@ function processRawData({ inventory, consumption, priceList = [], movementLogs =
       
       grouped.set(key, {
         partId: pn,
-        model: priceData.description || 'Unknown',
+        model: priceData.description || descByPart.get(pn) || 'Unknown',
         location: loc,
         productCategory: (priceData.category || 'Uncategorized').trim().toUpperCase(),
         currentStock: log.movement_type === 'IN' ? (Number(log.qty) || 0) : -(Number(log.qty) || 0),
