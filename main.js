@@ -1753,7 +1753,7 @@ async function fetchInventoryData() {
     const dateRange = getDateRangeFilter();
 
     let [inventoryData, consumptionData, priceListData, movementLogsData] = await Promise.all([
-      fetchTableData('tata_spare_inventory', filter, 'part_no, division, qty, availability, product_category, description, last_receipt, fetched_at'),
+      fetchTableData('tata_spare_inventory', filter, 'part_no, division, qty, availability, product_category, description, last_receipt, fetched_at, inventory_indicator'),
       fetchTableData('tata_consumption_data', filter, '*'),
       fetchTableData('tata_price_list', null, 'part_number, ndp, description, category'),
       supabase.from('tata_movement_logs').select('*')
@@ -1888,20 +1888,29 @@ function processRawData({ inventory, consumption, priceList = [], movementLogs =
         consumption30d: consQty,
         consumption6mRolling: consumption6mByPartLoc.get(consKey) || 0,
         last_receipt: row.last_receipt || '',
-        ageingDays: -1
+        ageingDays: -1,
+        subStock: { workshop: 0, bodyshop: 0, wpacs: 0 }
       });
     }
     const existing = grouped.get(key);
+    if (!existing.subStock) existing.subStock = { workshop: 0, bodyshop: 0, wpacs: 0 };
     const avail = (row.availability || '').toLowerCase();
+    const ind = (row.inventory_indicator || '').toLowerCase();
     
     if (avail.includes('on hand')) {
       existing.currentStock += row.qty;
+      if (ind.includes('bodyshop')) existing.subStock.bodyshop += row.qty;
+      else if (ind.includes('wpacs')) existing.subStock.wpacs += row.qty;
+      else existing.subStock.workshop += row.qty;
     } else if (avail.includes('transit')) {
       existing.inTransit += row.qty;
     } else if (avail.includes('reserv')) {
       existing.reserved += row.qty;
     } else {
       existing.currentStock += row.qty;
+      if (ind.includes('bodyshop')) existing.subStock.bodyshop += row.qty;
+      else if (ind.includes('wpacs')) existing.subStock.wpacs += row.qty;
+      else existing.subStock.workshop += row.qty;
     }
     
     // Update last_receipt to the most recent one
@@ -2962,6 +2971,12 @@ document.addEventListener('DOMContentLoaded', () => {
       displayParts = displayParts.filter(p => p.currentStock > 0 && p.currentStock < 5);
     } else if (window.hCurrentFilter === 'healthy') {
       displayParts = displayParts.filter(p => p.currentStock >= 5);
+    } else if (window.hCurrentFilter === 'sub-workshop') {
+      displayParts = displayParts.filter(p => (p.subStock?.workshop || 0) > 0);
+    } else if (window.hCurrentFilter === 'sub-bodyshop') {
+      displayParts = displayParts.filter(p => (p.subStock?.bodyshop || 0) > 0);
+    } else if (window.hCurrentFilter === 'sub-wpacs') {
+      displayParts = displayParts.filter(p => (p.subStock?.wpacs || 0) > 0);
     }
 
     const totalItems = displayParts.length;
@@ -2979,8 +2994,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const kpiLow = document.getElementById('invh-kpi-low');
     const kpiLube = document.getElementById('invh-kpi-lube');
     const kpiLubeVal = document.getElementById('invh-kpi-lube-val');
+    const kpiWsVal = document.getElementById('invh-kpi-workshop-val');
+    const kpiWsQty = document.getElementById('invh-kpi-workshop-qty');
+    const kpiBsVal = document.getElementById('invh-kpi-bodyshop-val');
+    const kpiBsQty = document.getElementById('invh-kpi-bodyshop-qty');
+    const kpiWpVal = document.getElementById('invh-kpi-wpacs-val');
+    const kpiWpQty = document.getElementById('invh-kpi-wpacs-qty');
     
-    let stats = { onhandQty: 0, onhandVal: 0, transitQty: 0, transitVal: 0, resQty: 0, resVal: 0, oos: 0, low: 0, lubeQty: 0, lubeVal: 0 };
+    let stats = { onhandQty: 0, onhandVal: 0, transitQty: 0, transitVal: 0, resQty: 0, resVal: 0, oos: 0, low: 0, lubeQty: 0, lubeVal: 0, wsQty: 0, wsVal: 0, bsQty: 0, bsVal: 0, wpQty: 0, wpVal: 0 };
     displayParts.forEach(p => {
        stats.onhandQty += p.currentStock || 0;
        stats.onhandVal += p.stockValue || 0;
@@ -2995,6 +3016,15 @@ document.addEventListener('DOMContentLoaded', () => {
           stats.lubeQty += lubeQtyLtr;
           stats.lubeVal += lubeQtyLtr * (p.ndpPrice || 0);
         }
+        const wsQ = p.subStock?.workshop || 0;
+        const bsQ = p.subStock?.bodyshop || 0;
+        const wpQ = p.subStock?.wpacs || 0;
+        stats.wsQty += wsQ;
+        stats.wsVal += wsQ * (p.ndpPrice || 0);
+        stats.bsQty += bsQ;
+        stats.bsVal += bsQ * (p.ndpPrice || 0);
+        stats.wpQty += wpQ;
+        stats.wpVal += wpQ * (p.ndpPrice || 0);
     });
 
     if (kpiTotal) kpiTotal.textContent = totalItems.toLocaleString('en-IN');
@@ -3013,6 +3043,15 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (kpiLube) kpiLube.textContent = stats.lubeQty.toLocaleString('en-IN', { maximumFractionDigits: 2 }) + ' L';
     if (kpiLubeVal) kpiLubeVal.textContent = '₹' + stats.lubeVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+
+    if (kpiWsVal) kpiWsVal.textContent = '₹' + stats.wsVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+    if (kpiWsQty) kpiWsQty.textContent = stats.wsQty.toLocaleString('en-IN') + ' Qty';
+
+    if (kpiBsVal) kpiBsVal.textContent = '₹' + stats.bsVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+    if (kpiBsQty) kpiBsQty.textContent = stats.bsQty.toLocaleString('en-IN') + ' Qty';
+
+    if (kpiWpVal) kpiWpVal.textContent = '₹' + stats.wpVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+    if (kpiWpQty) kpiWpQty.textContent = stats.wpQty.toLocaleString('en-IN') + ' Qty';
 
     let age0_30 = { qty: 0, val: 0 };
     let age31_60 = { qty: 0, val: 0 };
@@ -3177,7 +3216,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const kpiLow = document.getElementById('invh-kpi-low');
       const kpiLube = document.getElementById('invh-kpi-lube');
       const kpiLubeVal = document.getElementById('invh-kpi-lube-val');
-      let onhandQty = 0, onhandVal = 0, transitQty = 0, transitVal = 0, resQty = 0, resVal = 0, oos = 0, low = 0, lubeQty = 0, lubeVal = 0;
+      const kpiWsVal = document.getElementById('invh-kpi-workshop-val');
+      const kpiWsQty = document.getElementById('invh-kpi-workshop-qty');
+      const kpiBsVal = document.getElementById('invh-kpi-bodyshop-val');
+      const kpiBsQty = document.getElementById('invh-kpi-bodyshop-qty');
+      const kpiWpVal = document.getElementById('invh-kpi-wpacs-val');
+      const kpiWpQty = document.getElementById('invh-kpi-wpacs-qty');
+      let onhandQty = 0, onhandVal = 0, transitQty = 0, transitVal = 0, resQty = 0, resVal = 0, oos = 0, low = 0, lubeQty = 0, lubeVal = 0, wsQty = 0, wsVal = 0, bsQty = 0, bsVal = 0, wpQty = 0, wpVal = 0;
       filtered.forEach(p => {
         const avail = (p.currentStock || 0) - (p.reserved || 0);
         if (p.currentStock > 0) { onhandQty += p.currentStock; onhandVal += p.stockValue || 0; }
@@ -3189,6 +3234,12 @@ document.addEventListener('DOMContentLoaded', () => {
           lubeQty += p.currentStock || 0;
           lubeVal += p.stockValue || 0;
         }
+        const wsQ = p.subStock?.workshop || 0;
+        const bsQ = p.subStock?.bodyshop || 0;
+        const wpQ = p.subStock?.wpacs || 0;
+        wsQty += wsQ; wsVal += wsQ * (p.ndpPrice || 0);
+        bsQty += bsQ; bsVal += bsQ * (p.ndpPrice || 0);
+        wpQty += wpQ; wpVal += wpQ * (p.ndpPrice || 0);
       });
       if (kpiTotal) kpiTotal.textContent = filtered.length.toLocaleString('en-IN');
       if (kpiValue) kpiValue.textContent = '₹' + onhandVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
@@ -3202,6 +3253,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (kpiLow) kpiLow.textContent = low.toLocaleString('en-IN');
       if (kpiLube) kpiLube.textContent = (lubeQty / 1000).toLocaleString('en-IN', { maximumFractionDigits: 2 }) + ' L';
       if (kpiLubeVal) kpiLubeVal.textContent = '₹' + lubeVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+      if (kpiWsVal) kpiWsVal.textContent = '₹' + wsVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+      if (kpiWsQty) kpiWsQty.textContent = wsQty.toLocaleString('en-IN') + ' Qty';
+      if (kpiBsVal) kpiBsVal.textContent = '₹' + bsVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+      if (kpiBsQty) kpiBsQty.textContent = bsQty.toLocaleString('en-IN') + ' Qty';
+      if (kpiWpVal) kpiWpVal.textContent = '₹' + wpVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+      if (kpiWpQty) kpiWpQty.textContent = wpQty.toLocaleString('en-IN') + ' Qty';
     };
     globalSearchBtn.addEventListener('click', doGlobalSearch);
     globalSearchInput.addEventListener('keydown', (e) => {
@@ -3230,7 +3287,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const kpiLow = document.getElementById('invh-kpi-low');
         const kpiLube = document.getElementById('invh-kpi-lube');
         const kpiLubeVal = document.getElementById('invh-kpi-lube-val');
-        let onhandQty = 0, onhandVal = 0, transitQty = 0, transitVal = 0, resQty = 0, resVal = 0, oos = 0, low = 0, lubeQty = 0, lubeVal = 0;
+        const kpiWsVal = document.getElementById('invh-kpi-workshop-val');
+        const kpiWsQty = document.getElementById('invh-kpi-workshop-qty');
+        const kpiBsVal = document.getElementById('invh-kpi-bodyshop-val');
+        const kpiBsQty = document.getElementById('invh-kpi-bodyshop-qty');
+        const kpiWpVal = document.getElementById('invh-kpi-wpacs-val');
+        const kpiWpQty = document.getElementById('invh-kpi-wpacs-qty');
+        let onhandQty = 0, onhandVal = 0, transitQty = 0, transitVal = 0, resQty = 0, resVal = 0, oos = 0, low = 0, lubeQty = 0, lubeVal = 0, wsQty = 0, wsVal = 0, bsQty = 0, bsVal = 0, wpQty = 0, wpVal = 0;
         parts.forEach(p => {
           if (p.currentStock > 0) { onhandQty += p.currentStock; onhandVal += p.stockValue || 0; }
           if (p.inTransit > 0) { transitQty += p.inTransit; transitVal += (p.inTransit * (p.ndpPrice || 0)); }
@@ -3241,6 +3304,12 @@ document.addEventListener('DOMContentLoaded', () => {
             lubeQty += p.currentStock || 0;
             lubeVal += p.stockValue || 0;
           }
+          const wsQ = p.subStock?.workshop || 0;
+          const bsQ = p.subStock?.bodyshop || 0;
+          const wpQ = p.subStock?.wpacs || 0;
+          wsQty += wsQ; wsVal += wsQ * (p.ndpPrice || 0);
+          bsQty += bsQ; bsVal += bsQ * (p.ndpPrice || 0);
+          wpQty += wpQ; wpVal += wpQ * (p.ndpPrice || 0);
         });
         if (kpiTotal) kpiTotal.textContent = parts.length.toLocaleString('en-IN');
         if (kpiValue) kpiValue.textContent = '₹' + onhandVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
@@ -3254,6 +3323,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (kpiLow) kpiLow.textContent = low.toLocaleString('en-IN');
         if (kpiLube) kpiLube.textContent = (lubeQty / 1000).toLocaleString('en-IN', { maximumFractionDigits: 2 }) + ' L';
         if (kpiLubeVal) kpiLubeVal.textContent = '₹' + lubeVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+        if (kpiWsVal) kpiWsVal.textContent = '₹' + wsVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+        if (kpiWsQty) kpiWsQty.textContent = wsQty.toLocaleString('en-IN') + ' Qty';
+        if (kpiBsVal) kpiBsVal.textContent = '₹' + bsVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+        if (kpiBsQty) kpiBsQty.textContent = bsQty.toLocaleString('en-IN') + ' Qty';
+        if (kpiWpVal) kpiWpVal.textContent = '₹' + wpVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+        if (kpiWpQty) kpiWpQty.textContent = wpQty.toLocaleString('en-IN') + ' Qty';
       });
     }
   }
