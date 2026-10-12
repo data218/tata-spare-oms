@@ -1158,8 +1158,53 @@ body:not([data-theme="light"]):not([data-theme=""]) .column-filter-dropdown .col
 }
 
 /* =========================================
-   THEME TRIGGER BUTTONS & BADGES
+   THEME TRIGGER ICON BUTTON (ONLY PICTURE)
 ========================================= */
+.theme-icon-only-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  padding: 6px 12px;
+  border-radius: 20px;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+}
+
+.theme-icon-only-btn:hover {
+  transform: translateY(-2px);
+  border-color: #ea580c;
+  box-shadow: 0 4px 14px rgba(234, 88, 12, 0.25);
+  background: #fff7ed;
+}
+
+.theme-icon-only-btn:active {
+  transform: scale(0.94);
+}
+
+.theme-icon-only-btn i,
+.theme-icon-only-btn svg {
+  color: #ea580c !important;
+  stroke: #ea580c !important;
+  width: 18px !important;
+  height: 18px !important;
+  transition: transform 0.3s ease;
+}
+
+.theme-icon-only-btn:hover i,
+.theme-icon-only-btn:hover svg {
+  transform: rotate(20deg) scale(1.12);
+}
+
+body[data-theme="nordic"] .theme-icon-only-btn,
+body[data-theme="midnight"] .theme-icon-only-btn {
+  background: var(--card-bg) !important;
+  border-color: var(--border-color) !important;
+}
+
 .theme-trigger-btn {
   display: flex;
   align-items: center;

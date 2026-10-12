@@ -2977,10 +2977,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 250);
   };
 
-  // Trigger button on Inventory Health page corner
-  const invThemeBtn = document.getElementById('inventory-theme-btn');
-  if (invThemeBtn) {
-    invThemeBtn.addEventListener('click', (e) => {
+  // Trigger button on topbar panel (Icon-only)
+  const themeIconBtn = document.getElementById('theme-icon-btn');
+  if (themeIconBtn) {
+    themeIconBtn.addEventListener('click', (e) => {
       e.preventDefault();
       openThemeModal();
     });

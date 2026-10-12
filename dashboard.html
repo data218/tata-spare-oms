@@ -105,6 +105,11 @@
               <span style="font-size: 0.9rem; color: #1e293b; font-weight: 600;">Welcome, <span id="global-welcome-name" style="color: #3b82f6; text-transform: capitalize;">admin</span></span>
             </div>
 
+            <!-- Theme Palette Button (Only Icon) -->
+            <button id="theme-icon-btn" class="theme-icon-only-btn" title="Change Theme" aria-label="Change Theme">
+              <i data-lucide="palette" style="width: 18px; height: 18px; color: #ea580c;"></i>
+            </button>
+
             <button id="logout-btn" class="topbar-logout-btn">
               <i data-lucide="log-out"></i>
               <span>Logout</span>
@@ -329,14 +334,7 @@
         <!-- INVENTORY VIEW -->
         <div id="view-inventory" class="view-section">
           <div class="dashboard-content">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
-              <h2 class="welcome-text" style="margin: 0;">Inventory Health</h2>
-              <button id="inventory-theme-btn" class="theme-trigger-btn" title="Choose Visual Theme (6 Premium Themes)">
-                <i data-lucide="palette" style="width: 18px; height: 18px; color: #ea580c;"></i>
-                <span>Themes</span>
-                <span id="inv-theme-badge" class="theme-active-badge">Classic</span>
-              </button>
-            </div>
+            <h2 class="welcome-text">Inventory Health</h2>
 
 
             <div class="overview-section" style="margin-bottom: 20px;">
