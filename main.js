@@ -312,7 +312,18 @@ const tableFilterConfigs = {
     render: (rows) => { window.tableFilterData['health-table-body'] = rows; window.hCurrentPage = 1; window.renderHealthTable(); }
   },
   'ppni-table-body': {
-    getRows: () => window.filteredProcessedParts || window.originalProcessedParts || [],
+    getRows: () => {
+      const locationSelect = document.getElementById('location-select');
+      const selectedLoc = locationSelect ? locationSelect.value : 'ALL';
+      const sLoc = (selectedLoc || '').toUpperCase().replace(/\s+/g, '');
+      let parts = (window.originalProcessedParts && window.originalProcessedParts.length > 0)
+        ? [...window.originalProcessedParts]
+        : (window.filteredProcessedParts ? [...window.filteredProcessedParts] : []);
+      if (sLoc !== 'ALL') {
+        parts = parts.filter(p => (p.location || '').toUpperCase().replace(/\s+/g, '') === sLoc);
+      }
+      return parts;
+    },
     fields: {
       'Part No.': 'partId', 'Description': 'model', 'Location': 'location', 'Category': 'productCategory',
       'Ageing (Days)': 'ageingDays', 'Receipt Date': 'last_receipt', 'Qty': 'currentStock', 'Value (₹)': 'stockValue'
@@ -1181,6 +1192,7 @@ navItems.forEach(item => {
           view.style.display = 'flex';
           if (targetId === 'view-orders' && typeof window.initReorderModule === 'function') window.initReorderModule();
           if (targetId === 'view-movement' && typeof window.initMovementModule === 'function') window.initMovementModule();
+          if (targetId === 'view-ppni' && typeof window.renderPPNI === 'function') window.renderPPNI();
         } else {
           view.style.display = 'none';
         }
@@ -2176,7 +2188,7 @@ async function loadDataAndRender() {
     }
 
     renderDashboard();
-    renderDashboardAnalytics();
+    if (typeof renderDashboardAnalytics === 'function') renderDashboardAnalytics();
     await checkMissingDataAlerts();
     await populateLocationSelect();
     if (typeof window.renderRecentActivity === 'function' && typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
@@ -2254,6 +2266,7 @@ function _renderDashboard_internal() {
   const { processed, kpis, categoryTotals } = calculateRequirements(filteredParts);
   filteredProcessedParts = processed;
   window.originalProcessedParts = [...processed];
+  window.filteredProcessedParts = [...processed];
   
   // Update KPIs
   if(document.getElementById('kpi-critical')) document.getElementById('kpi-critical').textContent = kpis.critical;
@@ -2654,9 +2667,24 @@ document.addEventListener('DOMContentLoaded', () => {
       
       // Yield main thread to allow UI to show loader
       setTimeout(() => {
+          // Reset table filters so new location data isn't restricted to previous location's filtered rows
+          if (window.tableFilterData) {
+            window.tableFilterData['ppni-table-body'] = null;
+            window.tableFilterData['health-table-body'] = null;
+            window.tableFilterData['demand-table-body'] = null;
+            window.tableFilterData['cons-table-body'] = null;
+          }
+          window.pCurrentPage = 1;
+          window.hCurrentPage = 1;
+          window.dCurrentPage = 1;
+          window.cCurrentPage = 1;
+
           renderDashboard();
-          renderDashboardAnalytics();
+          if (typeof renderDashboardAnalytics === 'function') renderDashboardAnalytics();
           
+          // Re-render Part Ageing (PPNI) for selected location
+          if (typeof window.renderPPNI === 'function') window.renderPPNI();
+
           // Also update consumption charts and table if location changes
           if (typeof window.renderConsumptionAnalytics === 'function') window.renderConsumptionAnalytics();
           
@@ -4467,7 +4495,18 @@ window._renderPPNI_internal = function() {
   if (!tbody) return;
 
   // Filter to parts that are actually in stock and older than 180 days (PPNI)
-  const allParts = window.filteredProcessedParts || window.originalProcessedParts || [];
+  const locationSelect = document.getElementById('location-select');
+  const selectedLoc = locationSelect ? locationSelect.value : 'ALL';
+  const sLoc = (selectedLoc || '').toUpperCase().replace(/\s+/g, '');
+
+  let baseParts = (window.originalProcessedParts && window.originalProcessedParts.length > 0)
+    ? window.originalProcessedParts
+    : (window.filteredProcessedParts || []);
+
+  let allParts = (sLoc !== 'ALL')
+    ? baseParts.filter(p => (p.location || '').toUpperCase().replace(/\s+/g, '') === sLoc)
+    : [...baseParts];
+
   let ppniParts = allParts.filter(p => p.currentStock > 0 && p.ageingDays > 180);
 
   // Apply column filters if any
