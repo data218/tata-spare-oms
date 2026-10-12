@@ -8,8 +8,11 @@ window.movDateFilter = 'all'; // Default to all time - history is 6 months deep
 let isMovementInitialized = false;
 const MOV_ITEMS_PER_PAGE = 50;
 
-window.initMovementModule = async function() {
-  if (isMovementInitialized) return;
+window.initMovementModule = async function(force = false) {
+  if (isMovementInitialized && !force) {
+    filterMovementData();
+    return;
+  }
   isMovementInitialized = true;
   
   console.log('[Movement] Init started');
@@ -58,10 +61,15 @@ async function generateMovementData() {
     return 'NARWAL';
   };
 
-  // Pre-compute originalProcessedParts map for O(1) lookups
+  // Pre-compute invPartMap for O(1) lookups using full dataset across all locations
   const invPartMap = new Map();
-  if (window.originalProcessedParts && window.originalProcessedParts.length > 0) {
-    window.originalProcessedParts.forEach(p => {
+  const sourceParts = (window.allProcessedParts && window.allProcessedParts.length > 0)
+    ? window.allProcessedParts
+    : (window.originalProcessedParts && window.originalProcessedParts.length > 0
+        ? window.originalProcessedParts
+        : (window.aggregatedParts || []));
+  if (sourceParts.length > 0) {
+    sourceParts.forEach(p => {
       const pLoc = mapLocation(p.location);
       invPartMap.set(`${p.partId}_${pLoc}`, p);
     });
@@ -136,8 +144,8 @@ async function generateMovementData() {
   }
 
   // 2. Generate synthetic IN transactions based on Current Stock + Total OUT
-  if (window.originalProcessedParts && window.originalProcessedParts.length > 0) {
-    window.originalProcessedParts.forEach((p, index) => {
+  if (sourceParts && sourceParts.length > 0) {
+    sourceParts.forEach((p, index) => {
       const pLoc = mapLocation(p.location);
       const partKey = `${p.partId}_${pLoc}`;
       const totalOutRaw = outSumByPartLoc[partKey] || 0;
@@ -152,8 +160,8 @@ async function generateMovementData() {
       if (finalInQty > 0) {
         let d = new Date();
         if (p.last_receipt && p.last_receipt !== '-') {
-          d = new Date(p.last_receipt);
-          if(isNaN(d.getTime())) d = new Date();
+          d = (window.parseTataDate ? window.parseTataDate(p.last_receipt) : new Date(p.last_receipt));
+          if (!d || isNaN(d.getTime())) d = new Date();
         }
         
         transactions.push({
@@ -179,50 +187,87 @@ async function generateMovementData() {
 }
 
 function attachMovementListeners() {
-  const typeBtns = document.querySelectorAll('#movement-toggle .toggle-btn');
-  typeBtns.forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      typeBtns.forEach(b => {
-        b.classList.remove('active');
-        b.style.background = 'transparent';
-        b.style.color = 'var(--text-secondary)';
-        b.style.boxShadow = 'none';
+  const toggleContainer = document.getElementById('movement-toggle');
+  if (toggleContainer && !toggleContainer.dataset.bound) {
+    toggleContainer.dataset.bound = 'true';
+    const typeBtns = toggleContainer.querySelectorAll('.toggle-btn');
+    typeBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        typeBtns.forEach(b => {
+          b.classList.remove('active');
+          b.style.background = 'transparent';
+          b.style.color = 'var(--text-secondary)';
+          b.style.boxShadow = 'none';
+        });
+        const t = e.currentTarget || e.target;
+        t.classList.add('active');
+        t.style.background = 'white';
+        t.style.color = 'var(--text-primary)';
+        t.style.boxShadow = '0 1px 2px rgba(0,0,0,0.1)';
+        
+        window.movCurrentType = t.dataset.type;
+        filterMovementData();
       });
-      const t = e.target;
-      t.classList.add('active');
-      t.style.background = 'white';
-      t.style.color = 'var(--text-primary)';
-      t.style.boxShadow = '0 1px 2px rgba(0,0,0,0.1)';
-      
-      window.movCurrentType = t.dataset.type;
+    });
+  }
+
+  const sInput = document.getElementById('movement-search');
+  if (sInput && !sInput.dataset.bound) {
+    sInput.dataset.bound = 'true';
+    sInput.addEventListener('input', (e) => {
+      window.movSearchQuery = (e.target.value || '').toLowerCase().trim();
       filterMovementData();
     });
-  });
+  }
 
-  document.getElementById('movement-search')?.addEventListener('input', (e) => {
-    window.movSearchQuery = e.target.value.toLowerCase();
-    filterMovementData();
-  });
+  const dFilter = document.getElementById('movement-date-filter');
+  if (dFilter && !dFilter.dataset.bound) {
+    dFilter.dataset.bound = 'true';
+    dFilter.addEventListener('change', (e) => {
+      window.movDateFilter = e.target.value;
+      filterMovementData();
+    });
+  }
 
-  document.getElementById('movement-date-filter')?.addEventListener('change', (e) => {
-    window.movDateFilter = e.target.value;
-    filterMovementData();
-  });
+  const prevBtn = document.getElementById('mov-prev-btn');
+  if (prevBtn && !prevBtn.dataset.bound) {
+    prevBtn.dataset.bound = 'true';
+    prevBtn.addEventListener('click', () => {
+      if (window.movCurrentPage > 1) {
+        window.movCurrentPage--;
+        renderMovementTable();
+      }
+    });
+  }
 
-  document.getElementById('mov-prev-btn')?.addEventListener('click', () => {
-    if (window.movCurrentPage > 1) {
-      window.movCurrentPage--;
-      renderMovementTable();
-    }
-  });
+  const nextBtn = document.getElementById('mov-next-btn');
+  if (nextBtn && !nextBtn.dataset.bound) {
+    nextBtn.dataset.bound = 'true';
+    nextBtn.addEventListener('click', () => {
+      const totalPages = Math.ceil(window.movementFiltered.length / MOV_ITEMS_PER_PAGE);
+      if (window.movCurrentPage < totalPages) {
+        window.movCurrentPage++;
+        renderMovementTable();
+      }
+    });
+  }
 
-  document.getElementById('mov-next-btn')?.addEventListener('click', () => {
-    const totalPages = Math.ceil(window.movementFiltered.length / MOV_ITEMS_PER_PAGE);
-    if (window.movCurrentPage < totalPages) {
-      window.movCurrentPage++;
-      renderMovementTable();
-    }
-  });
+  const refreshBtn = document.getElementById('movement-refresh-btn');
+  if (refreshBtn && !refreshBtn.dataset.bound) {
+    refreshBtn.dataset.bound = 'true';
+    refreshBtn.addEventListener('click', async () => {
+      const icon = refreshBtn.querySelector('svg') || refreshBtn.querySelector('i');
+      if (icon) icon.classList.add('lucide-spin');
+      try {
+        await generateMovementData();
+        filterMovementData();
+      } finally {
+        setTimeout(() => {
+          if (icon) icon.classList.remove('lucide-spin');
+        }, 500);
+      }
+    });
+  }
 }
 
 function filterMovementData() {
@@ -239,36 +284,37 @@ function filterMovementData() {
 
 // Applies the page-level filters (global location, IN/OUT toggle, search box and
 // date range) to a set of movement rows.
-// Kept separate so the header column-filter can offer exactly the values that
-// are actually reachable in the current view, instead of every value in the
-// full 60k+ row history.
 function applyMovementFilters(rows) {
   let filtered = [...rows];
 
   const globalLoc = document.getElementById('location-select')?.value;
-  if (globalLoc && globalLoc !== 'ALL') {
-    filtered = filtered.filter(t => t.location.toUpperCase() === globalLoc.toUpperCase());
+  const sLoc = (globalLoc || '').toUpperCase().replace(/\s+/g, '');
+  if (sLoc && sLoc !== 'ALL') {
+    filtered = filtered.filter(t => (t.location || '').toUpperCase().replace(/\s+/g, '') === sLoc);
   }
 
-  const typeFilter = window.movCurrentType || 'ALL';
+  const typeFilter = (window.movCurrentType || 'ALL').toUpperCase();
   if (typeFilter !== 'ALL') {
-    filtered = filtered.filter(t => t.direction === typeFilter);
+    filtered = filtered.filter(t => (t.direction || '').toUpperCase() === typeFilter);
   }
 
   if (window.movSearchQuery) {
-    const q = window.movSearchQuery;
+    const q = window.movSearchQuery.toLowerCase().trim();
     filtered = filtered.filter(t => 
-      t.partNo.toLowerCase().includes(q) || 
+      (t.partNo && t.partNo.toLowerCase().includes(q)) || 
       (t.description && t.description.toLowerCase().includes(q)) ||
       (t.reference && t.reference.toLowerCase().includes(q)) ||
-      (t.type && t.type.toLowerCase().includes(q))
+      (t.type && t.type.toLowerCase().includes(q)) ||
+      (t.location && t.location.toLowerCase().includes(q))
     );
   }
 
   if (window.movDateFilter && window.movDateFilter !== 'all') {
     const now = new Date();
     filtered = filtered.filter(t => {
-      const d = new Date(t.date);
+      const d = t.date instanceof Date ? t.date : new Date(t.date);
+      if (!d || isNaN(d.getTime())) return false;
+
       if (window.movDateFilter === 'today') {
         return d.toDateString() === now.toDateString();
       } else if (window.movDateFilter === 'yesterday') {
@@ -277,10 +323,10 @@ function applyMovementFilters(rows) {
         return d.toDateString() === yest.toDateString();
       } else if (window.movDateFilter === 'last7') {
         const diff = (now - d) / (1000 * 60 * 60 * 24);
-        return diff <= 7;
+        return diff >= 0 && diff <= 7;
       } else if (window.movDateFilter === 'last30') {
         const diff = (now - d) / (1000 * 60 * 60 * 24);
-        return diff <= 30;
+        return diff >= 0 && diff <= 30;
       } else if (window.movDateFilter === 'thismonth') {
         return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
       }
@@ -496,3 +542,4 @@ function renderTopParts() {
 }
 
 window.filterMovementData = filterMovementData;
+window.generateMovementData = generateMovementData;

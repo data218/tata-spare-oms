@@ -252,9 +252,16 @@ const tableFilterConfigs = {
     }
   },
   'movement-table-body': {
-    // Full dataset: the base that column filters are applied to. Must stay
-    // unscoped so that date/type/search filters can always be relaxed again.
-    getRows: () => window.movementData || [],
+    // Dataset for the table, scoped to active location
+    getRows: () => {
+      const globalLoc = document.getElementById('location-select')?.value;
+      const sLoc = (globalLoc || '').toUpperCase().replace(/\s+/g, '');
+      let rows = window.movementData || [];
+      if (sLoc && sLoc !== 'ALL') {
+        rows = rows.filter(t => (t.location || '').toUpperCase().replace(/\s+/g, '') === sLoc);
+      }
+      return rows;
+    },
     // Rows reachable in the current view - used only to populate the dropdown
     getScopeRows: (excludeKey) => (typeof window.getScopedMovementRows === 'function'
       ? window.getScopedMovementRows(excludeKey)
@@ -1191,7 +1198,10 @@ navItems.forEach(item => {
         if (view.id === targetId) {
           view.style.display = 'flex';
           if (targetId === 'view-orders' && typeof window.initReorderModule === 'function') window.initReorderModule();
-          if (targetId === 'view-movement' && typeof window.initMovementModule === 'function') window.initMovementModule();
+          if (targetId === 'view-movement') {
+            if (typeof window.initMovementModule === 'function') window.initMovementModule();
+            if (typeof window.filterMovementData === 'function') window.filterMovementData();
+          }
           if (targetId === 'view-ppni' && typeof window.renderPPNI === 'function') window.renderPPNI();
         } else {
           view.style.display = 'none';
@@ -2173,6 +2183,10 @@ async function loadDataAndRender() {
     rawInventoryData = await fetchInventoryData();
     window.rawInventoryData = rawInventoryData;
     aggregatedParts = processRawData(rawInventoryData);
+    window.aggregatedParts = aggregatedParts;
+    const { processed: allProcessed } = calculateRequirements(aggregatedParts);
+    window.allProcessedParts = allProcessed;
+    window.originalProcessedParts = allProcessed;
 
     const updatedEl = document.getElementById('last-updated-text');
     if (updatedEl && rawInventoryData.inventory && rawInventoryData.inventory.length > 0) {
@@ -2192,6 +2206,10 @@ async function loadDataAndRender() {
     await checkMissingDataAlerts();
     await populateLocationSelect();
     if (typeof window.renderRecentActivity === 'function' && typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+    if (typeof window.generateMovementData === 'function') {
+      await window.generateMovementData();
+      if (typeof window.filterMovementData === 'function') window.filterMovementData();
+    }
   } catch (err) {
     console.error('Failed to load dashboard data:', err);
     const banner = document.getElementById('data-load-error');
@@ -2265,8 +2283,12 @@ function _renderDashboard_internal() {
 
   const { processed, kpis, categoryTotals } = calculateRequirements(filteredParts);
   filteredProcessedParts = processed;
-  window.originalProcessedParts = [...processed];
   window.filteredProcessedParts = [...processed];
+  if (!window.originalProcessedParts || window.originalProcessedParts.length === 0) {
+    window.originalProcessedParts = (window.allProcessedParts && window.allProcessedParts.length > 0)
+      ? window.allProcessedParts
+      : [...processed];
+  }
   
   // Update KPIs
   if(document.getElementById('kpi-critical')) document.getElementById('kpi-critical').textContent = kpis.critical;
@@ -2673,11 +2695,16 @@ document.addEventListener('DOMContentLoaded', () => {
             window.tableFilterData['health-table-body'] = null;
             window.tableFilterData['demand-table-body'] = null;
             window.tableFilterData['cons-table-body'] = null;
+            window.tableFilterData['movement-table-body'] = null;
+          }
+          if (window.activeFilters) {
+            window.activeFilters.delete('movement-table-body');
           }
           window.pCurrentPage = 1;
           window.hCurrentPage = 1;
           window.dCurrentPage = 1;
           window.cCurrentPage = 1;
+          window.movCurrentPage = 1;
 
           renderDashboard();
           if (typeof renderDashboardAnalytics === 'function') renderDashboardAnalytics();
@@ -2694,6 +2721,9 @@ document.addEventListener('DOMContentLoaded', () => {
              window.cCurrentPage = 1;
              window.renderConsumptionTable();
           }
+
+          // Also update Inventory IN / OUT (movement) for selected location
+          if (typeof window.filterMovementData === 'function') window.filterMovementData();
           
           if (loader) loader.style.display = 'none';
       }, 50);
