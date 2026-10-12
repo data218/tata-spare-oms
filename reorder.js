@@ -53,6 +53,7 @@ function generateReorderData() {
       if (lowerD.includes('channirama') || lowerD.includes('chhanirama')) standardLoc = 'CHANNIRAMA';
       else if (lowerD.includes('supwal') || lowerD.includes('smamsamba')) standardLoc = 'SUPWAL';
       else if (lowerD.includes('kathua') || lowerD.includes('smamkathua')) standardLoc = 'KATHUA';
+      else if (lowerD.includes('reasi')) standardLoc = 'REASI';
       else if (lowerD.includes('jammu') || lowerD.includes('narwal') || lowerD.includes('narval')) standardLoc = 'NARWAL';
       else if (lowerD.includes('lambheri')) standardLoc = 'LAMBHERI';
       else if (lowerD.includes('poonch')) standardLoc = 'POONCH';

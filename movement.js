@@ -43,7 +43,7 @@ async function generateMovementData() {
   const transactions = [];
   const outSumByPartLoc = {};
 
-  const cleanLocs = ['NARWAL', 'CHANNIRAMA', 'SUPWAL', 'KATHUA'];
+  const cleanLocs = ['NARWAL', 'CHANNIRAMA', 'SUPWAL', 'KATHUA', 'REASI'];
 
   const mapLocation = (rawStr) => {
     if (!rawStr) return 'NARWAL';
@@ -57,6 +57,7 @@ async function generateMovementData() {
     // Specific hardcoded fallbacks
     if (str.includes('SMAMSAMBA')) return 'SUPWAL';
     if (str.includes('SMAMKATHUA')) return 'KATHUA';
+    if (str.includes('REASI')) return 'REASI';
     if (str.includes('JAMMU') || str.includes('NARVAL')) return 'NARWAL';
     return 'NARWAL';
   };

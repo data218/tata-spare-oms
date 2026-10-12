@@ -363,6 +363,7 @@ const tableFilterConfigs = {
         if (lowerD.includes('channirama') || lowerD.includes('chhanirama')) return 'Channi Rama';
         if (lowerD.includes('smamsamba') || lowerD.includes('supwal')) return 'Supwal';
         if (lowerD.includes('smamkathua') || lowerD.includes('kathua')) return 'Kathua';
+        if (lowerD.includes('reasi')) return 'Reasi';
         if (lowerD.includes('jammu') || lowerD.includes('narwal') || lowerD.includes('narval')) return 'Narwal';
         if (lowerD.includes('lambheri')) return 'Lambheri';
         if (lowerD.includes('poonch')) return 'Poonch';
@@ -1241,10 +1242,13 @@ async function populateLocationSelect() {
     if (error) throw error;
     const current = select.value || 'ALL';
     select.innerHTML = '<option value="ALL">All Locations</option>';
-    (data || []).forEach(loc => {
+    const locSet = new Set((data || []).map(l => (l.location_name || '').toUpperCase().trim()));
+    ['NARWAL', 'CHANNIRAMA', 'SUPWAL', 'KATHUA', 'REASI'].forEach(l => locSet.add(l));
+    locSet.forEach(locName => {
+      if (!locName) return;
       const opt = document.createElement('option');
-      opt.value = loc.location_name;
-      opt.textContent = loc.location_name;
+      opt.value = locName;
+      opt.textContent = locName;
       select.appendChild(opt);
     });
     if ([...select.options].some(o => o.value === current)) {
@@ -1838,9 +1842,10 @@ function processRawData({ inventory, consumption, priceList = [], movementLogs =
     if (lowerD.includes('channirama') || lowerD.includes('chhanirama')) return 'CHANNIRAMA';
     if (lowerD.includes('supwal') || lowerD.includes('smamsamba')) return 'SUPWAL';
     if (lowerD.includes('kathua') || lowerD.includes('smamkathua')) return 'KATHUA';
+    if (lowerD.includes('reasi')) return 'REASI';
     if (lowerD.includes('jammu') || lowerD.includes('narwal') || lowerD.includes('narval')) return 'NARWAL';
-      if (lowerD.includes('lambheri')) return 'LAMBHERI';
-      if (lowerD.includes('poonch')) return 'POONCH';
+    if (lowerD.includes('lambheri')) return 'LAMBHERI';
+    if (lowerD.includes('poonch')) return 'POONCH';
     return divisionStr; // Default
   };
 
@@ -3651,6 +3656,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (d.includes('channirama') || d.includes('chhanirama')) return 'Channi Rama';
         if (d.includes('smamsamba') || d.includes('supwal')) return 'Supwal';
         if (d.includes('smamkathua') || d.includes('kathua')) return 'Kathua';
+        if (d.includes('reasi')) return 'Reasi';
         if (d.includes('lambheri')) return 'Lambheri';
         if (d.includes('poonch')) return 'Poonch';
         return 'Narwal';
