@@ -35,6 +35,39 @@ function generateReorderData() {
     partGroups.get(p.partId).push(p);
   });
 
+  const timeFilterEl = document.getElementById('reorder-time-filter');
+  const timeDays = timeFilterEl ? timeFilterEl.value : '30';
+  
+  // Pre-calculate windowed consumption per Part + Location if raw consumption is available
+  const rawCons = (window.rawInventoryData && window.rawInventoryData.consumption) || [];
+  const windowedConsMap = new Map();
+  const daysNum = timeDays === 'all' ? 365 : (parseInt(timeDays) || 30);
+  const cutoffDate = timeDays === 'all' ? null : new Date(Date.now() - daysNum * 86400000);
+
+  if (rawCons.length > 0) {
+    rawCons.forEach(row => {
+      const pn = String(row.part_no || row.part_number || '').trim().toUpperCase();
+      const div = row.division || '';
+      let standardLoc = 'NARWAL';
+      const lowerD = div.toLowerCase().replace(/\s+/g, '');
+      if (lowerD.includes('channirama') || lowerD.includes('chhanirama')) standardLoc = 'CHANNIRAMA';
+      else if (lowerD.includes('supwal') || lowerD.includes('smamsamba')) standardLoc = 'SUPWAL';
+      else if (lowerD.includes('kathua') || lowerD.includes('smamkathua')) standardLoc = 'KATHUA';
+      else if (lowerD.includes('jammu') || lowerD.includes('narwal') || lowerD.includes('narval')) standardLoc = 'NARWAL';
+      else if (lowerD.includes('lambheri')) standardLoc = 'LAMBHERI';
+      else if (lowerD.includes('poonch')) standardLoc = 'POONCH';
+      else if (div) standardLoc = div.toUpperCase();
+
+      if (cutoffDate) {
+        const d = window.parseTataDate(row.date);
+        if (!d || isNaN(d.getTime()) || d < cutoffDate) return;
+      }
+      const qty = parseInt(row.sold_qty) || 0;
+      const key = pn + '_' + standardLoc;
+      windowedConsMap.set(key, (windowedConsMap.get(key) || 0) + qty);
+    });
+  }
+
   const now = new Date();
   const leadTime = 14;
   const reviewPeriod = 30;
@@ -45,12 +78,21 @@ function generateReorderData() {
     const reserved = Number(p.reserved) || 0;
     const inTransit = Number(p.inTransit) || 0;
     const available = currentStock - reserved;
-    // True rolling six-month average, computed per Part + Location in main.js
-    // over a trailing 180-day window. Do not use consumption30d / 30: that
-    // field is an unfiltered sum of every loaded consumption row, so dividing
-    // it by 30 overstates demand by roughly the length of the feed.
-    const consumption6m = Number(p.consumption6mRolling) || 0;
-    const avgDailyCons = consumption6m / 180;
+
+    const consKey = p.partId + '_' + loc;
+    let windowedConsumption = 0;
+    let avgDailyCons = 0;
+
+    if (rawCons.length > 0) {
+      windowedConsumption = windowedConsMap.get(consKey) || 0;
+      avgDailyCons = windowedConsumption / daysNum;
+    } else {
+      // Fallback if raw consumption not on window
+      const consumption6m = Number(p.consumption6mRolling) || 0;
+      avgDailyCons = consumption6m / 180;
+      windowedConsumption = Math.round(avgDailyCons * daysNum);
+    }
+
     const ndp = Number(p.ndpPrice) || 0;
     const cost = ndp;
 
@@ -80,7 +122,9 @@ function generateReorderData() {
       for (const peer of peers) {
         if (peer.location.toUpperCase() !== loc) {
           const peerAvail = (Number(peer.currentStock) || 0) - (Number(peer.reserved) || 0);
-          const peerAvgDaily = (Number(peer.consumption6mRolling) || 0) / 180;
+          const peerKey = peer.partId + '_' + peer.location.toUpperCase();
+          const peerCons = rawCons.length > 0 ? (windowedConsMap.get(peerKey) || 0) : Number(peer.consumption6mRolling) || 0;
+          const peerAvgDaily = rawCons.length > 0 ? (peerCons / daysNum) : (peerCons / 180);
           const peerMin = Math.max(1, Math.ceil(peerAvgDaily * leadTime));
           const excess = peerAvail - peerMin;
           if (excess >= recQty) {
@@ -139,7 +183,7 @@ function generateReorderData() {
         maxStock: maxStock,
         safetyStock: safetyStock,
         reorderPoint: reorderPoint,
-        consumption6m: consumption6m,
+        consumption6m: windowedConsumption,
         avgDailyCons: avgDailyCons,
         daysOfStock: daysOfStock,
         recQty: recQty,
@@ -206,6 +250,11 @@ function populateReorderFilters() {
 function attachReorderListeners() {
   if (roListenersAttached) return;
   roListenersAttached = true;
+  document.getElementById('reorder-time-filter')?.addEventListener('change', () => {
+    generateReorderData();
+    populateReorderFilters();
+    filterReorderData();
+  });
   document.getElementById('reorder-search')?.addEventListener('input', (e) => {
     window.roSearchQuery = e.target.value.toLowerCase();
     filterReorderData();
@@ -663,11 +712,11 @@ window.viewReorderReason = function(btn) {
           <div style="font-size: 1.1rem; font-weight: 700; color: #0f172a;">${row.safetyStock}</div>
         </div>
         <div style="padding: 10px; background: #f8fafc; border-radius: 8px;">
-          <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 600;">6-Mth Consumption</div>
+          <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 600;">Period Consumption</div>
           <div style="font-size: 1.1rem; font-weight: 700; color: #0f172a;">${(Number(row.consumption6m) || 0).toLocaleString('en-IN')}</div>
         </div>
         <div style="padding: 10px; background: #f8fafc; border-radius: 8px;">
-          <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 600;">Avg Cons/Day (6-mo)</div>
+          <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 600;">Avg Cons/Day</div>
           <div style="font-size: 1.1rem; font-weight: 700; color: #0f172a;">${row.avgDailyCons.toFixed(2)}</div>
         </div>
         <div style="padding: 10px; background: #f8fafc; border-radius: 8px;">
