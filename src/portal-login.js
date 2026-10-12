@@ -35,19 +35,7 @@ export async function loginToPortal(page, credentials, notify = () => {}) {
     // token and put the login form on screen.
     notify('Opening Tata BI portal...');
     
-    // First visit the root domain to silently pass any Cloudflare JS challenges
-    // and pick up the cf_clearance cookie before requesting the sensitive app path.
-    try {
-        await page.goto(PORTAL_ORIGIN, { waitUntil: 'domcontentloaded', timeout: 30000 });
-        // Jiggle the mouse for a few seconds to help pass Turnstile challenges
-        for (let i = 0; i < 20; i++) {
-            await page.mouse.move(100 + (Math.random() * 400), 100 + (Math.random() * 400));
-            await new Promise(r => setTimeout(r, 400));
-        }
-    } catch(e) {
-        // Ignore errors here, just trying to get cookies
-    }
-
+    // Navigate directly to APP_URL, which issues a fresh redirect token and displays login fields
     await page.goto(APP_URL, { waitUntil: 'networkidle2', timeout: 60000 });
 
     // Without a server-issued token the login page renders with an empty body and
