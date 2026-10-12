@@ -878,119 +878,119 @@ h2.welcome-text {
    THEME DEFINITIONS & DESIGN SYSTEM
 ========================================= */
 
-/* 1. Light / Tata Classic */
+/* 1. Tata Classic (Crisp White Light) */
 body[data-theme="light"],
 body:not([data-theme]) {
-  --bg-main: #eef3f7;
-  --sidebar-bg: #2b4553;
-  --sidebar-hover: #365668;
-  --sidebar-active-bg: #eef3f7;
-  --sidebar-active-text: #2b4553;
-  --text-primary: #1a202c;
+  --bg-main: #f1f5f9;
+  --sidebar-bg: #1e3a5f;
+  --sidebar-hover: #2b4c77;
+  --sidebar-active-bg: #f1f5f9;
+  --sidebar-active-text: #1e3a5f;
+  --text-primary: #0f172a;
   --text-secondary: #64748b;
   --text-light: #ffffff;
   --card-bg: #ffffff;
   --border-color: #e2e8f0;
   --topbar-bg: #ffffff;
   --table-head-bg: #f8fafc;
-  --table-hover-bg: #f8fafc;
+  --table-hover-bg: #f1f5f9;
   --input-bg: #ffffff;
   --accent-color: #ea580c;
 }
 
-/* 2. Cyber Midnight Navy */
-body[data-theme="midnight"] {
-  --bg-main: #0b1120;
-  --sidebar-bg: #070d18;
-  --sidebar-hover: #132238;
-  --sidebar-active-bg: #0b1120;
+/* 2. Modern Slate (Soft Gray Minimal Light) */
+body[data-theme="slate"] {
+  --bg-main: #f8fafc;
+  --sidebar-bg: #334155;
+  --sidebar-hover: #475569;
+  --sidebar-active-bg: #f8fafc;
+  --sidebar-active-text: #0284c7;
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --text-light: #ffffff;
+  --card-bg: #ffffff;
+  --border-color: #e2e8f0;
+  --topbar-bg: #ffffff;
+  --table-head-bg: #f1f5f9;
+  --table-hover-bg: #f8fafc;
+  --input-bg: #ffffff;
+  --accent-color: #0284c7;
+}
+
+/* 3. Ocean Sky (Refreshing Light Blue) */
+body[data-theme="ocean"] {
+  --bg-main: #f0f9ff;
+  --sidebar-bg: #0369a1;
+  --sidebar-hover: #0284c7;
+  --sidebar-active-bg: #f0f9ff;
+  --sidebar-active-text: #0369a1;
+  --text-primary: #0c4a6e;
+  --text-secondary: #0284c7;
+  --text-light: #ffffff;
+  --card-bg: #ffffff;
+  --border-color: #bae6fd;
+  --topbar-bg: #ffffff;
+  --table-head-bg: #e0f2fe;
+  --table-hover-bg: #f0f9ff;
+  --input-bg: #ffffff;
+  --accent-color: #0284c7;
+}
+
+/* 4. Warm Sand & Amber (Elegant Cream Luxury) */
+body[data-theme="sand"] {
+  --bg-main: #faf5ee;
+  --sidebar-bg: #451a03;
+  --sidebar-hover: #78350f;
+  --sidebar-active-bg: #faf5ee;
+  --sidebar-active-text: #b45309;
+  --text-primary: #292524;
+  --text-secondary: #78716c;
+  --text-light: #ffffff;
+  --card-bg: #ffffff;
+  --border-color: #e7e5e4;
+  --topbar-bg: #fffdfa;
+  --table-head-bg: #f5efe6;
+  --table-hover-bg: #faf5ee;
+  --input-bg: #ffffff;
+  --accent-color: #d97706;
+}
+
+/* 5. Nordic Charcoal (Balanced Soft Dark - Not Pitch Black) */
+body[data-theme="nordic"] {
+  --bg-main: #1e293b;
+  --sidebar-bg: #0f172a;
+  --sidebar-hover: #334155;
+  --sidebar-active-bg: #1e293b;
   --sidebar-active-text: #38bdf8;
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
   --text-light: #ffffff;
-  --card-bg: #111d35;
-  --border-color: #1e2e4a;
-  --topbar-bg: #0d172c;
-  --table-head-bg: #0f1c34;
-  --table-hover-bg: #152442;
-  --input-bg: #0f1c34;
+  --card-bg: #273549;
+  --border-color: #3b4c66;
+  --topbar-bg: #182234;
+  --table-head-bg: #1e293b;
+  --table-hover-bg: #2d3c52;
+  --input-bg: #1e293b;
   --accent-color: #38bdf8;
 }
 
-/* 3. Obsidian Onyx AMOLED */
-body[data-theme="obsidian"] {
-  --bg-main: #000000;
-  --sidebar-bg: #09090b;
-  --sidebar-hover: #18181b;
-  --sidebar-active-bg: #000000;
-  --sidebar-active-text: #f59e0b;
-  --text-primary: #f9fafb;
-  --text-secondary: #a1a1aa;
+/* 6. Cyber Midnight Navy (Pro Dark Navy) */
+body[data-theme="midnight"] {
+  --bg-main: #0f172a;
+  --sidebar-bg: #090d16;
+  --sidebar-hover: #1e293b;
+  --sidebar-active-bg: #0f172a;
+  --sidebar-active-text: #818cf8;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
   --text-light: #ffffff;
-  --card-bg: #121215;
-  --border-color: #27272a;
-  --topbar-bg: #0a0a0d;
-  --table-head-bg: #141418;
-  --table-hover-bg: #1c1c22;
-  --input-bg: #141418;
-  --accent-color: #f59e0b;
-}
-
-/* 4. Emerald Forest Glass */
-body[data-theme="emerald"] {
-  --bg-main: #03150e;
-  --sidebar-bg: #020c08;
-  --sidebar-hover: #082117;
-  --sidebar-active-bg: #03150e;
-  --sidebar-active-text: #10b981;
-  --text-primary: #ecfdf5;
-  --text-secondary: #6ee7b7;
-  --text-light: #ffffff;
-  --card-bg: #0a261c;
-  --border-color: #124534;
-  --topbar-bg: #061e14;
-  --table-head-bg: #0c2e22;
-  --table-hover-bg: #10382b;
-  --input-bg: #0c2e22;
-  --accent-color: #10b981;
-}
-
-/* 5. Royal Nebula Synth */
-body[data-theme="purple"] {
-  --bg-main: #0d081f;
-  --sidebar-bg: #080415;
-  --sidebar-hover: #190f38;
-  --sidebar-active-bg: #0d081f;
-  --sidebar-active-text: #c084fc;
-  --text-primary: #faf5ff;
-  --text-secondary: #d8b4fe;
-  --text-light: #ffffff;
-  --card-bg: #181035;
-  --border-color: #2e1a5a;
-  --topbar-bg: #110a28;
-  --table-head-bg: #1d1240;
-  --table-hover-bg: #271954;
-  --input-bg: #1d1240;
-  --accent-color: #c084fc;
-}
-
-/* 6. Sunset Titanium */
-body[data-theme="sunset"] {
-  --bg-main: #140e0b;
-  --sidebar-bg: #0d0806;
-  --sidebar-hover: #22140d;
-  --sidebar-active-bg: #140e0b;
-  --sidebar-active-text: #fb923c;
-  --text-primary: #fff7ed;
-  --text-secondary: #fdba74;
-  --text-light: #ffffff;
-  --card-bg: #211610;
-  --border-color: #3d261a;
-  --topbar-bg: #1a110d;
-  --table-head-bg: #261912;
-  --table-hover-bg: #322118;
-  --input-bg: #261912;
-  --accent-color: #f97316;
+  --card-bg: #1a2236;
+  --border-color: #27334d;
+  --topbar-bg: #131b2e;
+  --table-head-bg: #182035;
+  --table-hover-bg: #222d47;
+  --input-bg: #141c2e;
+  --accent-color: #6366f1;
 }
 
 /* Smooth theme transitions */
@@ -1001,81 +1001,135 @@ body {
   transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
 }
 
-/* Universal Dark Mode Component Adapters */
-body:not([data-theme="light"]):not([data-theme=""]) .topbar {
-  background-color: var(--topbar-bg);
+/* Light Theme Card Rules */
+body[data-theme="light"] .widget-card,
+body[data-theme="slate"] .widget-card,
+body[data-theme="ocean"] .widget-card,
+body[data-theme="sand"] .widget-card,
+body:not([data-theme]) .widget-card {
+  background: #ffffff !important;
+  border-color: var(--border-color) !important;
+}
+
+body[data-theme="light"] .overview-section,
+body[data-theme="slate"] .overview-section,
+body[data-theme="ocean"] .overview-section,
+body[data-theme="sand"] .overview-section,
+body[data-theme="light"] .aging-summary,
+body[data-theme="slate"] .aging-summary,
+body[data-theme="ocean"] .aging-summary,
+body[data-theme="sand"] .aging-summary,
+body:not([data-theme]) .overview-section,
+body:not([data-theme]) .aging-summary {
+  background: #ffffff !important;
+  border-color: var(--border-color) !important;
+}
+
+body[data-theme="light"] .control-tower-table,
+body[data-theme="slate"] .control-tower-table,
+body[data-theme="ocean"] .control-tower-table,
+body[data-theme="sand"] .control-tower-table,
+body:not([data-theme]) .control-tower-table {
+  background: #ffffff !important;
+  color: var(--text-primary) !important;
+}
+
+/* Dark Mode Component Adapters (ONLY for Nordic & Midnight) */
+body[data-theme="nordic"] .topbar,
+body[data-theme="midnight"] .topbar {
+  background-color: var(--topbar-bg) !important;
   border-bottom: 1px solid var(--border-color);
   box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
 }
 
-body:not([data-theme="light"]):not([data-theme=""]) .page-title {
-  color: var(--text-primary);
+body[data-theme="nordic"] .page-title,
+body[data-theme="midnight"] .page-title {
+  color: var(--text-primary) !important;
 }
 
-body:not([data-theme="light"]):not([data-theme=""]) .widget-card {
+body[data-theme="nordic"] .widget-card,
+body[data-theme="midnight"] .widget-card {
   background: var(--card-bg) !important;
   border-color: var(--border-color) !important;
 }
 
-body:not([data-theme="light"]):not([data-theme=""]) .widget-value {
+body[data-theme="nordic"] .widget-value,
+body[data-theme="midnight"] .widget-value {
   color: var(--text-primary) !important;
 }
 
-body:not([data-theme="light"]):not([data-theme=""]) .widget-label {
+body[data-theme="nordic"] .widget-label,
+body[data-theme="midnight"] .widget-label {
   color: var(--text-secondary) !important;
 }
 
-body:not([data-theme="light"]):not([data-theme=""]) .overview-section,
-body:not([data-theme="light"]):not([data-theme=""]) .table-section,
-body:not([data-theme="light"]):not([data-theme=""]) .aging-summary,
-body:not([data-theme="light"]):not([data-theme=""]) .settings-card {
+body[data-theme="nordic"] .overview-section,
+body[data-theme="midnight"] .overview-section,
+body[data-theme="nordic"] .table-section,
+body[data-theme="midnight"] .table-section,
+body[data-theme="nordic"] .aging-summary,
+body[data-theme="midnight"] .aging-summary,
+body[data-theme="nordic"] .settings-card,
+body[data-theme="midnight"] .settings-card {
   background: var(--card-bg) !important;
   border-color: var(--border-color) !important;
   color: var(--text-primary);
 }
 
-body:not([data-theme="light"]):not([data-theme=""]) .control-tower-table {
+body[data-theme="nordic"] .control-tower-table,
+body[data-theme="midnight"] .control-tower-table {
   background: var(--card-bg) !important;
   color: var(--text-primary) !important;
 }
 
-body:not([data-theme="light"]):not([data-theme=""]) .control-tower-table thead th:not([style*="linear-gradient"]) {
+body[data-theme="nordic"] .control-tower-table thead th:not([style*="linear-gradient"]),
+body[data-theme="midnight"] .control-tower-table thead th:not([style*="linear-gradient"]) {
   background: var(--table-head-bg) !important;
   color: var(--text-secondary) !important;
   border-bottom: 2px solid var(--border-color) !important;
 }
 
-body:not([data-theme="light"]):not([data-theme=""]) .control-tower-table tbody td {
+body[data-theme="nordic"] .control-tower-table tbody td,
+body[data-theme="midnight"] .control-tower-table tbody td {
   border-bottom: 1px solid var(--border-color) !important;
   color: var(--text-primary) !important;
 }
 
-body:not([data-theme="light"]):not([data-theme=""]) .control-tower-table tbody tr:hover {
+body[data-theme="nordic"] .control-tower-table tbody tr:hover,
+body[data-theme="midnight"] .control-tower-table tbody tr:hover {
   background: var(--table-hover-bg) !important;
 }
 
-body:not([data-theme="light"]):not([data-theme=""]) #location-select,
-body:not([data-theme="light"]):not([data-theme=""]) input:not([type="submit"]):not([type="button"]),
-body:not([data-theme="light"]):not([data-theme=""]) select,
-body:not([data-theme="light"]):not([data-theme=""]) textarea {
+body[data-theme="nordic"] #location-select,
+body[data-theme="midnight"] #location-select,
+body[data-theme="nordic"] input:not([type="submit"]):not([type="button"]),
+body[data-theme="midnight"] input:not([type="submit"]):not([type="button"]),
+body[data-theme="nordic"] select,
+body[data-theme="midnight"] select,
+body[data-theme="nordic"] textarea,
+body[data-theme="midnight"] textarea {
   background-color: var(--input-bg) !important;
   color: var(--text-primary) !important;
   border-color: var(--border-color) !important;
 }
 
-body:not([data-theme="light"]):not([data-theme=""]) .welcome-text,
-body:not([data-theme="light"]):not([data-theme=""]) .dashboard-header-row h2,
-body:not([data-theme="light"]):not([data-theme=""]) h2, 
-body:not([data-theme="light"]):not([data-theme=""]) h3, 
-body:not([data-theme="light"]):not([data-theme=""]) h4 {
+body[data-theme="nordic"] .welcome-text,
+body[data-theme="midnight"] .welcome-text,
+body[data-theme="nordic"] .dashboard-header-row h2,
+body[data-theme="midnight"] .dashboard-header-row h2,
+body[data-theme="nordic"] h2, body[data-theme="midnight"] h2,
+body[data-theme="nordic"] h3, body[data-theme="midnight"] h3,
+body[data-theme="nordic"] h4, body[data-theme="midnight"] h4 {
   color: var(--text-primary);
 }
 
-body:not([data-theme="light"]):not([data-theme=""]) .aging-qty {
+body[data-theme="nordic"] .aging-qty,
+body[data-theme="midnight"] .aging-qty {
   color: var(--text-primary) !important;
 }
 
-body:not([data-theme="light"]):not([data-theme=""]) .aging-summary > div > div {
+body[data-theme="nordic"] .aging-summary > div > div,
+body[data-theme="midnight"] .aging-summary > div > div {
   background: var(--table-head-bg) !important;
   border-color: var(--border-color) !important;
 }

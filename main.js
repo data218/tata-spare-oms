@@ -2920,15 +2920,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const themeDisplayNames = {
     light: 'Classic',
-    midnight: 'Midnight',
-    obsidian: 'Obsidian',
-    emerald: 'Emerald',
-    purple: 'Nebula',
-    sunset: 'Sunset'
+    slate: 'Slate',
+    ocean: 'Ocean',
+    sand: 'Warm Sand',
+    nordic: 'Nordic Dark',
+    midnight: 'Midnight'
   };
 
   const applyTheme = (themeName) => {
-    if (!themeName) themeName = 'light';
+    const validThemes = ['light', 'slate', 'ocean', 'sand', 'nordic', 'midnight'];
+    if (!validThemes.includes(themeName)) themeName = 'light';
+    
     document.body.setAttribute('data-theme', themeName);
     localStorage.setItem('tata-oms-theme', themeName);
     
@@ -2975,18 +2977,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 250);
   };
 
-  // Trigger buttons
+  // Trigger button on Inventory Health page corner
   const invThemeBtn = document.getElementById('inventory-theme-btn');
   if (invThemeBtn) {
     invThemeBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      openThemeModal();
-    });
-  }
-
-  const topbarThemeBtn = document.getElementById('topbar-theme-btn');
-  if (topbarThemeBtn) {
-    topbarThemeBtn.addEventListener('click', (e) => {
       e.preventDefault();
       openThemeModal();
     });
@@ -3020,8 +3014,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Load saved theme on boot
-  const savedTheme = localStorage.getItem('tata-oms-theme') || 'light';
+  // Load saved theme on boot with fallback
+  let savedTheme = localStorage.getItem('tata-oms-theme') || 'light';
+  const validThemes = ['light', 'slate', 'ocean', 'sand', 'nordic', 'midnight'];
+  if (!validThemes.includes(savedTheme)) {
+    savedTheme = 'light';
+  }
   applyTheme(savedTheme);
 
   // --- Inventory Health Page Logic ---
