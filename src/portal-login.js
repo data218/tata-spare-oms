@@ -38,17 +38,29 @@ export async function loginToPortal(page, credentials, notify = () => {}) {
     // Navigate directly to APP_URL, which issues a fresh redirect token and displays login fields
     await page.goto(APP_URL, { waitUntil: 'networkidle2', timeout: 60000 });
 
-    // Without a server-issued token the login page renders with an empty body and
-    // no fields at all, so this wait doubles as a check that the redirect happened.
-    //
-    // The portal serves the login page only to browsers that look like browsers:
-    // from a datacentre IP it can answer with a Cloudflare interstitial or an
-    // empty shell instead. When that happens a bare "waiting for selector" timeout
-    // says nothing about why, so report what actually came back.
-    try {
-        await page.waitForSelector(LOGIN_READY_SELECTOR, { visible: true, timeout: 30000 });
-    } catch (cause) {
-        throw new Error(`Login form never appeared. ${await describePage(page)}`, { cause });
+    // In case Cloudflare or Tata presents a transient verification screen, allow up to 4 retries / wait
+    let foundLogin = false;
+    for (let cfAttempt = 0; cfAttempt < 4; cfAttempt++) {
+        try {
+            await page.waitForSelector(LOGIN_READY_SELECTOR, { visible: true, timeout: cfAttempt === 0 ? 15000 : 25000 });
+            foundLogin = true;
+            break;
+        } catch (e) {
+            const pageDesc = await describePage(page);
+            if (pageDesc.includes('Cloudflare') || pageDesc.includes('pv.tatamotors') || pageDesc.includes('busy')) {
+                notify(`Cloudflare / security challenge detected. Waiting and refreshing (attempt ${cfAttempt + 1}/4)...`);
+                await new Promise(r => setTimeout(r, 6000));
+                try {
+                    await page.goto(APP_URL, { waitUntil: 'networkidle2', timeout: 60000 });
+                } catch (navErr) {}
+            } else {
+                break;
+            }
+        }
+    }
+
+    if (!foundLogin) {
+        throw new Error(`Login form never appeared. ${await describePage(page)}`);
     }
     notify(`Logging in as ${username}...`);
 
