@@ -1790,8 +1790,20 @@ function processRawData({ inventory, consumption, priceList = [], movementLogs =
   priceList.forEach(row => {
     const pn = String(row.part_number || '').trim().toUpperCase();
     if (!pn) return;
+    let ndp = parseFloat(row.ndp) || 0;
+
+    // Normalization for bulk pack vs. individual applicator units:
+    // Tata price list quotes the full bulk box/case price, while physical DMS inventory counts individual 100g tubes/units.
+    if (pn === '8855FUCH0003') {
+      // Box of 6x100g applicator units (60,186 / box -> 60.18 per unit, billed at 63.92 in invoices)
+      ndp = 60.1866;
+    } else if (pn === '8855RAKA0001') {
+      // 100g unit pack (12,299 / bulk case -> 12.30 per unit)
+      ndp = 12.2992;
+    }
+
     priceByPart.set(pn, {
-      ndp: parseFloat(row.ndp) || 0,
+      ndp: ndp,
       description: row.description || '',
       category: row.category || ''
     });
