@@ -105,6 +105,12 @@
               <span style="font-size: 0.9rem; color: #1e293b; font-weight: 600;">Welcome, <span id="global-welcome-name" style="color: #3b82f6; text-transform: capitalize;">admin</span></span>
             </div>
 
+            <!-- Theme Switcher Button -->
+            <button id="topbar-theme-btn" class="theme-trigger-btn" title="Choose Visual Theme (6 Premium Themes)">
+              <i data-lucide="palette" style="width: 16px; height: 16px; color: #ea580c;"></i>
+              <span>Themes</span>
+            </button>
+
             <button id="logout-btn" class="topbar-logout-btn">
               <i data-lucide="log-out"></i>
               <span>Logout</span>
@@ -329,7 +335,14 @@
         <!-- INVENTORY VIEW -->
         <div id="view-inventory" class="view-section">
           <div class="dashboard-content">
-            <h2 class="welcome-text">Inventory Health</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+              <h2 class="welcome-text" style="margin: 0;">Inventory Health</h2>
+              <button id="inventory-theme-btn" class="theme-trigger-btn" title="Choose Visual Theme (6 Premium Themes)">
+                <i data-lucide="palette" style="width: 18px; height: 18px; color: #ea580c;"></i>
+                <span>Themes</span>
+                <span id="inv-theme-badge" class="theme-active-badge">Classic</span>
+              </button>
+            </div>
 
 
             <div class="overview-section" style="margin-bottom: 20px;">
@@ -1929,6 +1942,147 @@
       <div style="display: flex; justify-content: flex-end; gap: 12px;">
         <button id="edit-price-cancel" class="btn btn-outline" style="padding: 8px 16px;">Cancel</button>
         <button id="edit-price-save" class="btn btn-primary" style="padding: 8px 16px; background: #3b82f6; border: none; color: white; border-radius: 6px; cursor: pointer;">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- THEME STUDIO MODAL -->
+  <div id="theme-selector-modal" class="modal-overlay hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(4px); z-index: 10005; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.25s ease; pointer-events: none;">
+    <div class="theme-modal-card" style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; width: 95%; max-width: 680px; box-shadow: 0 20px 45px rgba(0,0,0,0.35); padding: 24px; max-height: 90vh; overflow-y: auto; transform: translateY(-15px); transition: transform 0.25s ease;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 42px; height: 42px; border-radius: 12px; background: rgba(234, 88, 12, 0.12); display: flex; align-items: center; justify-content: center; border: 1px solid rgba(234, 88, 12, 0.25);">
+            <i data-lucide="palette" style="width: 22px; height: 22px; color: #ea580c;"></i>
+          </div>
+          <div>
+            <h3 style="margin: 0; font-size: 1.25rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+              Theme Studio
+              <span style="font-size: 0.7rem; background: linear-gradient(135deg, #ea580c, #f59e0b); color: white; padding: 2px 8px; border-radius: 10px; font-weight: 700;">PRO</span>
+            </h3>
+            <p style="margin: 4px 0 0 0; font-size: 0.85rem; color: var(--text-secondary);">Select the best visual look for your screen and ambient lighting.</p>
+          </div>
+        </div>
+        <button id="close-theme-modal-btn" style="background: none; border: none; font-size: 1.5rem; color: var(--text-secondary); cursor: pointer; padding: 4px 8px; border-radius: 8px; line-height: 1;" title="Close">&times;</button>
+      </div>
+
+      <!-- Theme Grid -->
+      <div class="theme-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-bottom: 20px;">
+        
+        <!-- 1. Tata Classic Light -->
+        <div class="theme-option-card theme-card" data-theme="light">
+          <div class="theme-card-top">
+            <div class="theme-swatch-bar">
+              <span class="theme-dot" style="background: #eef3f7;" title="Background"></span>
+              <span class="theme-dot" style="background: #ffffff;" title="Card Surface"></span>
+              <span class="theme-dot" style="background: #2b4553;" title="Sidebar / Dark Teal"></span>
+              <span class="theme-dot" style="background: #3b82f6;" title="Primary Blue Accent"></span>
+            </div>
+            <span class="theme-badge-pill" style="background: #e0f2fe; color: #0369a1;">Default</span>
+          </div>
+          <div class="theme-card-body">
+            <h4 class="theme-name">Tata Classic Light</h4>
+            <p class="theme-desc">Crisp daylight corporate theme with high readability and clean white cards.</p>
+          </div>
+          <div class="theme-active-indicator"><i data-lucide="check"></i> Active</div>
+        </div>
+
+        <!-- 2. Cyber Midnight Navy -->
+        <div class="theme-option-card theme-card" data-theme="midnight">
+          <div class="theme-card-top">
+            <div class="theme-swatch-bar">
+              <span class="theme-dot" style="background: #0b1120;" title="Background"></span>
+              <span class="theme-dot" style="background: #111d35;" title="Card Surface"></span>
+              <span class="theme-dot" style="background: #070d18;" title="Sidebar"></span>
+              <span class="theme-dot" style="background: #38bdf8;" title="Cyan Glow"></span>
+            </div>
+            <span class="theme-badge-pill" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8;">Popular</span>
+          </div>
+          <div class="theme-card-body">
+            <h4 class="theme-name">Cyber Midnight Navy</h4>
+            <p class="theme-desc">Deep indigo navy with electric cyan accents. Ideal for nighttime operations.</p>
+          </div>
+          <div class="theme-active-indicator"><i data-lucide="check"></i> Active</div>
+        </div>
+
+        <!-- 3. Obsidian Onyx AMOLED -->
+        <div class="theme-option-card theme-card" data-theme="obsidian">
+          <div class="theme-card-top">
+            <div class="theme-swatch-bar">
+              <span class="theme-dot" style="background: #000000;" title="Background"></span>
+              <span class="theme-dot" style="background: #121215;" title="Card Surface"></span>
+              <span class="theme-dot" style="background: #09090b;" title="Sidebar"></span>
+              <span class="theme-dot" style="background: #f59e0b;" title="Amber Gold"></span>
+            </div>
+            <span class="theme-badge-pill" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;">OLED True Black</span>
+          </div>
+          <div class="theme-card-body">
+            <h4 class="theme-name">Obsidian Onyx OLED</h4>
+            <p class="theme-desc">Pure pitch black surfaces with gold accents. Zero glare & maximum battery savings.</p>
+          </div>
+          <div class="theme-active-indicator"><i data-lucide="check"></i> Active</div>
+        </div>
+
+        <!-- 4. Emerald Forest Glass -->
+        <div class="theme-option-card theme-card" data-theme="emerald">
+          <div class="theme-card-top">
+            <div class="theme-swatch-bar">
+              <span class="theme-dot" style="background: #03150e;" title="Background"></span>
+              <span class="theme-dot" style="background: #0a261c;" title="Card Surface"></span>
+              <span class="theme-dot" style="background: #020c08;" title="Sidebar"></span>
+              <span class="theme-dot" style="background: #10b981;" title="Emerald Mint"></span>
+            </div>
+            <span class="theme-badge-pill" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">Luxury</span>
+          </div>
+          <div class="theme-card-body">
+            <h4 class="theme-name">Emerald Forest</h4>
+            <p class="theme-desc">British racing dark green with crisp mint indicators. Sophisticated executive look.</p>
+          </div>
+          <div class="theme-active-indicator"><i data-lucide="check"></i> Active</div>
+        </div>
+
+        <!-- 5. Royal Nebula Synth -->
+        <div class="theme-option-card theme-card" data-theme="purple">
+          <div class="theme-card-top">
+            <div class="theme-swatch-bar">
+              <span class="theme-dot" style="background: #0d081f;" title="Background"></span>
+              <span class="theme-dot" style="background: #181035;" title="Card Surface"></span>
+              <span class="theme-dot" style="background: #080415;" title="Sidebar"></span>
+              <span class="theme-dot" style="background: #c084fc;" title="Neon Purple"></span>
+            </div>
+            <span class="theme-badge-pill" style="background: rgba(192, 132, 252, 0.15); color: #c084fc;">Synthwave</span>
+          </div>
+          <div class="theme-card-body">
+            <h4 class="theme-name">Royal Nebula</h4>
+            <p class="theme-desc">Deep interstellar violet palette with neon highlights and smooth futuristic vibe.</p>
+          </div>
+          <div class="theme-active-indicator"><i data-lucide="check"></i> Active</div>
+        </div>
+
+        <!-- 6. Sunset Titanium -->
+        <div class="theme-option-card theme-card" data-theme="sunset">
+          <div class="theme-card-top">
+            <div class="theme-swatch-bar">
+              <span class="theme-dot" style="background: #140e0b;" title="Background"></span>
+              <span class="theme-dot" style="background: #211610;" title="Card Surface"></span>
+              <span class="theme-dot" style="background: #0d0806;" title="Sidebar"></span>
+              <span class="theme-dot" style="background: #f97316;" title="Sunset Amber"></span>
+            </div>
+            <span class="theme-badge-pill" style="background: rgba(249, 115, 22, 0.15); color: #ea580c;">Safari Warm</span>
+          </div>
+          <div class="theme-card-body">
+            <h4 class="theme-name">Sunset Titanium</h4>
+            <p class="theme-desc">Warm dark titanium and copper tones inspired by Tata Safari Adventure aesthetic.</p>
+          </div>
+          <div class="theme-active-indicator"><i data-lucide="check"></i> Active</div>
+        </div>
+
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); padding-top: 16px;">
+        <span style="font-size: 0.8rem; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
+          <i data-lucide="info" style="width: 14px; height: 14px;"></i> Themes persist automatically across your browser sessions
+        </span>
+        <button id="theme-modal-done-btn" style="background: #ea580c; color: white; border: none; padding: 8px 20px; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; transition: all 0.2s ease;">Done</button>
       </div>
     </div>
   </div>

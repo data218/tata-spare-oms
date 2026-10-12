@@ -873,3 +873,386 @@ h2.welcome-text {
   transform: translateY(-3px);
   box-shadow: 0 6px 12px rgba(0,0,0,0.1) !important;
 }
+
+/* =========================================
+   THEME DEFINITIONS & DESIGN SYSTEM
+========================================= */
+
+/* 1. Light / Tata Classic */
+body[data-theme="light"],
+body:not([data-theme]) {
+  --bg-main: #eef3f7;
+  --sidebar-bg: #2b4553;
+  --sidebar-hover: #365668;
+  --sidebar-active-bg: #eef3f7;
+  --sidebar-active-text: #2b4553;
+  --text-primary: #1a202c;
+  --text-secondary: #64748b;
+  --text-light: #ffffff;
+  --card-bg: #ffffff;
+  --border-color: #e2e8f0;
+  --topbar-bg: #ffffff;
+  --table-head-bg: #f8fafc;
+  --table-hover-bg: #f8fafc;
+  --input-bg: #ffffff;
+  --accent-color: #ea580c;
+}
+
+/* 2. Cyber Midnight Navy */
+body[data-theme="midnight"] {
+  --bg-main: #0b1120;
+  --sidebar-bg: #070d18;
+  --sidebar-hover: #132238;
+  --sidebar-active-bg: #0b1120;
+  --sidebar-active-text: #38bdf8;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-light: #ffffff;
+  --card-bg: #111d35;
+  --border-color: #1e2e4a;
+  --topbar-bg: #0d172c;
+  --table-head-bg: #0f1c34;
+  --table-hover-bg: #152442;
+  --input-bg: #0f1c34;
+  --accent-color: #38bdf8;
+}
+
+/* 3. Obsidian Onyx AMOLED */
+body[data-theme="obsidian"] {
+  --bg-main: #000000;
+  --sidebar-bg: #09090b;
+  --sidebar-hover: #18181b;
+  --sidebar-active-bg: #000000;
+  --sidebar-active-text: #f59e0b;
+  --text-primary: #f9fafb;
+  --text-secondary: #a1a1aa;
+  --text-light: #ffffff;
+  --card-bg: #121215;
+  --border-color: #27272a;
+  --topbar-bg: #0a0a0d;
+  --table-head-bg: #141418;
+  --table-hover-bg: #1c1c22;
+  --input-bg: #141418;
+  --accent-color: #f59e0b;
+}
+
+/* 4. Emerald Forest Glass */
+body[data-theme="emerald"] {
+  --bg-main: #03150e;
+  --sidebar-bg: #020c08;
+  --sidebar-hover: #082117;
+  --sidebar-active-bg: #03150e;
+  --sidebar-active-text: #10b981;
+  --text-primary: #ecfdf5;
+  --text-secondary: #6ee7b7;
+  --text-light: #ffffff;
+  --card-bg: #0a261c;
+  --border-color: #124534;
+  --topbar-bg: #061e14;
+  --table-head-bg: #0c2e22;
+  --table-hover-bg: #10382b;
+  --input-bg: #0c2e22;
+  --accent-color: #10b981;
+}
+
+/* 5. Royal Nebula Synth */
+body[data-theme="purple"] {
+  --bg-main: #0d081f;
+  --sidebar-bg: #080415;
+  --sidebar-hover: #190f38;
+  --sidebar-active-bg: #0d081f;
+  --sidebar-active-text: #c084fc;
+  --text-primary: #faf5ff;
+  --text-secondary: #d8b4fe;
+  --text-light: #ffffff;
+  --card-bg: #181035;
+  --border-color: #2e1a5a;
+  --topbar-bg: #110a28;
+  --table-head-bg: #1d1240;
+  --table-hover-bg: #271954;
+  --input-bg: #1d1240;
+  --accent-color: #c084fc;
+}
+
+/* 6. Sunset Titanium */
+body[data-theme="sunset"] {
+  --bg-main: #140e0b;
+  --sidebar-bg: #0d0806;
+  --sidebar-hover: #22140d;
+  --sidebar-active-bg: #140e0b;
+  --sidebar-active-text: #fb923c;
+  --text-primary: #fff7ed;
+  --text-secondary: #fdba74;
+  --text-light: #ffffff;
+  --card-bg: #211610;
+  --border-color: #3d261a;
+  --topbar-bg: #1a110d;
+  --table-head-bg: #261912;
+  --table-hover-bg: #322118;
+  --input-bg: #261912;
+  --accent-color: #f97316;
+}
+
+/* Smooth theme transitions */
+body {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+.sidebar, .topbar, .widget-card, .table-section, .aging-summary, .overview-section, .settings-card {
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Universal Dark Mode Component Adapters */
+body:not([data-theme="light"]):not([data-theme=""]) .topbar {
+  background-color: var(--topbar-bg);
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
+}
+
+body:not([data-theme="light"]):not([data-theme=""]) .page-title {
+  color: var(--text-primary);
+}
+
+body:not([data-theme="light"]):not([data-theme=""]) .widget-card {
+  background: var(--card-bg) !important;
+  border-color: var(--border-color) !important;
+}
+
+body:not([data-theme="light"]):not([data-theme=""]) .widget-value {
+  color: var(--text-primary) !important;
+}
+
+body:not([data-theme="light"]):not([data-theme=""]) .widget-label {
+  color: var(--text-secondary) !important;
+}
+
+body:not([data-theme="light"]):not([data-theme=""]) .overview-section,
+body:not([data-theme="light"]):not([data-theme=""]) .table-section,
+body:not([data-theme="light"]):not([data-theme=""]) .aging-summary,
+body:not([data-theme="light"]):not([data-theme=""]) .settings-card {
+  background: var(--card-bg) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary);
+}
+
+body:not([data-theme="light"]):not([data-theme=""]) .control-tower-table {
+  background: var(--card-bg) !important;
+  color: var(--text-primary) !important;
+}
+
+body:not([data-theme="light"]):not([data-theme=""]) .control-tower-table thead th:not([style*="linear-gradient"]) {
+  background: var(--table-head-bg) !important;
+  color: var(--text-secondary) !important;
+  border-bottom: 2px solid var(--border-color) !important;
+}
+
+body:not([data-theme="light"]):not([data-theme=""]) .control-tower-table tbody td {
+  border-bottom: 1px solid var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+body:not([data-theme="light"]):not([data-theme=""]) .control-tower-table tbody tr:hover {
+  background: var(--table-hover-bg) !important;
+}
+
+body:not([data-theme="light"]):not([data-theme=""]) #location-select,
+body:not([data-theme="light"]):not([data-theme=""]) input:not([type="submit"]):not([type="button"]),
+body:not([data-theme="light"]):not([data-theme=""]) select,
+body:not([data-theme="light"]):not([data-theme=""]) textarea {
+  background-color: var(--input-bg) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+body:not([data-theme="light"]):not([data-theme=""]) .welcome-text,
+body:not([data-theme="light"]):not([data-theme=""]) .dashboard-header-row h2,
+body:not([data-theme="light"]):not([data-theme=""]) h2, 
+body:not([data-theme="light"]):not([data-theme=""]) h3, 
+body:not([data-theme="light"]):not([data-theme=""]) h4 {
+  color: var(--text-primary);
+}
+
+body:not([data-theme="light"]):not([data-theme=""]) .aging-qty {
+  color: var(--text-primary) !important;
+}
+
+body:not([data-theme="light"]):not([data-theme=""]) .aging-summary > div > div {
+  background: var(--table-head-bg) !important;
+  border-color: var(--border-color) !important;
+}
+
+body:not([data-theme="light"]):not([data-theme=""]) .modal-content {
+  background: var(--card-bg) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+body:not([data-theme="light"]):not([data-theme=""]) .column-filter-dropdown {
+  background: var(--card-bg) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+body:not([data-theme="light"]):not([data-theme=""]) .column-filter-dropdown .col-filter-header,
+body:not([data-theme="light"]):not([data-theme=""]) .column-filter-dropdown .col-filter-footer {
+  background: var(--table-head-bg) !important;
+  border-color: var(--border-color) !important;
+}
+body:not([data-theme="light"]):not([data-theme=""]) .column-filter-dropdown .col-filter-checkbox {
+  color: var(--text-primary) !important;
+}
+body:not([data-theme="light"]):not([data-theme=""]) .column-filter-dropdown .col-filter-checkbox:hover {
+  background: var(--table-hover-bg) !important;
+}
+
+/* =========================================
+   THEME TRIGGER BUTTONS & BADGES
+========================================= */
+.theme-trigger-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  padding: 6px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.04);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+.theme-trigger-btn:hover {
+  transform: translateY(-2px);
+  border-color: #ea580c;
+  box-shadow: 0 6px 16px rgba(234, 88, 12, 0.2);
+}
+
+.theme-trigger-btn:active {
+  transform: translateY(0);
+}
+
+.theme-trigger-btn i,
+.theme-trigger-btn svg {
+  color: #ea580c !important;
+  stroke: #ea580c !important;
+  transition: transform 0.3s ease;
+}
+
+.theme-trigger-btn:hover i,
+.theme-trigger-btn:hover svg {
+  transform: rotate(20deg) scale(1.1);
+}
+
+.theme-active-badge {
+  background: rgba(234, 88, 12, 0.12);
+  color: #ea580c;
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* =========================================
+   THEME STUDIO MODAL CARDS
+========================================= */
+.theme-option-card {
+  display: flex;
+  flex-direction: column;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 2px solid var(--border-color);
+  background: var(--card-bg);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  user-select: none;
+}
+
+.theme-option-card:hover {
+  transform: translateY(-3px);
+  border-color: #ea580c;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.theme-option-card.selected,
+.theme-option-card.active {
+  border-color: #ea580c !important;
+  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.25), 0 8px 20px rgba(0, 0, 0, 0.15) !important;
+}
+
+.theme-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.theme-swatch-bar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.theme-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  display: inline-block;
+}
+
+.theme-badge-pill {
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.theme-card-body {
+  flex: 1;
+}
+
+.theme-name {
+  margin: 0 0 4px 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.theme-desc {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.theme-active-indicator {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #ea580c;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border-color);
+}
+
+.theme-option-card.selected .theme-active-indicator,
+.theme-option-card.active .theme-active-indicator {
+  display: flex;
+}
+
+.theme-active-indicator svg {
+  width: 14px;
+  height: 14px;
+  stroke: #ea580c;
+}
+

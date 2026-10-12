@@ -2913,32 +2913,116 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Theme Selection Logic
+  // Theme Selection & Theme Studio Logic
   const themeCards = document.querySelectorAll('.theme-card');
+  const themeModal = document.getElementById('theme-selector-modal');
+  const invThemeBadge = document.getElementById('inv-theme-badge');
+
+  const themeDisplayNames = {
+    light: 'Classic',
+    midnight: 'Midnight',
+    obsidian: 'Obsidian',
+    emerald: 'Emerald',
+    purple: 'Nebula',
+    sunset: 'Sunset'
+  };
+
   const applyTheme = (themeName) => {
+    if (!themeName) themeName = 'light';
     document.body.setAttribute('data-theme', themeName);
     localStorage.setItem('tata-oms-theme', themeName);
     
-    // Update UI selection
-    themeCards.forEach(card => {
-      if(card.getAttribute('data-theme') === themeName) {
-        card.classList.add('selected');
+    // Update active badges across UI
+    const displayName = themeDisplayNames[themeName] || themeName;
+    if (invThemeBadge) {
+      invThemeBadge.textContent = displayName;
+    }
+    
+    // Update theme card active states
+    document.querySelectorAll('.theme-card, .theme-option-card').forEach(card => {
+      const cardTheme = card.getAttribute('data-theme');
+      if (cardTheme === themeName) {
+        card.classList.add('selected', 'active');
       } else {
-        card.classList.remove('selected');
+        card.classList.remove('selected', 'active');
       }
     });
   };
 
+  // Open & Close Theme Studio Modal
+  const openThemeModal = () => {
+    if (!themeModal) return;
+    themeModal.classList.remove('hidden');
+    themeModal.style.display = 'flex';
+    requestAnimationFrame(() => {
+      themeModal.style.opacity = '1';
+      themeModal.style.pointerEvents = 'auto';
+      const card = themeModal.querySelector('.theme-modal-card');
+      if (card) card.style.transform = 'translateY(0)';
+    });
+    if (window.lucide) lucide.createIcons();
+  };
+
+  const closeThemeModal = () => {
+    if (!themeModal) return;
+    themeModal.style.opacity = '0';
+    themeModal.style.pointerEvents = 'none';
+    const card = themeModal.querySelector('.theme-modal-card');
+    if (card) card.style.transform = 'translateY(-15px)';
+    setTimeout(() => {
+      themeModal.classList.add('hidden');
+      themeModal.style.display = 'none';
+    }, 250);
+  };
+
+  // Trigger buttons
+  const invThemeBtn = document.getElementById('inventory-theme-btn');
+  if (invThemeBtn) {
+    invThemeBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      openThemeModal();
+    });
+  }
+
+  const topbarThemeBtn = document.getElementById('topbar-theme-btn');
+  if (topbarThemeBtn) {
+    topbarThemeBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      openThemeModal();
+    });
+  }
+
+  const closeThemeBtn = document.getElementById('close-theme-modal-btn');
+  if (closeThemeBtn) {
+    closeThemeBtn.addEventListener('click', closeThemeModal);
+  }
+
+  const doneThemeBtn = document.getElementById('theme-modal-done-btn');
+  if (doneThemeBtn) {
+    doneThemeBtn.addEventListener('click', closeThemeModal);
+  }
+
+  if (themeModal) {
+    themeModal.addEventListener('click', (e) => {
+      if (e.target === themeModal) {
+        closeThemeModal();
+      }
+    });
+  }
+
+  // Handle clicking cards to apply theme
+  document.querySelectorAll('.theme-card, .theme-option-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const selectedTheme = card.getAttribute('data-theme');
+      if (selectedTheme) {
+        applyTheme(selectedTheme);
+      }
+    });
+  });
+
   // Load saved theme on boot
   const savedTheme = localStorage.getItem('tata-oms-theme') || 'light';
   applyTheme(savedTheme);
-
-  // Click handlers
-  themeCards.forEach(card => {
-    card.addEventListener('click', () => {
-      applyTheme(card.getAttribute('data-theme'));
-    });
-  });
 
   // --- Inventory Health Page Logic ---
   window.hCurrentPage = 1;
