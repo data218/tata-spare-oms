@@ -29,7 +29,7 @@
   Show whether the task exists and when it last ran.
 #>
 param(
-  [string]$Time = '05:00',
+  [string]$Time = '10:00',
   [switch]$Register,
   [switch]$Unregister,
   [switch]$Status,
