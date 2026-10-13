@@ -8,6 +8,8 @@
   },
   "scripts": {
     "dev": "vite",
+    "server": "node server.mjs",
+    "dev:full": "node start-dev.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "work": "node local-worker.mjs"
