@@ -448,6 +448,13 @@ export default async function handler(req, res) {
     // Dashboard "Sync Database" button / Fetch Data buttons. The request body
     // describes the work; the server owns the queue so a manual fetch merges
     // into a running job instead of discarding it.
+    //
+    // IMPORTANT: We ONLY queue the job here — we never try to run Puppeteer from
+    // Vercel because the Tata portal blocks Vercel's shared egress IPs via
+    // Cloudflare. The local-worker.mjs process (running on the dealership PC)
+    // polls this Supabase row every few seconds, claims the job and executes the
+    // scraper on a machine whose network the portal allows. Any user on the web
+    // app can therefore trigger a fetch — the actual work is always done locally.
     if (path === '/api/sync' || path === '/sync') {
       if (req.method !== 'POST') {
         return send(res, 405, { success: false, message: 'Method not allowed' });
@@ -462,7 +469,9 @@ export default async function handler(req, res) {
       } catch (err) {
         return send(res, 400, { success: false, message: err.message });
       }
-      return await kickOff(req, res);
+      // Job is now queued in Supabase. Return immediately — the local worker
+      // (local-worker.mjs) will pick it up and run the scraper locally.
+      return send(res, 202, { success: true, message: 'Sync queued. The background worker will start shortly.' });
     }
 
     // Internal: the hand-over target between units of the same run. Kept to a
