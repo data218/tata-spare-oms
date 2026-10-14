@@ -44,6 +44,7 @@ async function persistInventoryAlert(alert) {
 async function fetchInventoryData(onProgress = null, targetLocation = 'ALL') {
     let summaryMessages = [];
     let anyRowsParsed = false;
+    let lastLocationError = null;
     const unavailableLocations = [];
     const notify = (msg) => {
         console.log(msg);
@@ -133,8 +134,29 @@ let botUser = location.username;
         notify('Submitting login credentials...');
         console.log('Submitting login credentials...');
         
-        // Wait for Siebel login form (it loads after a JS redirect chain - be patient)
-        await page.waitForSelector('input[name="SWEUserName"]', { visible: true, timeout: 60000 });
+        // Wait for the Siebel login form. It loads after a JS redirect chain, and
+        // the portal occasionally stalls or sits behind a transient Cloudflare
+        // screen, so re-navigate a few times before giving up (mirrors the retry
+        // loop the BI-portal login already uses).
+        let loginFormReady = false;
+        for (let loginAttempt = 1; loginAttempt <= 3 && !loginFormReady; loginAttempt++) {
+            try {
+                await page.waitForSelector('input[name="SWEUserName"]', { visible: true, timeout: loginAttempt === 1 ? 60000 : 45000 });
+                loginFormReady = true;
+            } catch (e) {
+                const bodyText = await page.evaluate(() => (document.body ? document.body.innerText : '').replace(/\s+/g, ' ').trim().slice(0, 160)).catch(() => '');
+                const blocked = /just a moment|checking your browser|enable javascript and cookies|verify you are human/i.test(bodyText);
+                notify(`Login form not found (attempt ${loginAttempt}/3)${blocked ? ' - blocked by Cloudflare challenge' : ''}: ${bodyText || 'empty page'}`);
+                if (loginAttempt < 3) {
+                    await new Promise(r => setTimeout(r, 5000));
+                    await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 90000 }).catch(() => {});
+                    await new Promise(r => setTimeout(r, 3000));
+                }
+            }
+        }
+        if (!loginFormReady) {
+            throw new Error('Login form never appeared after 3 attempts.');
+        }
         await new Promise(r => setTimeout(r, 1000 + Math.random() * 1000));
         await page.type('input[name="SWEUserName"]', botUser);
         await new Promise(r => setTimeout(r, 500 + Math.random() * 1000));
@@ -698,9 +720,13 @@ let botUser = location.username;
             optionUnavailable = true;
             notify(`Finished ${location.location_name}: No inventory records found.`);
         } else {
+            // A genuine failure (login, navigation, download). Remember it so a
+            // single-location job is reported as failed and retried by the worker
+            // instead of being silently marked "done" with 0 rows.
+            lastLocationError = error;
             notify(`ERROR: ${location.location_name} failed due to: ${error.message}`);
         }
-        // Do NOT throw error, so it can continue to the next location
+        // Do NOT throw here, so an "all locations" run can continue to the next one.
     } finally {
         clearTimeout(watchdog);
         if (browser) {
@@ -711,6 +737,13 @@ let botUser = location.username;
 
         if (optionUnavailable) unavailableLocations.push(location.location_name);
     } // End of locations loop
+
+    // A single-location job that produced no rows because of a real error (as
+    // opposed to a genuinely empty report, which is handled above) is surfaced so
+    // the worker retries the unit instead of reporting a misleading success.
+    if (!anyRowsParsed && lastLocationError && locations.length === 1) {
+        throw lastLocationError;
+    }
 
     // Month-end closing: the MIS Spares report is hidden for the last 2 days of
     // the month, so surface a clear, specific alert (and persist it for the
