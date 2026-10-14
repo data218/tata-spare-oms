@@ -558,42 +558,101 @@ let botUser = location.username;
         
         notify('Waiting for file to download (handling popups if any)...');
         let downloadedFile = null;
-        const timeout = 300000; // 5 minutes
+        const timeout = 480000; // 8 minutes (large exports take a while to build)
         const start = Date.now();
-        
-        while (Date.now() - start < timeout) {
-            // 1. Try to click Next on any popup
-            try {
-                const clicked = await robustClickText(['Next', 'NEXT', 'next', 'Next >', '>>'], false);
-                if (clicked) {
-                    notify('Found and clicked Next button on the popup!');
-                    // Wait a bit after clicking Next so we don't spam click it
-                    await new Promise(r => setTimeout(r, 2000));
-                }
-            } catch(e) {}
-            
-            // 2. Check for downloaded file
-            const dirsToCheck = [downloadPath, userDownloadsPath];
-            for (const dir of dirsToCheck) {
+        let settleTicks = 0;
+        let best = null;      // largest completed download seen so far
+        let nextClicks = 0;
+
+        // The portal prepares a large export incrementally, and each click while it
+        // is still preparing returns only the part built so far (a truncated file).
+        // So we keep prompting the popup, remember the LARGEST file seen, and only
+        // accept once that size stops growing - i.e. the full export is ready.
+        const scanNewFiles = () => {
+            const found = [];
+            let inProgress = false;
+            for (const dir of [downloadPath, userDownloadsPath]) {
                 if (!fs.existsSync(dir)) continue;
                 const files = fs.readdirSync(dir);
-                const crdownload = files.find(f => f.endsWith('.crdownload') || f.endsWith('.tmp'));
-                if (crdownload) continue;
-                
+                // Only a RECENT partial counts as "still downloading"; a stale
+                // leftover from an earlier run must not block us forever.
+                const partial = files.find(f => f.endsWith('.crdownload') || f.endsWith('.tmp'));
+                if (partial) {
+                    try {
+                        if (Date.now() - fs.statSync(path.join(dir, partial)).mtimeMs < 30000) inProgress = true;
+                    } catch { /* ignore */ }
+                }
                 const oldFiles = dir === downloadPath ? filesBeforeDownload1 : filesBeforeDownload2;
-                const newFiles = files.filter(f => !oldFiles.has(f) && !f.endsWith('.crdownload') && !f.endsWith('.tmp'));
-                if (newFiles.length > 0) {
-                    const newestFile = path.join(dir, newFiles[0]);
-                    downloadedFile = newestFile + (newestFile.endsWith('.csv') ? '' : '.csv');
-                    if (newestFile !== downloadedFile) {
-                        fs.renameSync(newestFile, downloadedFile);
-                    }
-                    notify(`Download complete and found CSV: ${downloadedFile}`);
-                    break;
+                for (const f of files) {
+                    if (oldFiles.has(f) || f.endsWith('.crdownload') || f.endsWith('.tmp')) continue;
+                    const full = path.join(dir, f);
+                    let size = 0;
+                    try { size = fs.statSync(full).size; } catch { continue; }
+                    found.push({ full, size });
                 }
             }
-            if (downloadedFile) break;
-            await new Promise(r => setTimeout(r, 2000));
+            return { found, inProgress };
+        };
+
+        while (Date.now() - start < timeout) {
+            const { found, inProgress } = scanNewFiles();
+
+            // 1. Keep driving the export wizard. The portal builds a large export
+            //    in stages and only serves the part prepared so far, so we prompt it
+            //    repeatedly and remember the biggest file it gives us.
+            if (!inProgress && nextClicks < 200) {
+                try {
+                    const clicked = await robustClickText(['Next', 'NEXT', 'next', 'Next >', '>>'], false);
+                    if (clicked) {
+                        nextClicks++;
+                        notify('Found and clicked Next button on the popup!');
+                        await new Promise(r => setTimeout(r, 2000));
+                    }
+                } catch(e) {}
+            }
+
+            // 2. Track the largest completed file; accept once it stops growing so
+            //    we never parse a partial export.
+            if (found.length && !inProgress) {
+                found.sort((a, b) => b.size - a.size);
+                const largest = found[0];
+                if (!best || largest.size > best.size) {
+                    best = largest;
+                    settleTicks = 0;
+                    notify(`Download in progress... largest so far ${(largest.size / 1048576).toFixed(1)} MB (${found.length} file(s)).`);
+                } else {
+                    settleTicks++;
+                }
+                if (best && settleTicks >= 8) {
+                    // A truncated export stops mid-row; a complete one ends with a
+                    // newline. Only accept a file that looks whole, otherwise keep
+                    // driving the portal until a complete export arrives.
+                    let endsCleanly = true;
+                    try {
+                        const fd = fs.openSync(best.full, 'r');
+                        const size = fs.fstatSync(fd).size;
+                        const tail = Buffer.alloc(Math.min(4, size));
+                        fs.readSync(fd, tail, 0, tail.length, Math.max(0, size - tail.length));
+                        fs.closeSync(fd);
+                        endsCleanly = tail.includes(0x0a); // last byte is \n or \r
+                    } catch { /* if we cannot read it, do not block on this */ }
+
+                    if (!endsCleanly) {
+                        settleTicks = 0;
+                        notify(`Largest file (${(best.size / 1048576).toFixed(1)} MB) looks truncated; still waiting for the complete export...`);
+                    } else {
+                        downloadedFile = best.full.endsWith('.csv') ? best.full : `${best.full}.csv`;
+                        if (best.full !== downloadedFile) {
+                            try { fs.renameSync(best.full, downloadedFile); } catch { downloadedFile = best.full; }
+                        }
+                        notify(`Download complete and found CSV: ${downloadedFile} (kept largest ${(best.size / 1048576).toFixed(1)} MB of ${found.length} file(s))`);
+                        break;
+                    }
+                }
+            } else {
+                settleTicks = 0;
+            }
+            await new Promise(r => setTimeout(r, 1000));
         }
         
         if (!downloadedFile) {
