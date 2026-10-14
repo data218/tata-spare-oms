@@ -8,6 +8,11 @@ import { profileDir, downloadDir, scratch } from './scratch-paths.js';
 import { loginToPortal } from './portal-login.js';
 dotenv.config();
 
+// Hard cap for a single consumption run. A wedged portal page must never block
+// the run forever; when this fires we close the browser so the in-flight
+// Puppeteer call rejects and the run unwinds instead of hanging the dashboard.
+const SCRAPE_TIMEOUT_MS = 15 * 60 * 1000;
+
 async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
     let totalRowsInserted = 0;
     const notify = (msg) => {
@@ -42,6 +47,10 @@ async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
             ]
         });
     const page = await browser.newPage();
+    const watchdog = setTimeout(() => {
+        notify(`WARNING: consumption run exceeded ${Math.round(SCRAPE_TIMEOUT_MS / 60000)} min; aborting this attempt.`);
+        try { browser.close(); } catch (e) {}
+    }, SCRAPE_TIMEOUT_MS);
     
     // Set a realistic user agent
     // User agent is handled by stealth plugin
@@ -397,9 +406,10 @@ async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
         console.error('An error occurred during scraping:', error);
         throw error;
     } finally {
+        clearTimeout(watchdog);
         if (browser) {
             console.log('Closing browser...');
-            await browser.close();
+            try { await browser.close(); } catch (e) {}
         }
     }
     return [`ALL LOCATIONS CONSUMPTION DATA UPLOADED ${totalRowsInserted} ROWS`];

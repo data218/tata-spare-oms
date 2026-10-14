@@ -150,23 +150,40 @@ async function unitsForSpec(spec) {
 
 // Starts a fresh run, or folds the request into a run that is already in flight
 // so a manual fetch can never wipe locations the daily cron has queued.
+//
+// A requested location that has already finished (done/failed) in the current
+// run is re-armed instead of being silently skipped: otherwise a user could not
+// re-fetch a location until the whole run ended. Units that are still pending or
+// running are left untouched so we never double-run a live scrape.
 async function startOrMergeJob(spec) {
   const units = await unitsForSpec(spec);
   const { job, raw } = await readJobRaw();
 
   if (job && job.status === 'processing' && job.queue && Array.isArray(job.queue.units)) {
-    const seen = new Set(job.queue.units.map(unitKey));
-    const extra = units.filter((u) => !seen.has(unitKey(u)));
-    if (extra.length) {
-      job.queue.units.push(...extra);
+    const messages = [];
+    for (const u of units) {
+      const existing = job.queue.units.find((x) => unitKey(x) === unitKey(u));
+      if (!existing) {
+        job.queue.units.push(u);
+        messages.push(describeUnit(u));
+      } else if (existing.status === 'done' || existing.status === 'failed') {
+        existing.status = 'pending';
+        existing.attempts = 0;
+        existing.error = undefined;
+        existing.startedAt = undefined;
+        existing.finishedAt = undefined;
+        messages.push(describeUnit(existing));
+      }
+    }
+
+    if (messages.length) {
+      job.status = 'processing';
+      job.finishedAt = undefined;
       job.progress = { step: countDone(job.queue), total: job.queue.units.length };
-      pushLog(
-        job,
-        `Added ${extra.map(describeUnit).join(', ')} to the run already in progress.`
-      );
+      pushLog(job, `Queued from the dashboard: ${[...new Set(messages)].join(', ')}.`);
       await casWriteJob(job, raw);
     } else {
-      console.log('Requested units are already queued; nothing to add.');
+      console.log('Requested units are already queued or running; nothing to add.');
     }
     return job;
   }
@@ -183,6 +200,25 @@ async function startOrMergeJob(spec) {
   };
   await writeJob(fresh);
   return fresh;
+}
+
+// A worker can be killed between finishing its last unit and marking the run
+// complete, which would otherwise leave the dashboard polling forever. If every
+// unit is terminal, close the run. Units that are still running or pending are
+// left for the worker, so an in-progress run is never disturbed.
+async function healFinishedJob() {
+  const { job, raw } = await readJobRaw();
+  if (!job || !job.queue || !Array.isArray(job.queue.units)) return job;
+  if (job.status !== 'processing' && job.status !== 'pending') return job;
+  if (job.queue.units.some((u) => u.status === 'pending' || u.status === 'running')) return job;
+
+  const failed = job.queue.units.some((u) => u.status !== 'done');
+  job.status = failed ? 'failed' : 'completed';
+  job.finishedAt = new Date().toISOString();
+  job.progress = { step: countDone(job.queue), total: job.queue.units.length };
+  pushLog(job, `All units finished; run marked ${job.status}.`);
+  await casWriteJob(job, raw);
+  return job;
 }
 
 // Recovers units orphaned by a killed invocation, then claims the next one.
@@ -465,6 +501,7 @@ export default async function handler(req, res) {
       // A bad request must not create a job row: the unit would be queued and
       // then fail on every retry. Reject it before anything is written.
       try {
+        await healFinishedJob();
         await startOrMergeJob(await readSpec(req));
       } catch (err) {
         return send(res, 400, { success: false, message: err.message });
@@ -503,7 +540,7 @@ export default async function handler(req, res) {
     }
 
     if (path === '/api/status' || path === '/status') {
-      const job = await readJob();
+      const job = await healFinishedJob();
       return send(res, 200, { success: true, job });
     }
 

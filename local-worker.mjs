@@ -69,6 +69,31 @@ async function casWrite(job, raw) {
   return Array.isArray(data) && data.length > 0;
 }
 
+// Progress is written back to Supabase while a unit is still running, throttled
+// so the dashboard shows live logs instead of looking frozen until the unit ends.
+let logFlushTimer = null;
+function scheduleLogFlush(job) {
+  if (logFlushTimer) return;
+  logFlushTimer = setTimeout(async () => {
+    logFlushTimer = null;
+    try {
+      // Preserve any unit the server queued (e.g. a dashboard fetch) while we ran.
+      const { job: latest } = await readJob();
+      if (latest && latest.queue && Array.isArray(latest.queue.units)) {
+        for (const u of latest.queue.units) {
+          const known = job.queue.units.some(
+            (x) => x.kind === u.kind && (x.location || '') === (u.location || '')
+          );
+          if (!known) job.queue.units.push(u);
+        }
+      }
+      await writeJob(job);
+    } catch (e) {
+      console.error('log flush failed:', e.message);
+    }
+  }, 3000);
+}
+
 // ── Core loop ────────────────────────────────────────────────────────────────
 
 let busy = false; // prevent overlapping runs
@@ -153,6 +178,8 @@ async function processQueue() {
   next.status    = 'running';
   next.startedAt = ts();
   next.attempts  = (next.attempts || 0) + 1;
+  next.error     = undefined;
+  next.rows      = undefined;
   job.status     = 'processing';
 
   const done  = job.queue.units.filter(u => u.status === 'done').length;
@@ -170,7 +197,10 @@ async function processQueue() {
   console.log(clock(), `⏳ Processing: ${label(next)}  (attempt ${next.attempts})...`);
 
   // ── Run the scraper ───────────────────────────────────────────────────────
-  const broadcast = (msg) => { job.logs += `<div>${ts()} - &nbsp;&nbsp;&nbsp;${msg}</div>`; };
+  const broadcast = (msg) => {
+    job.logs += `<div>${ts()} - &nbsp;&nbsp;&nbsp;${msg}</div>`;
+    scheduleLogFlush(job);
+  };
 
   try {
     let rows;

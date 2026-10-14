@@ -18,6 +18,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const colors = {
   server: '\x1b[36m', // cyan
+  worker: '\x1b[33m', // yellow
   vite:   '\x1b[35m', // magenta
   reset:  '\x1b[0m',
   bold:   '\x1b[1m',
@@ -44,6 +45,18 @@ const apiServer = spawn('node', [join(__dirname, 'server.mjs')], {
 apiServer.stdout.on('data', prefix('server', colors.server));
 apiServer.stderr.on('data', prefix('server', colors.server));
 
+// Start the background scraper worker as well. The API only ever queues a job
+// in Supabase, so without this the "Fetch" buttons would report success while
+// nothing actually scraped.
+const worker = spawn('node', [join(__dirname, 'local-worker.mjs')], {
+  cwd: __dirname,
+  stdio: 'pipe',
+  env: { ...process.env },
+});
+
+worker.stdout.on('data', prefix('worker', colors.worker));
+worker.stderr.on('data', prefix('worker', colors.worker));
+
 // Give the API server 1.5s to start before starting Vite, so port 3000 is ready
 await new Promise((r) => setTimeout(r, 1500));
 
@@ -61,11 +74,13 @@ vite.stderr.on('data', prefix('vite', colors.vite));
 // If either process exits, kill both and exit
 function killAll(code) {
   apiServer.kill();
+  worker.kill();
   vite.kill();
   process.exit(code ?? 0);
 }
 
 apiServer.on('exit', (code) => { console.log(`\n[server] exited (${code})`); killAll(code); });
+worker.on('exit', (code) => { console.log(`\n[worker] exited (${code})`); killAll(code); });
 vite.on('exit', (code) => { console.log(`\n[vite] exited (${code})`); killAll(code); });
 
 // Ctrl+C → clean up both children

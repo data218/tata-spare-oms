@@ -21,6 +21,13 @@ function isMonthClosingWindow(date = new Date()) {
 const MONTH_CLOSING_ALERT_MESSAGE =
     'MIS Spares data option not found due to month closing. The report is hidden for the last 2 days of every month and reappears 2-3 days after the 1st. Inventory data will resume automatically once it is available.';
 
+// Hard cap for a single location. The portal occasionally wedges (a stuck page
+// or a long "server busy" stretch) and without this the browser call would never
+// settle, leaving the whole run - and the dashboard - hanging forever. When this
+// fires we close the browser, which rejects the in-flight Puppeteer call so the
+// existing catch/finally below can move on to the next location.
+const SCRAPE_TIMEOUT_MS = 15 * 60 * 1000;
+
 // Shared with the dashboard, which reads the `inventory_alert` row to show a
 // persistent banner. Passing null clears a stale alert.
 async function persistInventoryAlert(alert) {
@@ -69,6 +76,12 @@ async function fetchInventoryData(onProgress = null, targetLocation = 'ALL') {
             ]
         });
         const page = await browser.newPage();
+        // Watchdog: if this location has not finished within the cap, abort it so
+        // the run never hangs. Clearing it happens in the finally block below.
+        const watchdog = setTimeout(() => {
+            notify(`WARNING: ${location.location_name} exceeded ${Math.round(SCRAPE_TIMEOUT_MS / 60000)} min; aborting this attempt.`);
+            try { browser.close(); } catch (e) {}
+        }, SCRAPE_TIMEOUT_MS);
         // Present as a normal desktop Chrome; the portal can serve a degraded
         // page to a "HeadlessChrome" user agent.
         // User agent is handled by stealth plugin
@@ -689,9 +702,10 @@ let botUser = location.username;
         }
         // Do NOT throw error, so it can continue to the next location
     } finally {
+        clearTimeout(watchdog);
         if (browser) {
             console.log('Closing browser...');
-            await browser.close();
+            try { await browser.close(); } catch (e) {}
         }
     }
 
