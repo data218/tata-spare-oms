@@ -20,14 +20,42 @@
  *   node local-worker.mjs
  */
 
+import fs   from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { fetchConsumptionData } from './src/consumption_scraper.js';
 import { fetchInventoryData }    from './src/inventory_scraper.js';
 import { supabase }              from './src/server-config.js';
 
+// ── Single-instance guard ────────────────────────────────────────────────────
+// run-worker.cmd restarts this process in a loop. If the PC ever ends up with
+// more than one worker (e.g. after several manual restarts), they fight over the
+// same Supabase job and corrupt each other's writes. Refuse to start if another
+// live worker already holds the lock.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const LOCK_FILE = path.join(__dirname, 'logs', 'worker.lock');
+try {
+  if (fs.existsSync(LOCK_FILE)) {
+    const otherPid = parseInt(fs.readFileSync(LOCK_FILE, 'utf8').trim(), 10);
+    if (otherPid && otherPid !== process.pid) {
+      try {
+        process.kill(otherPid, 0); // throws if that PID is not alive
+        console.log(`Another worker is already running (pid ${otherPid}). Exiting.`);
+        process.exit(0);
+      } catch { /* stale lock from a crashed worker — take it over */ }
+    }
+  }
+  fs.mkdirSync(path.dirname(LOCK_FILE), { recursive: true });
+  fs.writeFileSync(LOCK_FILE, String(process.pid));
+} catch (e) {
+  console.error('single-instance lock failed:', e.message);
+}
+process.on('exit', () => { try { fs.unlinkSync(LOCK_FILE); } catch { /* ignore */ } });
+
 const JOB_KEY        = 'fetch_job';
 const MAX_LOG_CHARS  = 40_000;
 const POLL_MS        = 3_000;   // how often we check Supabase for new jobs
-const STALE_UNIT_MS  = 4 * 60 * 1000; // treat a "running" unit as stale after 4 min
+const STALE_UNIT_MS  = 8 * 60 * 1000; // treat a "running" unit as stale only after a full inventory export could have finished
 
 const pad        = (n) => n.toString().padStart(2, '0');
 const fmt        = (d) => `${pad(d.getMonth()+1)}/${pad(d.getDate())}/${d.getFullYear()}`;
