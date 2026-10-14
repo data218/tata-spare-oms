@@ -1332,6 +1332,12 @@ async function loadLocations() {
 async function loadLastSync() {
   const syncText = document.getElementById('last-updated-text');
   if(!syncText) return;
+  // The row-level timestamps rendered by loadDataAndRender() are the source of
+  // truth. Only fall back to the coarse server-side last_sync marker when no
+  // row timestamps have been rendered yet, so this can no longer race the
+  // per-location breakdown and overwrite it with a stale value.
+  const lu = window.__lastUpdated || {};
+  if (lu.consumption || (lu.inventoryByLocation && Object.keys(lu.inventoryByLocation).length)) return;
   try {
     const { data, error } = await supabase.from('tata_bot_settings').select('value').eq('key', 'last_sync').single();
     if(!error && data) {
@@ -1623,15 +1629,13 @@ if (fetchForm) {
                           btn.style.background = '#059669';
                           lucide.createIcons();
                           
+                          // last_sync is best-effort; the badge itself is recomputed
+                          // from the freshly fetched rows by loadDataAndRender() below,
+                          // which is the source of truth for the per-location breakdown.
                           const newDateStr = new Date().toLocaleString();
                           await supabase.from('tata_bot_settings').upsert({ key: 'last_sync', value: newDateStr }, { onConflict: 'key' });
                           loadLastSync();
-                          
-                          const syncText = document.getElementById('last-updated-text');
-                          if (syncText && typeof formatBeautifulDate === 'function') {
-                            syncText.textContent = formatBeautifulDate(newDateStr);
-                          }
-                          
+
                           setTimeout(() => loadDataAndRender(), 1000);
                       } else {
                           statusDiv.style.color = '#ef4444';
@@ -2175,6 +2179,117 @@ async function checkMissingDataAlerts() {
   );
 }
 
+// --- Last Updated badge + per-location breakdown ---------------------------
+//
+// The badge used to read `inventory[0].fetched_at`, but the fetch has no ORDER
+// BY, so [0] was an arbitrary row and the badge showed a stale batch. It also
+// read a non-existent `updated_at` column. Both are fixed by computing the
+// newest `fetched_at` per inventory location here, plus the newest consumption
+// `fetched_at`, and rendering them on demand.
+window.__lastUpdated = { inventoryByLocation: {}, consumption: null };
+
+function newestTimestamp(rows) {
+  let newest = null;
+  for (const row of rows || []) {
+    const t = row && row.fetched_at;
+    if (!t) continue;
+    if (!newest || new Date(t) > new Date(newest)) newest = t;
+  }
+  return newest;
+}
+
+function computeLastUpdated(data) {
+  const inventoryByLocation = {};
+  for (const row of data.inventory || []) {
+    const t = row && row.fetched_at;
+    if (!t) continue;
+    const loc = (row.division || '').toString().trim();
+    if (!loc) continue; // skip unlabelled rows rather than inventing an "Unknown" location
+    if (!inventoryByLocation[loc] || new Date(t) > new Date(inventoryByLocation[loc])) {
+      inventoryByLocation[loc] = t;
+    }
+  }
+  return {
+    inventoryByLocation,
+    consumption: newestTimestamp(data.consumption),
+  };
+}
+
+function lastUpdatedRow(label, timestamp) {
+  const value = timestamp ? formatBeautifulDate(timestamp) : 'No data available';
+  const color = timestamp ? '#0f172a' : '#94a3b8';
+  return `
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 0.85rem;">
+      <span style="color: #475569; font-weight: 600;">${label}</span>
+      <span style="color: ${color}; font-weight: 700; white-space: nowrap;">${value}</span>
+    </div>`;
+}
+
+function renderLastUpdatedPanel() {
+  const invList = document.getElementById('last-updated-inventory-list');
+  const consList = document.getElementById('last-updated-consumption-list');
+  const { inventoryByLocation, consumption } = window.__lastUpdated;
+
+  if (invList) {
+    const entries = Object.entries(inventoryByLocation)
+      .sort((a, b) => new Date(b[1]) - new Date(a[1]));
+    invList.innerHTML = entries.length
+      ? entries.map(([loc, ts]) => lastUpdatedRow(loc, ts)).join('')
+      : lastUpdatedRow('No inventory data', null);
+  }
+
+  if (consList) {
+    consList.innerHTML = lastUpdatedRow('Consumption (all locations)', consumption);
+  }
+
+  if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+}
+
+function renderLastUpdated(data) {
+  const updatedEl = document.getElementById('last-updated-text');
+  window.__lastUpdated = computeLastUpdated(data);
+
+  const candidates = [newestTimestamp(data.inventory), window.__lastUpdated.consumption]
+    .filter(Boolean)
+    .sort((a, b) => new Date(b) - new Date(a));
+
+  if (updatedEl) {
+    updatedEl.textContent = candidates.length ? formatBeautifulDate(candidates[0]) : 'No data available';
+  }
+
+  renderLastUpdatedPanel();
+}
+
+function toggleLastUpdatedPanel(force) {
+  const panel = document.getElementById('last-updated-panel');
+  const caret = document.getElementById('last-updated-caret');
+  if (!panel) return;
+  const open = force === undefined ? panel.style.display === 'none' : force;
+  panel.style.display = open ? 'block' : 'none';
+  if (caret) caret.style.transform = open ? 'rotate(180deg)' : 'rotate(0deg)';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const badge = document.getElementById('last-updated-badge');
+  if (!badge) return;
+  badge.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleLastUpdatedPanel();
+  });
+  badge.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      toggleLastUpdatedPanel();
+    }
+  });
+  document.addEventListener('click', (e) => {
+    const panel = document.getElementById('last-updated-panel');
+    if (panel && panel.style.display !== 'none' && !panel.contains(e.target) && !badge.contains(e.target)) {
+      toggleLastUpdatedPanel(false);
+    }
+  });
+});
+
 async function loadDataAndRender() {
   // Show the full-screen spinner for the whole fetch + render cycle. The network
   // round-trip dominates here (40k+ consumption rows), so this stays up for far
@@ -2193,18 +2308,7 @@ async function loadDataAndRender() {
     window.allProcessedParts = allProcessed;
     window.originalProcessedParts = allProcessed;
 
-    const updatedEl = document.getElementById('last-updated-text');
-    if (updatedEl && rawInventoryData.inventory && rawInventoryData.inventory.length > 0) {
-      // Grab the updated_at from the first row (they should all be similar from the bulk insert)
-      const latestDateStr = rawInventoryData.inventory[0].updated_at || rawInventoryData.inventory[0].fetched_at;
-      if (latestDateStr) {
-        updatedEl.textContent = formatBeautifulDate(latestDateStr);
-      } else {
-        updatedEl.textContent = 'Unknown';
-      }
-    } else if (updatedEl) {
-      updatedEl.textContent = 'No data available';
-    }
+    renderLastUpdated(rawInventoryData);
 
     renderDashboard();
     if (typeof renderDashboardAnalytics === 'function') renderDashboardAnalytics();

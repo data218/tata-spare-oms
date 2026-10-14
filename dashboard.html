@@ -93,18 +93,25 @@
               <span id="refresh-btn-text" style="font-size: 0.85rem; font-weight: 600; margin-left: 6px;">Refresh</span>
             </button>
             
-            <!-- Last Updated Badge -->
-            <div id="last-updated-badge" style="display: flex; align-items: center; gap: 6px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); padding: 6px 14px; border-radius: 20px;">
-              <i data-lucide="check-circle-2" style="width: 15px; height: 15px; color: #10b981;"></i>
-              <span style="font-size: 0.85rem; color: #64748b; font-weight: 500;">Last updated: <span id="last-updated-text" style="color: #10b981; font-weight: 700;">No data available</span></span>
+            <!-- Last Updated Badge (click for per-location breakdown) -->
+            <div id="last-updated-wrap" style="position: relative;">
+              <div id="last-updated-badge" role="button" tabindex="0" title="Click to see last updated by location" style="display: flex; align-items: center; gap: 6px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); padding: 6px 14px; border-radius: 20px; cursor: pointer; user-select: none;">
+                <i data-lucide="check-circle-2" style="width: 15px; height: 15px; color: #10b981;"></i>
+                <span style="font-size: 0.85rem; color: #64748b; font-weight: 500;">Last updated: <span id="last-updated-text" style="color: #10b981; font-weight: 700;">No data available</span></span>
+                <i data-lucide="chevron-down" id="last-updated-caret" style="width: 14px; height: 14px; color: #10b981; transition: transform 0.2s ease;"></i>
+              </div>
+              <div id="last-updated-panel" style="display: none; position: absolute; top: calc(100% + 8px); right: 0; z-index: 1200; min-width: 340px; max-width: 420px; background: #ffffff; border: 1px solid var(--border-color, #e2e8f0); border-radius: 12px; box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18); padding: 14px 16px; text-align: left;">
+                <div style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; display: flex; align-items: center; gap: 6px;">
+                  <i data-lucide="package" style="width: 14px; height: 14px; color: #3b82f6;"></i> Inventory &mdash; Last Updated
+                </div>
+                <div id="last-updated-inventory-list" style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px;"></div>
+                <div style="height: 1px; background: var(--border-color, #e2e8f0); margin: 12px 0;"></div>
+                <div style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; display: flex; align-items: center; gap: 6px;">
+                  <i data-lucide="trending-down" style="width: 14px; height: 14px; color: #8b5cf6;"></i> Consumption &mdash; Last Updated
+                </div>
+                <div id="last-updated-consumption-list" style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px;"></div>
+              </div>
             </div>
-<div id="last-updated-popup" style="display:none; position:absolute; top:120%; left:0; background:#fff; border:1px solid #ddd; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); padding:10px; z-index:1000;">
-<table style="width:100%; border-collapse:collapse;">
-<tr><th style="text-align:left;">Dataset</th><th style="text-align:left;">Last Updated</th></tr>
-<tr><td>Inventory</td><td id="inventory-updated">-</td></tr>
-<tr><td>Consumption</td><td id="consumption-updated">-</td></tr>
-</table>
-</div>
             
             <!-- User Welcome Badge -->
             <div style="display: flex; align-items: center; gap: 8px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); padding: 6px 16px; border-radius: 20px;">
