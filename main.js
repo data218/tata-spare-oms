@@ -2205,41 +2205,50 @@ function computeLastUpdated(data) {
     if (!t) continue;
     const loc = (row.division || '').toString().trim();
     if (!loc) continue; // skip unlabelled rows rather than inventing an "Unknown" location
-    if (!inventoryByLocation[loc] || new Date(t) > new Date(inventoryByLocation[loc])) {
-      inventoryByLocation[loc] = t;
+    if (!inventoryByLocation[loc]) inventoryByLocation[loc] = { timestamp: t, count: 0 };
+    inventoryByLocation[loc].count++;
+    if (new Date(t) > new Date(inventoryByLocation[loc].timestamp)) {
+      inventoryByLocation[loc].timestamp = t;
     }
   }
   return {
     inventoryByLocation,
     consumption: newestTimestamp(data.consumption),
+    consumptionCount: (data.consumption || []).length,
   };
 }
 
-function lastUpdatedRow(label, timestamp) {
+function lastUpdatedRow(label, timestamp, count) {
   const value = timestamp ? formatBeautifulDate(timestamp) : 'No data available';
   const color = timestamp ? '#0f172a' : '#94a3b8';
+  const countHtml = typeof count === 'number'
+    ? `<span style="color: #64748b; font-weight: 600; white-space: nowrap;">${count.toLocaleString()} rows</span>`
+    : '';
   return `
     <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 0.85rem;">
       <span style="color: #475569; font-weight: 600;">${label}</span>
-      <span style="color: ${color}; font-weight: 700; white-space: nowrap;">${value}</span>
+      <span style="display: inline-flex; align-items: baseline; gap: 10px; white-space: nowrap;">
+        ${countHtml}
+        <span style="color: ${color}; font-weight: 700; white-space: nowrap;">${value}</span>
+      </span>
     </div>`;
 }
 
 function renderLastUpdatedPanel() {
   const invList = document.getElementById('last-updated-inventory-list');
   const consList = document.getElementById('last-updated-consumption-list');
-  const { inventoryByLocation, consumption } = window.__lastUpdated;
+  const { inventoryByLocation, consumption, consumptionCount } = window.__lastUpdated;
 
   if (invList) {
     const entries = Object.entries(inventoryByLocation)
-      .sort((a, b) => new Date(b[1]) - new Date(a[1]));
+      .sort((a, b) => new Date(b[1].timestamp) - new Date(a[1].timestamp));
     invList.innerHTML = entries.length
-      ? entries.map(([loc, ts]) => lastUpdatedRow(loc, ts)).join('')
+      ? entries.map(([loc, info]) => lastUpdatedRow(loc, info.timestamp, info.count)).join('')
       : lastUpdatedRow('No inventory data', null);
   }
 
   if (consList) {
-    consList.innerHTML = lastUpdatedRow('Consumption (all locations)', consumption);
+    consList.innerHTML = lastUpdatedRow('Consumption (all locations)', consumption, consumptionCount);
   }
 
   if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
