@@ -6,7 +6,8 @@
  * 1. Any user on the web app clicks "Fetch Inventory" or "Fetch Consumption".
  * 2. The Vercel /api/sync handler queues a job in Supabase (tata_bot_settings)
  *    and returns 202 immediately — it never tries to run Puppeteer itself.
- * 3. This process (running 24/7 on the dealership PC) polls Supabase every 3s.
+ * 3. This process (running 24/7 on the dealership PC) reacts to new jobs
+ *    instantly via Supabase Realtime, with a slow safety poll as a fallback.
  * 4. When it sees a pending job it claims it, runs the scraper locally, and
  *    writes progress back to Supabase so the dashboard can show live status.
  *
@@ -54,7 +55,7 @@ process.on('exit', () => { try { fs.unlinkSync(LOCK_FILE); } catch { /* ignore *
 
 const JOB_KEY        = 'fetch_job';
 const MAX_LOG_CHARS  = 40_000;
-const POLL_MS        = 3_000;   // how often we check Supabase for new jobs
+const POLL_MS        = 5 * 60 * 1000; // slow safety poll; Realtime drives the fast path
 const STALE_UNIT_MS  = 8 * 60 * 1000; // treat a "running" unit as stale only after a full inventory export could have finished
 
 const pad        = (n) => n.toString().padStart(2, '0');
@@ -287,4 +288,25 @@ console.log('╚═════════════════════�
 console.log('');
 
 setInterval(tick, POLL_MS);
+
+// Fast path: subscribe to the job row so a dashboard "Fetch" starts within a
+// second, without polling the table. This keeps database traffic tiny (the slow
+// safety poll above is the only recurring read). Requires the table to be in the
+// `supabase_realtime` publication; if it is not, Realtime simply stays silent and
+// the safety poll still picks jobs up.
+try {
+  supabase
+    .channel('fetch_job_watch')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'tata_bot_settings', filter: `key=eq.${JOB_KEY}` },
+      () => { tick(); }
+    )
+    .subscribe((status) => {
+      console.log(clock(), `Realtime job watcher: ${status}`);
+    });
+} catch (e) {
+  console.error(clock(), 'Realtime subscribe failed (using safety poll only):', e.message);
+}
+
 tick(); // run immediately on start
