@@ -22,8 +22,8 @@ RUN npm install
 # Copy all source code
 COPY . .
 
-# Expose port (if your server.js uses one, e.g., 3000)
+# Expose port (if your server.mjs uses one, e.g., 3000)
 EXPOSE 3000
 
 # Start the server
-CMD ["node", "server.js"]
+CMD ["node", "server.mjs"]

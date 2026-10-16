@@ -44,8 +44,13 @@ const baseArgs = [
   '--disable-setuid-sandbox',
   '--disable-dev-shm-usage',
   '--disable-popup-blocking',
-  '--ignore-certificate-errors',
 ];
+
+// Disabling TLS verification is a security risk (MITM). Only do it when the
+// operator explicitly opts in, e.g. behind a corporate proxy with a private CA.
+if (process.env.SCRAPER_IGNORE_CERT_ERRORS === 'true') {
+  baseArgs.push('--ignore-certificate-errors');
+}
 
 export async function launchBrowser(overrides = {}) {
   const { args: extraArgs = [], ...rest } = overrides;

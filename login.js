@@ -1,10 +1,25 @@
+function randomPassword(len = 14) {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
+  const arr = new Uint32Array(len);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, (x) => chars[x % chars.length]).join('');
+}
+
 function getUsers() {
-  let users = JSON.parse(localStorage.getItem('dashboardUsers'));
-  if (!users || users.length === 0) {
-    users = [
-      { id: 1, username: 'admin', password: 'password', role: 'Super Admin', location: 'ALL' },
-      { id: 2, username: 'manager1', password: 'password', role: 'Manager', location: 'SUPWAL' }
-    ];
+  let users = [];
+  try {
+    users = JSON.parse(localStorage.getItem('dashboardUsers')) || [];
+  } catch {
+    users = [];
+  }
+  if (!Array.isArray(users) || users.length === 0) {
+    // First run: create the initial admin with a random password instead of a
+    // well-known default that anyone reading the source could use. The password
+    // is surfaced once (below) so the operator can sign in and change it.
+    const initialPassword = randomPassword();
+    users = [{ id: 1, username: 'admin', password: initialPassword, role: 'Super Admin', location: 'ALL' }];
+    localStorage.setItem('dashboardUsers', JSON.stringify(users));
+    sessionStorage.setItem('tata_first_run_password', initialPassword);
   }
   return users;
 }
@@ -12,6 +27,36 @@ function getUsers() {
 document.addEventListener('DOMContentLoaded', () => {
   if (window.lucide) {
     lucide.createIcons();
+  }
+
+  // Seed the initial admin account (if none exists) so the first-run password
+  // banner below has something to show.
+  getUsers();
+
+  // First run: surface the generated admin password once so the operator can sign
+  // in (there is no longer a well-known default password).
+  const firstRunPassword = sessionStorage.getItem('tata_first_run_password');
+  if (firstRunPassword) {
+    const box = document.querySelector('.login-box');
+    if (box) {
+      const note = document.createElement('div');
+      note.style.cssText = 'background:#fffbeb;border:1px solid #fcd34d;color:#92400e;padding:12px;border-radius:6px;margin-bottom:16px;font-size:0.85rem;line-height:1.5;';
+      const title = document.createElement('strong');
+      title.textContent = 'First-time setup';
+      const line1 = document.createElement('div');
+      line1.textContent = 'Admin username: admin';
+      const line2 = document.createElement('div');
+      const pwd = document.createElement('b');
+      pwd.textContent = firstRunPassword;
+      line2.textContent = 'Password: ';
+      line2.appendChild(pwd);
+      const hint = document.createElement('div');
+      hint.style.fontSize = '0.8rem';
+      hint.textContent = 'Save this password now. You can change it after logging in.';
+      note.append(title, line1, line2, hint);
+      box.insertBefore(note, box.firstChild);
+    }
+    sessionStorage.removeItem('tata_first_run_password');
   }
 
   // Password toggle helper
@@ -84,11 +129,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Check local storage for dashboardUsers
     let users = getUsers();
     let user = users.find(u => u.username === userid || u.id.toString() === userid);
-    
-    // Hardcoded fallback for the default JS_3008420 user
-    if ((user && user.password === oldpwd) || (!user && userid === 'JS_3008420' && oldpwd === 'secret')) {
+
+    if (user && user.password === oldpwd) {
       // Success
-      currentResetUserId = user ? user.id : 'default';
+      currentResetUserId = user.id;
       document.getElementById('reset-verify-form').style.display = 'none';
       document.getElementById('reset-newpwd-form').style.display = 'block';
     } else {
@@ -108,18 +152,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     document.getElementById('reset-match-error').style.display = 'none';
     
-    if (currentResetUserId === 'default') {
-      // Update the default user logic if they were never saved
-      let users = getUsers();
-      users.push({id: Date.now(), username: 'JS_3008420', password: pwd1, role: 'Super Admin', location: 'ALL'});
+    let users = getUsers();
+    let userIndex = users.findIndex(u => u.id === currentResetUserId);
+    if(userIndex !== -1) {
+      users[userIndex].password = pwd1;
       localStorage.setItem('dashboardUsers', JSON.stringify(users));
-    } else {
-      let users = getUsers();
-      let userIndex = users.findIndex(u => u.id === currentResetUserId);
-      if(userIndex !== -1) {
-        users[userIndex].password = pwd1;
-        localStorage.setItem('dashboardUsers', JSON.stringify(users));
-      }
     }
     
     document.getElementById('reset-success-msg').style.display = 'block';
@@ -134,26 +171,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
 });
 
-document.getElementById('loginForm').addEventListener('submit', function(e) {
-  e.preventDefault();
-  const userId = document.getElementById('userId').value.trim();
-  const pwd = document.getElementById('password').value.trim();
-  
-  if (userId) {
-    let users = getUsers();
-    let user = users.find(u => (u.username.toLowerCase() === userId.toLowerCase() || u.id.toString() === userId) && u.password === pwd);
-    
-    // Always allow admin/password or JS_3008420/secret if they don't exist in local storage to prevent lockouts
-    const isFallbackAdmin = userId.toLowerCase() === 'admin' && pwd === 'password' && !users.find(u => u.username.toLowerCase() === 'admin');
-    const isFallbackJS = userId.toUpperCase() === 'JS_3008420' && pwd === 'secret' && !users.find(u => u.username.toUpperCase() === 'JS_3008420');
+const loginFormEl = document.getElementById('loginForm');
+if (loginFormEl) {
+  loginFormEl.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const userId = document.getElementById('userId').value.trim();
+    const pwd = document.getElementById('password').value.trim();
 
-    if (user || isFallbackAdmin || isFallbackJS) {
-      const userData = user || (isFallbackAdmin ? { id: 1, username: 'admin', role: 'Super Admin', location: 'ALL' } : { id: 99, username: 'JS_3008420', role: 'Super Admin', location: 'ALL' });
-      sessionStorage.setItem('currentUser', JSON.stringify(userData));
-      sessionStorage.setItem('tataUser', userData.username);
-      window.location.href = 'dashboard.html';
-    } else {
-      alert("Invalid login credentials.");
+    if (userId) {
+      let users = getUsers();
+      let user = users.find(u => (u.username.toLowerCase() === userId.toLowerCase() || u.id.toString() === userId) && u.password === pwd);
+
+      if (user) {
+        sessionStorage.setItem('currentUser', JSON.stringify(user));
+        sessionStorage.setItem('tataUser', user.username);
+        window.location.href = 'dashboard.html';
+      } else {
+        alert("Invalid login credentials.");
+      }
     }
-  }
-});
+  });
+}

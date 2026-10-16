@@ -6,14 +6,22 @@ dotenv.config();
 export const SUPABASE_URL = process.env.SUPABASE_URL || 'https://crreoeautoqzcgtlwlsd.supabase.co';
 
 // Prefer the service-role key for server-side work (bypasses RLS, never expose to the browser).
-// Falls back to the anon key so the scrapers keep working until the service key is configured.
+// Falls back to a server-only key so the scrapers keep working until the service key is configured.
 export const SUPABASE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
   process.env.SUPABASE_KEY ||
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNycmVvZWF1dG9xemNndGx3bHNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0NzU1OTAsImV4cCI6MjA5NDA1MTU5MH0.AvHLX1piSZMGwb1qjgJ1xuBtL_F-nToQo4ClHmsHNG8';
 
+export const usingServiceRole = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+if (!usingServiceRole) {
+  console.warn(
+    '[server-config] SUPABASE_SERVICE_ROLE_KEY is not set — falling back to an anon key. ' +
+    'Once Row Level Security is tightened, inserts/deletes from the scrapers will be ' +
+    'rejected. Set SUPABASE_SERVICE_ROLE_KEY in .env (server/bot only) to fix this.'
+  );
+}
+
 export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
-
-export const usingServiceRole = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);

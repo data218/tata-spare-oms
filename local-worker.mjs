@@ -57,6 +57,8 @@ const JOB_KEY        = 'fetch_job';
 const MAX_LOG_CHARS  = 40_000;
 const POLL_MS        = 5 * 60 * 1000; // slow safety poll; Realtime drives the fast path
 const STALE_UNIT_MS  = 8 * 60 * 1000; // treat a "running" unit as stale only after a full inventory export could have finished
+const MAX_UNIT_ATTEMPTS = 3;          // give up on a unit after this many tries
+const MAX_JOB_REVIVALS  = 3;          // never revive a failed job more than this many times
 
 const pad        = (n) => n.toString().padStart(2, '0');
 const fmt        = (d) => `${pad(d.getMonth()+1)}/${pad(d.getDate())}/${d.getFullYear()}`;
@@ -98,6 +100,26 @@ async function casWrite(job, raw) {
   return Array.isArray(data) && data.length > 0;
 }
 
+// Persists the local worker's view of the job while preserving any unit the
+// server queued in the meantime (a dashboard fetch issued during a long scrape),
+// so a merge never clobbers a freshly-queued unit.
+async function mergeAndWrite(job) {
+  try {
+    const { job: latest } = await readJob();
+    if (latest && latest.queue && Array.isArray(latest.queue.units)) {
+      for (const u of latest.queue.units) {
+        const known = job.queue.units.some(
+          (x) => x.kind === u.kind && (x.location || '') === (u.location || '')
+        );
+        if (!known) job.queue.units.push(u);
+      }
+    }
+  } catch (e) {
+    console.error('merge read failed:', e.message);
+  }
+  await writeJob(job);
+}
+
 // Progress is written back to Supabase while a unit is still running, throttled
 // so the dashboard shows live logs instead of looking frozen until the unit ends.
 let logFlushTimer = null;
@@ -106,17 +128,7 @@ function scheduleLogFlush(job) {
   logFlushTimer = setTimeout(async () => {
     logFlushTimer = null;
     try {
-      // Preserve any unit the server queued (e.g. a dashboard fetch) while we ran.
-      const { job: latest } = await readJob();
-      if (latest && latest.queue && Array.isArray(latest.queue.units)) {
-        for (const u of latest.queue.units) {
-          const known = job.queue.units.some(
-            (x) => x.kind === u.kind && (x.location || '') === (u.location || '')
-          );
-          if (!known) job.queue.units.push(u);
-        }
-      }
-      await writeJob(job);
+      await mergeAndWrite(job);
     } catch (e) {
       console.error('log flush failed:', e.message);
     }
@@ -144,26 +156,28 @@ async function processQueue() {
   if (!job || !job.queue || !Array.isArray(job.queue.units)) return;
 
   // ── Reset jobs that Vercel may have touched but could never run ──────────
-  // Vercel's /api/sync previously called kickOff which could mark units as
-  // 'failed' because Cloudflare blocks its IPs. We reset those so we can run
-  // them here on a machine that the portal allows.
+  // The API only queues; if a job was marked failed/done without the local
+  // worker finishing it, re-arm the unfinished units. A revival counter and a
+  // per-unit attempt check keep a permanently-broken job from looping forever.
   let needsReset = false;
   if (job.status === 'failed' || job.status === 'done') {
-    const hasUnprocessed = job.queue.units.some(
-      (u) => u.status !== 'done'
-    );
-    if (hasUnprocessed) {
-      // Revive the job: reset failed units so the local worker can retry them
-      console.log(clock(), '🔄 Reviving failed job — resetting for local execution...');
-      for (const u of job.queue.units) {
-        if (u.status !== 'done') {
-          u.status   = 'pending';
-          u.attempts = 0;
-          u.error    = undefined;
-        }
-      }
-      job.status = 'pending';
-      job.logs  += `<div>${ts()} - Local worker revived this job for local execution.</div>`;
+    const revivals = job.revivals || 0;
+    let rearmed = false;
+    for (const u of job.queue.units) {
+      if (u.status === 'done') continue;
+      // A unit that already exhausted its attempts stays failed: re-arming it
+      // would just hammer the portal forever (e.g. wrong credentials).
+      if (u.status === 'failed' && (u.attempts || 0) >= MAX_UNIT_ATTEMPTS) continue;
+      u.status     = 'pending';
+      u.error      = undefined;
+      u.retryAfter = undefined;
+      rearmed      = true;
+    }
+    if (rearmed && revivals < MAX_JOB_REVIVALS) {
+      console.log(clock(), `🔄 Reviving failed job (revival ${revivals + 1}/${MAX_JOB_REVIVALS}) — resetting for local execution...`);
+      job.revivals = revivals + 1;
+      job.status   = 'pending';
+      job.logs    += `<div>${ts()} - Local worker revived this job for local execution (revival ${job.revivals}/${MAX_JOB_REVIVALS}).</div>`;
       needsReset = true;
     }
   }
@@ -175,10 +189,19 @@ async function processQueue() {
   for (const u of job.queue.units) {
     if (u.status === 'running' && u.startedAt) {
       if (now - Date.parse(u.startedAt) > STALE_UNIT_MS) {
-        console.log(clock(), `♻ Recovering stale unit: ${label(u)}`);
-        u.status   = 'pending';
-        u.attempts = Math.max(0, (u.attempts || 1) - 1); // give one more chance
-        u.error    = undefined;
+        const recoveries = u.staleRecoveries || 0;
+        if (recoveries >= 2) {
+          console.log(clock(), `🚫 Stale unit recovered too many times; marking failed: ${label(u)}`);
+          u.status     = 'failed';
+          u.finishedAt = ts();
+          u.error      = u.error || 'stale: abandoned after repeated recoveries';
+        } else {
+          console.log(clock(), `♻ Recovering stale unit (${recoveries + 1}/2): ${label(u)}`);
+          u.staleRecoveries = recoveries + 1;
+          u.status   = 'pending';
+          u.attempts = Math.max(0, (u.attempts || 1) - 1); // give one more chance
+          u.error    = undefined;
+        }
       }
     }
   }
@@ -186,12 +209,18 @@ async function processQueue() {
   // If another worker is actively running a unit right now, wait
   if (job.queue.units.some((u) => u.status === 'running')) return;
 
-  // Pick the next pending unit
-  const next = job.queue.units.find((u) => u.status === 'pending');
+  // Pick the next pending unit whose retry backoff (if any) has elapsed.
+  const pending = job.queue.units.filter((u) => u.status === 'pending');
+  const next = pending.find((u) => !u.retryAfter || Date.now() >= u.retryAfter);
   if (!next) {
+    if (pending.length > 0) {
+      // Units are waiting out a retry backoff; leave them for a later tick.
+      console.log(clock(), `⏸ ${pending.length} unit(s) waiting out a retry backoff.`);
+      return;
+    }
     // All units are done or failed — mark job complete
     const allDone = job.queue.units.every((u) => u.status === 'done' || u.status === 'failed');
-    if (allDone && job.status !== 'completed') {
+    if (allDone && job.status !== 'completed' && job.status !== 'failed') {
       const anyFailed = job.queue.units.some((u) => u.status === 'failed');
       job.status    = anyFailed ? 'failed' : 'completed';
       job.logs     += `<div>${ts()} - All tasks finished.</div>`;
@@ -217,7 +246,7 @@ async function processQueue() {
   job.logs    += `<div>${ts()} - ▶ Starting ${label(next)} (attempt ${next.attempts}).</div>`;
 
   if (needsReset) {
-    await writeJob(job); // full write since we changed many units
+    await mergeAndWrite(job); // merge-aware full write since we re-armed many units
   } else {
     const claimed = await casWrite(job, raw);
     if (!claimed) return; // another worker got there first
@@ -247,28 +276,34 @@ async function processQueue() {
     next.status     = 'done';
     next.finishedAt = ts();
     next.rows       = rows;
+    next.retryAfter = undefined;
+    next.staleRecoveries = undefined;
     job.logs       += `<div>${ts()} - ✅ Completed ${label(next)}: ${rows} rows.</div>`;
     console.log(clock(), `✅ Done: ${label(next)} — ${rows} rows`);
   } catch (err) {
     next.finishedAt = ts();
     next.error      = err.message || String(err);
-    // Always retry — local machine is reliable, errors are usually transient portal issues
+    // Retry after a short backoff — errors are usually transient portal issues,
+    // but hammering a wedged portal instantly only makes it worse.
     next.status     = 'pending';
-    job.logs       += `<div>${ts()} - ❌ ERROR: ${label(next)} failed (attempt ${next.attempts}): ${next.error}</div>`;
+    next.retryAfter = Date.now() + Math.min(15, next.attempts) * 60 * 1000; // 1..15 min
+    job.logs       += `<div>${ts()} - ❌ ERROR: ${label(next)} failed (attempt ${next.attempts}): ${next.error} — retrying in ${Math.min(15, next.attempts)} min</div>`;
     console.error(clock(), `❌ Failed: ${label(next)} — ${next.error}`);
 
-    if (next.attempts >= 3) {
-      next.status  = 'failed';
-      job.logs    += `<div>${ts()} - Giving up on ${label(next)} after 3 attempts.</div>`;
+    if (next.attempts >= MAX_UNIT_ATTEMPTS) {
+      next.status     = 'failed';
+      next.retryAfter = undefined;
+      job.logs       += `<div>${ts()} - Giving up on ${label(next)} after ${MAX_UNIT_ATTEMPTS} attempts.</div>`;
       console.error(clock(), `🚫 Giving up on: ${label(next)}`);
     }
   }
 
-  // Write final state back
+  // Write final state back, merging any unit the server queued while we ran so a
+  // dashboard fetch issued mid-scrape is not clobbered.
   job.queue.units[unitIdx] = next;
   const doneFinal = job.queue.units.filter(u => u.status === 'done').length;
   job.progress = { step: doneFinal, total };
-  await writeJob(job);
+  await mergeAndWrite(job);
 }
 
 // ── Startup ───────────────────────────────────────────────────────────────────

@@ -1,6 +1,8 @@
 // movement.js
 // Handles IN / OUT Movement Logic
 
+import { escapeHtml } from './escape.js';
+
 window.movementData = [];
 window.movementFiltered = [];
 window.movCurrentPage = 1;
@@ -32,7 +34,7 @@ window.initMovementModule = async function(force = false) {
       console.log('[Movement] Init complete');
     } catch (e) {
       console.error('[Movement] Error:', e);
-      if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 30px; color: red;">Error loading movement data: ${e.message}</td></tr>`;
+      if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 30px; color: red;">Error loading movement data: ${escapeHtml(e.message)}</td></tr>`;
       alert("Error loading movement data: " + e.message);
       isMovementInitialized = false; // Reset so they can try again
     }
@@ -438,14 +440,14 @@ function renderMovementTable() {
       
       tr.innerHTML = `
         <td style="padding: 2px 4px; font-size: 0.65rem; font-size: 0.65rem; color: var(--text-secondary);">${dateStr}</td>
-        <td style="padding: 2px 4px; font-size: 0.65rem;"><span style="display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.65rem; font-weight: 700; background: ${dirBg}; color: ${dirColor};">${t.direction}</span></td>
-        <td style="padding: 2px 4px; font-size: 0.65rem; font-size: 0.65rem; font-weight: 500;">${t.type}</td>
-        <td style="padding: 2px 4px; font-size: 0.65rem; font-size: 0.65rem; font-weight: 600;">${t.partNo}</td>
-        <td style="padding: 2px 4px; font-size: 0.65rem; font-size: 0.65rem; color: var(--text-secondary); max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${t.description}">${t.description}</td>
-        <td style="padding: 2px 4px; font-size: 0.65rem; font-size: 0.65rem;">${t.location}</td>
+        <td style="padding: 2px 4px; font-size: 0.65rem;"><span style="display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.65rem; font-weight: 700; background: ${dirBg}; color: ${dirColor};">${escapeHtml(t.direction)}</span></td>
+        <td style="padding: 2px 4px; font-size: 0.65rem; font-size: 0.65rem; font-weight: 500;">${escapeHtml(t.type)}</td>
+        <td style="padding: 2px 4px; font-size: 0.65rem; font-size: 0.65rem; font-weight: 600;">${escapeHtml(t.partNo)}</td>
+        <td style="padding: 2px 4px; font-size: 0.65rem; font-size: 0.65rem; color: var(--text-secondary); max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(t.description)}">${escapeHtml(t.description)}</td>
+        <td style="padding: 2px 4px; font-size: 0.65rem; font-size: 0.65rem;">${escapeHtml(t.location)}</td>
         <td style="padding: 2px 4px; font-size: 0.65rem; text-align: right; font-weight: 700; color: ${dirColor};">${qtyStr}${qtyLabel}</td>
         <td style="padding: 2px 4px; font-size: 0.65rem; text-align: right; font-weight: 500; font-size: 0.65rem;">₹${t.value.toLocaleString('en-IN', {maximumFractionDigits:0})}</td>
-        <td style="padding: 2px 4px; font-size: 0.65rem; font-size: 0.65rem; color: var(--text-secondary);">${t.reference}</td>
+        <td style="padding: 2px 4px; font-size: 0.65rem; font-size: 0.65rem; color: var(--text-secondary);">${escapeHtml(t.reference)}</td>
       `;
       tbody.appendChild(tr);
     });
@@ -487,7 +489,7 @@ function renderLocationMovement() {
     const tr = document.createElement('tr');
     tr.style.borderBottom = '1px solid #f1f5f9';
     tr.innerHTML = `
-      <td style="padding: 2px 4px; font-size: 0.65rem; font-weight: 600;">${loc}</td>
+      <td style="padding: 2px 4px; font-size: 0.65rem; font-weight: 600;">${escapeHtml(loc)}</td>
       <td style="padding: 2px 4px; font-size: 0.65rem; text-align: right; color: #10b981;">+${s.inQty.toLocaleString('en-IN')}</td>
       <td style="padding: 2px 4px; font-size: 0.65rem; text-align: right; color: #ef4444;">-${s.outQty.toLocaleString('en-IN')}</td>
       <td style="padding: 2px 4px; font-size: 0.65rem; text-align: right; font-weight: 700; color: ${netQty >= 0 ? '#10b981' : '#ef4444'};">${netQty > 0 ? '+' : ''}${netQty.toLocaleString('en-IN')}</td>
@@ -529,8 +531,8 @@ function renderTopParts() {
       tr.style.borderBottom = '1px solid #f1f5f9';
       tr.innerHTML = `
         <td style="padding: 2px 4px; font-size: 0.7rem;">
-          <div style="font-weight: 600; line-height: 1.1;">${partNo}</div>
-          <div style="font-size: 0.65rem; line-height: 1.1; color: var(--text-secondary); max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${s.desc}">${s.desc}</div>
+          <div style="font-weight: 600; line-height: 1.1;">${escapeHtml(partNo)}</div>
+          <div style="font-size: 0.65rem; line-height: 1.1; color: var(--text-secondary); max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(s.desc)}">${escapeHtml(s.desc)}</div>
         </td>
         <td style="padding: 2px 4px; font-size: 0.7rem; text-align: right; color: #10b981;">+${s.inQty.toLocaleString('en-IN')}</td>
         <td style="padding: 2px 4px; font-size: 0.7rem; text-align: right; color: #ef4444;">-${s.outQty.toLocaleString('en-IN')}</td>

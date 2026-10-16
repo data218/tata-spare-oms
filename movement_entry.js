@@ -1,4 +1,5 @@
 import { supabase } from './supabase.js';
+import { escapeHtml } from './escape.js';
 document.addEventListener('DOMContentLoaded', () => {
   // Elements
   const btnOpenModal = document.getElementById('btn-open-inout-modal');
@@ -107,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     let htmlStr = '<option value="">Select Location</option>';
     locations.forEach(loc => {
-      if (loc) htmlStr += `<option value="${loc}">${loc}</option>`;
+      if (loc) htmlStr += `<option value="${escapeHtml(loc)}">${escapeHtml(loc)}</option>`;
     });
     locSelect.innerHTML = htmlStr;
     
@@ -135,7 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let htmlStr = '';
     parts.forEach(part => {
-      htmlStr += `<option value="${part}">`;
+      htmlStr += `<option value="${escapeHtml(part)}">`;
     });
     
     if (partList) partList.innerHTML = htmlStr;
@@ -434,7 +435,7 @@ document.addEventListener('DOMContentLoaded', () => {
              modal.style.display = 'none';
            }, 2000);
         } else {
-           bulkError.innerHTML = `Processed ${successCount} movements. Failed on ${errorCount} rows:<br>` + errors.join('<br>');
+           bulkError.innerHTML = `Processed ${successCount} movements. Failed on ${errorCount} rows:<br>` + errors.map(escapeHtml).join('<br>');
            bulkError.style.display = 'block';
         }
 

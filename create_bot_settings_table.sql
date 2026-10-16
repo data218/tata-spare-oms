@@ -1,4 +1,4 @@
--- Create bot_settings table to store credentials
+-- Create bot_settings table to store runtime settings (NOT credentials).
 CREATE TABLE bot_settings (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     key VARCHAR(255) UNIQUE NOT NULL,
@@ -6,9 +6,12 @@ CREATE TABLE bot_settings (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Insert default credentials
-INSERT INTO bot_settings (key, value) VALUES ('tata_bi_username', 'JS_3008420');
-INSERT INTO bot_settings (key, value) VALUES ('tata_bi_password', 'Amsmam@2027');
+-- Credentials are NOT inserted here. Set them as environment variables on the
+-- bot machine instead:
+--   * Tata BI (consumption) -> TATA_BI_USERNAME / TATA_BI_PASSWORD
+--   * Siebel (inventory)    -> TATA_LOCATIONS_JSON
+-- Storing them in this table would expose them to anyone holding the public
+-- anon key.
 
 -- Set up Row Level Security (allow anon read/write for now since this is a local/demo app)
 ALTER TABLE bot_settings ENABLE ROW LEVEL SECURITY;

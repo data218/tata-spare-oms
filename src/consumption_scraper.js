@@ -3,6 +3,7 @@ import * as dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import csv from 'csv-parser';
+import { Readable } from 'stream';
 import { supabase } from './server-config.js';
 import { profileDir, downloadDir, scratch } from './scratch-paths.js';
 import { loginToPortal } from './portal-login.js';
@@ -62,7 +63,13 @@ async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
         notify(`WARNING: consumption run exceeded ${Math.round(SCRAPE_TIMEOUT_MS / 60000)} min; aborting this attempt.`);
         try { browser.close(); } catch (e) {}
     }, SCRAPE_TIMEOUT_MS);
-    
+
+    // Auto-dismiss dialogs so page.screenshot and evaluation don't hang
+    page.on('dialog', async dialog => {
+        console.log(`[Dialog caught]: ${dialog.message()}`);
+        await dialog.dismiss();
+    });
+
     // Set a realistic user agent
     // User agent is handled by stealth plugin
     await page.setViewport({ width: 1366, height: 768 });
@@ -226,21 +233,25 @@ async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
 
         console.log('Clicking Export...');
         
+        // Accepts a single label or a list of candidate labels (the export wizard
+        // popup uses "Next" / "Next >" / ">>" depending on the portal version).
         async function robustClick(textToFind) {
-            let clicked = false;
-            for (const frame of [page, ...page.frames()]) {
-                try {
-                    clicked = await frame.evaluate((txt) => {
-                        const links = Array.from(document.querySelectorAll('a, span, div, td'));
-                        const target = links.find(el => el.textContent && el.textContent.trim() === txt);
-                        if (target) {
-                            target.click();
-                            return true;
-                        }
-                        return false;
-                    }, textToFind);
-                    if (clicked) return true;
-                } catch (err) {}
+            const candidates = Array.isArray(textToFind) ? textToFind : [textToFind];
+            for (const txt of candidates) {
+                for (const frame of [page, ...page.frames()]) {
+                    try {
+                        const clicked = await frame.evaluate((label) => {
+                            const links = Array.from(document.querySelectorAll('a, span, div, td, button, input[type="button"]'));
+                            const target = links.find(el => el.textContent && el.textContent.trim() === label && el.offsetParent !== null);
+                            if (target) {
+                                target.click();
+                                return true;
+                            }
+                            return false;
+                        }, txt);
+                        if (clicked) return true;
+                    } catch (err) {}
+                }
             }
             return false;
         }
@@ -285,7 +296,7 @@ async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
         console.log('Waiting for download to complete (polling downloads folder)...');
         let downloadedFile = null;
         const start = Date.now();
-        const maxWaitIterations = 150; // 5 minutes at 2 seconds per iteration
+        const maxWaitIterations = 360; // 12 minutes at 2 seconds per iteration
         for (let i = 0; i < maxWaitIterations; i++) {
             await new Promise(r => setTimeout(r, 2000));
             
@@ -302,16 +313,31 @@ async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
             for (const dir of dirsToCheck) {
                 if (!fs.existsSync(dir)) continue;
                 const files = fs.readdirSync(dir);
-                const crdownload = files.find(f => f.endsWith('.crdownload') || f.endsWith('.tmp'));
-                if (crdownload) continue;
-                
+                // Only a RECENT partial counts as "still downloading"; a stale
+                // leftover from an earlier run must not block detection forever.
+                const partial = files.find(f => f.endsWith('.crdownload') || f.endsWith('.tmp'));
+                if (partial) {
+                    try {
+                        if (Date.now() - fs.statSync(path.join(dir, partial)).mtimeMs < 30000) continue;
+                    } catch { /* ignore */ }
+                }
+
                 const oldFiles = dir === downloadPath ? filesBeforeDownload1 : filesBeforeDownload2;
-                const newFiles = files.filter(f => !oldFiles.has(f) && !f.endsWith('.crdownload') && !f.endsWith('.tmp'));
+                const newFiles = files
+                    .filter(f => !oldFiles.has(f) && !f.endsWith('.crdownload') && !f.endsWith('.tmp'))
+                    .map(f => {
+                        const full = path.join(dir, f);
+                        let size = 0;
+                        try { size = fs.statSync(full).size; } catch { /* ignore */ }
+                        return { full, size };
+                    })
+                    .filter(x => x.size > 0)
+                    .sort((a, b) => b.size - a.size); // largest new file is the real export
                 if (newFiles.length > 0) {
-                    const newestFile = path.join(dir, newFiles[0]);
-                    downloadedFile = newestFile + (newestFile.endsWith('.csv') ? '' : '.csv');
+                    const newestFile = newFiles[0].full;
+                    downloadedFile = newestFile.endsWith('.csv') ? newestFile : `${newestFile}.csv`;
                     if (newestFile !== downloadedFile) {
-                        fs.renameSync(newestFile, downloadedFile);
+                        try { fs.renameSync(newestFile, downloadedFile); } catch { downloadedFile = newestFile; }
                     }
                     console.log('Download complete and found CSV: ', downloadedFile);
                     break;
@@ -322,41 +348,55 @@ async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
         
         if (downloadedFile) {
             console.log('Download successful! We can parse the CSV now.');
-            
-            console.log('Old data already cleared. Proceeding to parse.');
 
             console.log('Reading and parsing downloaded CSV file...');
             const results = [];
-            
-        const rowsCount = await new Promise((resolve, reject) => {
-            fs.createReadStream(downloadedFile)
-                    .pipe(csv())
+
+            // Same robust reading as the inventory scraper: handle UTF-16LE and a
+            // UTF-8 BOM, and sniff the delimiter instead of assuming a comma.
+            const buf = fs.readFileSync(downloadedFile);
+            let rawText;
+            if (buf.length >= 2 && buf[0] === 0xFF && buf[1] === 0xFE) {
+                rawText = buf.toString('utf16le').replace(/^\uFEFF/, '');
+            } else {
+                rawText = buf.toString('utf8').replace(/^\uFEFF/, '');
+            }
+            const firstLine = rawText.split('\n')[0] || '';
+            const isTabDelimited = firstLine.includes('\t');
+            const parser = csv({ separator: isTabDelimited ? '\t' : ',' });
+            const csvStream = Readable.from([rawText]);
+
+            const rowsCount = await new Promise((resolve, reject) => {
+                csvStream.pipe(parser)
                     .on('data', (data) => {
-                        const firstKey = Object.keys(data)[0];
-                        const divisionValue = data['Division'] || data[firstKey];
-                        
+                        // Strip a lingering BOM from the first header key.
+                        const clean = {};
+                        for (const k of Object.keys(data)) clean[k.replace(/^\uFEFF/, '')] = data[k];
+                        const firstKey = Object.keys(clean)[0];
+                        const divisionValue = clean['Division'] || clean[firstKey];
+
                         results.push({
                             division: divisionValue,
-                            invoice_no: data['Invoice Number'],
-                            invoice_status: data['Invoice Status'],
-                            mode_of_payment: data['Mode of Payment'],
-                            invoice_type: data['Invoice Type'],
-                            part_no: data['Part No'],
-                            part_desc: data['Part Desc'],
-                            part_type: data['Part Type'],
-                            tm_part_indicator: data['TM Part Indicator'],
-                            product_category: data['Product Category'],
-                            date: data['Date'] || null,
-                            category: data['Category'],
-                            order_num: data['Order Number'],
-                            order_type: data['Order Type'],
-                            order_sub: data['Order Sub-Type'],
-                            rate: parseFloat(data['Rate']) || 0,
-                            billing_type: data['Billing Type'],
-                            sold_qty: parseFloat(data['Sold Qty']) || 0,
-                            value: parseFloat(data['Value']) || 0,
-                            tax_amount: parseFloat(data['Tax Amount After Discount']) || 0,
-                            dealer: data['Dealer']
+                            invoice_no: clean['Invoice Number'],
+                            invoice_status: clean['Invoice Status'],
+                            mode_of_payment: clean['Mode of Payment'],
+                            invoice_type: clean['Invoice Type'],
+                            part_no: clean['Part No'],
+                            part_desc: clean['Part Desc'],
+                            part_type: clean['Part Type'],
+                            tm_part_indicator: clean['TM Part Indicator'],
+                            product_category: clean['Product Category'],
+                            date: clean['Date'] || null,
+                            category: clean['Category'],
+                            order_num: clean['Order Number'],
+                            order_type: clean['Order Type'],
+                            order_sub: clean['Order Sub-Type'],
+                            rate: parseFloat(clean['Rate']) || 0,
+                            billing_type: clean['Billing Type'],
+                            sold_qty: parseFloat(clean['Sold Qty']) || 0,
+                            value: parseFloat(clean['Value']) || 0,
+                            tax_amount: parseFloat(clean['Tax Amount After Discount']) || 0,
+                            dealer: clean['Dealer']
                         });
                     })
                     .on('end', async () => {
@@ -368,31 +408,37 @@ async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
 
                             notify(`Finished parsing CSV. Found ${results.length} rows. Replacing existing rows...`);
 
-                            // Clear only after we hold real replacement rows, so a failed
-                            // download can never leave the table empty.
-                            const { error: deleteError } = await supabase
-                                .from('tata_consumption_data')
-                                .delete()
-                                .neq('division', 'DELETE_ALL');
-                            if (deleteError) {
-                                throw new Error('Failed to clear old consumption rows: ' + deleteError.message);
-                            }
+                            // Insert-first with a unique marker: the table is never left
+                            // empty, and a retried run clears any partial rows it inserted
+                            // before (see the inventory scraper for the same pattern).
+                            const fetchMarker = new Date().toISOString();
+                            for (const row of results) row.fetched_at = fetchMarker;
 
                             const BATCH_SIZE = 1000;
                             console.log(`Starting upload to Supabase in batches of ${BATCH_SIZE}...`);
-                            
+
                             for (let i = 0; i < results.length; i += BATCH_SIZE) {
                                 const batch = results.slice(i, i + BATCH_SIZE);
                                 const { error: insertError } = await supabase.from('tata_consumption_data').insert(batch);
                                 if (insertError) {
                                     console.error(`Error inserting batch ${i / BATCH_SIZE + 1}:`, insertError.message);
+                                    await supabase.from('tata_consumption_data').delete().eq('fetched_at', fetchMarker);
                                     throw insertError;
                                 } else {
                                     console.log(`Successfully inserted batch ${i / BATCH_SIZE + 1} (${batch.length} rows)`);
                                 }
                             }
+
+                            // Remove the superseded rows (everything not from this run).
+                            const { error: deleteError } = await supabase
+                                .from('tata_consumption_data')
+                                .delete()
+                                .neq('fetched_at', fetchMarker);
+                            if (deleteError) {
+                                throw new Error('Failed to clear old consumption rows: ' + deleteError.message);
+                            }
                             notify('Upload complete! File processed and deleted.');
-                            
+
                             // Clean up the downloaded file
                             try {
                                 fs.unlinkSync(downloadedFile);
@@ -408,7 +454,7 @@ async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
                     .on('error', reject);
             });
             totalRowsInserted += rowsCount;
-            
+
         } else {
             throw new Error('Download timed out or failed.');
         }

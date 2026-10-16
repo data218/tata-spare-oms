@@ -15,9 +15,11 @@ GRANT ALL ON TABLE "tata_locations" TO anon;
 GRANT ALL ON TABLE "tata_locations" TO authenticated;
 GRANT ALL ON TABLE "tata_locations" TO service_role;
 
--- Insert the initial Narwal credentials
-INSERT INTO "tata_locations" ("location_name", "username", "password")
-VALUES ('NARWAL', 'JS_3008420', 'Amsmam@2027');
+-- Example row only. Real Siebel usernames/passwords should be provided to the bot
+-- through the TATA_LOCATIONS_JSON environment variable, NOT stored here (this
+-- table is readable by anyone with the public anon key).
+-- INSERT INTO "tata_locations" ("location_name", "username", "password")
+-- VALUES ('NARWAL', '', '');
 
 -- Add last_sync to bot_settings if it doesn't exist
 INSERT INTO "tata_bot_settings" ("key", "value") 

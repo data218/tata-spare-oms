@@ -1,6 +1,8 @@
 // reorder.js
 // Handles intelligent Reorder Control Tower Logic
 
+import { escapeHtml, escapeJsAttr } from './escape.js';
+
 window.reorderData = [];
 window.reorderFiltered = [];
 window.roCurrentPage = 1;
@@ -559,17 +561,17 @@ function renderReorderTable() {
       tr.style.background = isChecked ? '#f8fafc' : 'white';
 
       tr.innerHTML = `
-        <td style="padding: 4px 6px; text-align: center;"><input type="checkbox" onchange="window.toggleReorderBasket('${r.id}'); this.closest('tr').style.background = this.checked ? '#f8fafc' : 'white';" ${isChecked}></td>
+        <td style="padding: 4px 6px; text-align: center;"><input type="checkbox" onchange="window.toggleReorderBasket('${escapeJsAttr(r.id)}'); this.closest('tr').style.background = this.checked ? '#f8fafc' : 'white';" ${isChecked}></td>
         <td style="padding: 4px 6px;">${badgeHtml}</td>
         <td style="padding: 4px 6px;">
-          <div style="font-weight: 600; font-size: 0.75rem;">${r.partNo}</div>
-          <div style="font-size: 0.65rem; color: var(--text-secondary); max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${r.description}">${r.description}</div>
+          <div style="font-weight: 600; font-size: 0.75rem;">${escapeHtml(r.partNo)}</div>
+          <div style="font-size: 0.65rem; color: var(--text-secondary); max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(r.description)}">${escapeHtml(r.description)}</div>
         </td>
         <td style="padding: 4px 6px;">
-          <span style="display: inline-block; font-size: 0.65rem; font-weight: 600; color: #9d174d; background: #fdf2f8; border: 1px solid #fbcfe8; border-radius: 2px; padding: 2px 6px; max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${r.category}">${r.category}</span>
+          <span style="display: inline-block; font-size: 0.65rem; font-weight: 600; color: #9d174d; background: #fdf2f8; border: 1px solid #fbcfe8; border-radius: 2px; padding: 2px 6px; max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(r.category)}">${escapeHtml(r.category)}</span>
         </td>
         <td style="padding: 4px 6px;">
-          <div style="font-size: 0.7rem; font-weight: 500;">${r.location}</div>
+          <div style="font-size: 0.7rem; font-weight: 500;">${escapeHtml(r.location)}</div>
         </td>
         <td style="padding: 4px 6px; text-align: right;">
           <div style="font-weight: ${r.currentStock === 0 ? '700' : '500'}; color: ${r.currentStock === 0 ? '#ef4444' : 'inherit'}; font-size: 0.75rem;">${r.currentStock.toLocaleString('en-IN')}</div>
@@ -582,7 +584,7 @@ function renderReorderTable() {
           <div style="font-size: 0.65rem; color: var(--text-secondary);">₹${r.value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
         </td>
         <td style="padding: 4px 6px; text-align: center;">
-          <button class="btn btn-outline" onclick="window.viewReorderReason(this)" data-reason="${encodeURIComponent(r.reason)}" data-part="${r.partNo}" data-desc="${encodeURIComponent(r.description)}" data-loc="${r.location}" style="padding: 4px 8px; font-size: 0.7rem; color: #3b82f6; border-color: #3b82f6;">View</button>
+          <button class="btn btn-outline" onclick="window.viewReorderReason(this)" data-reason="${encodeURIComponent(r.reason)}" data-part="${escapeHtml(r.partNo)}" data-desc="${encodeURIComponent(r.description)}" data-loc="${escapeHtml(r.location)}" style="padding: 4px 8px; font-size: 0.7rem; color: #3b82f6; border-color: #3b82f6;">View</button>
         </td>
       `;
       tbody.appendChild(tr);
@@ -648,7 +650,7 @@ function renderSupplierSummary() {
       const tr = document.createElement('tr');
       tr.style.borderBottom = '1px solid #f1f5f9';
       tr.innerHTML = `
-        <td style="padding: 8px 4px; font-weight: 600; color: #3b82f6; cursor: pointer;">${supp}</td>
+        <td style="padding: 8px 4px; font-weight: 600; color: #3b82f6; cursor: pointer;">${escapeHtml(supp)}</td>
         <td style="padding: 8px 4px; text-align: right; font-weight: 500;">${s.count.toLocaleString('en-IN')} parts</td>
         <td style="padding: 8px 4px; text-align: right; font-weight: 600;">${s.qty.toLocaleString('en-IN')}</td>
         <td style="padding: 8px 4px; text-align: right; font-weight: 700; color: var(--text-primary);">₹${s.value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
@@ -679,12 +681,12 @@ window.viewReorderReason = function(btn) {
         Recommendation Details
       </h3>
       <div style="margin-bottom: 16px; padding: 12px; background: #f8fafc; border-radius: 8px;">
-        <div style="font-weight: 700; font-size: 1.1rem; color: #0f172a;">${row.partNo}</div>
-        <div style="font-size: 0.9rem; color: #475569; margin-top: 2px;">${row.description}</div>
-        <div style="font-size: 0.75rem; color: #9d174d; margin-top: 4px; display: inline-block; background: #fdf2f8; border: 1px solid #fbcfe8; border-radius: 2px; padding: 2px 6px; font-weight: 600;">${row.category}</div>
+        <div style="font-weight: 700; font-size: 1.1rem; color: #0f172a;">${escapeHtml(row.partNo)}</div>
+        <div style="font-size: 0.9rem; color: #475569; margin-top: 2px;">${escapeHtml(row.description)}</div>
+        <div style="font-size: 0.75rem; color: #9d174d; margin-top: 4px; display: inline-block; background: #fdf2f8; border: 1px solid #fbcfe8; border-radius: 2px; padding: 2px 6px; font-weight: 600;">${escapeHtml(row.category)}</div>
         <div style="font-size: 0.85rem; color: #64748b; margin-top: 6px; display: flex; align-items: center; gap: 4px;">
           <i data-lucide="map-pin" style="width: 14px; height: 14px;"></i>
-          ${row.location} | ${row.supplier}
+          ${escapeHtml(row.location)} | ${escapeHtml(row.supplier)}
         </div>
       </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
@@ -735,11 +737,11 @@ window.viewReorderReason = function(btn) {
       </div>
       <div style="margin-bottom: 16px; padding: 12px; background: #f8fafc; border-radius: 8px;">
         <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 600;">Priority</div>
-        <div style="font-size: 1rem; font-weight: 700; color: ${row.priority === 'CRITICAL' ? '#ef4444' : row.priority === 'HIGH' ? '#f59e0b' : '#10b981'};">${row.priority}</div>
+        <div style="font-size: 1rem; font-weight: 700; color: ${row.priority === 'CRITICAL' ? '#ef4444' : row.priority === 'HIGH' ? '#f59e0b' : '#10b981'};">${escapeHtml(row.priority)}</div>
       </div>
       <div>
         <div style="font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Reasoning</div>
-        <p style="font-size:0.95rem;color:#334155;line-height:1.6;margin:0;">${row.reason}</p>
+        <p style="font-size:0.95rem;color:#334155;line-height:1.6;margin:0;">${escapeHtml(row.reason)}</p>
       </div>
     </div>
   `;

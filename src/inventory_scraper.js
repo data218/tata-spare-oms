@@ -26,7 +26,7 @@ const MONTH_CLOSING_ALERT_MESSAGE =
 // settle, leaving the whole run - and the dashboard - hanging forever. When this
 // fires we close the browser, which rejects the in-flight Puppeteer call so the
 // existing catch/finally below can move on to the next location.
-const SCRAPE_TIMEOUT_MS = 15 * 60 * 1000;
+const SCRAPE_TIMEOUT_MS = 25 * 60 * 1000;
 
 // Shared with the dashboard, which reads the `inventory_alert` row to show a
 // persistent banner. Passing null clears a stale alert.
@@ -93,9 +93,12 @@ async function fetchInventoryData(onProgress = null, targetLocation = 'ALL') {
         let reachedInventoryView = false;
         let optionUnavailable = false;
         const browser = await launchBrowser({
-            userDataDir: profileDir,
+            // Isolate each location in its own profile so one location's session
+            // cookies cannot bleed into the next location's login.
+            userDataDir: path.join(profileDir, location.location_name),
             args: [
-                '--window-size=1920,1080'
+                '--window-size=1920,1080',
+                '--disable-blink-features=AutomationControlled'
             ]
         });
         const page = await browser.newPage();
@@ -156,6 +159,28 @@ let botUser = location.username;
         notify('Submitting login credentials...');
         console.log('Submitting login credentials...');
         
+        // Siebel sometimes answers a login with a "Session Warning" page when the
+        // same user already has an active session (e.g. a previous run was killed
+        // before logging out). It offers to log the other session out; accept that
+        // so the login form appears.
+        async function dismissSessionWarning(page) {
+            try {
+                const clicked = await page.evaluate(() => {
+                    const candidates = Array.from(document.querySelectorAll('a, button, input[type="button"], input[type="submit"], input[type="radio"], td, div, span'));
+                    const target = candidates.find(el => {
+                        const t = (el.textContent || '').trim();
+                        return /continue|log ?out|log ?in|proceed|^ok$|^yes$|accept/i.test(t) && el.offsetParent !== null;
+                    });
+                    if (target) { target.click(); return (target.textContent || '').trim(); }
+                    return null;
+                });
+                if (clicked) notify(`Dismissed session warning via "${clicked}".`);
+                await new Promise(r => setTimeout(r, 3000));
+            } catch (e) {
+                notify('Could not dismiss session warning: ' + e.message);
+            }
+        }
+
         // Wait for the Siebel login form. It loads after a JS redirect chain, and
         // the portal occasionally stalls or sits behind a transient Cloudflare
         // screen, so re-navigate a few times before giving up (mirrors the retry
@@ -168,7 +193,12 @@ let botUser = location.username;
             } catch (e) {
                 const bodyText = await page.evaluate(() => (document.body ? document.body.innerText : '').replace(/\s+/g, ' ').trim().slice(0, 160)).catch(() => '');
                 const blocked = /just a moment|checking your browser|enable javascript and cookies|verify you are human/i.test(bodyText);
-                notify(`Login form not found (attempt ${loginAttempt}/3)${blocked ? ' - blocked by Cloudflare challenge' : ''}: ${bodyText || 'empty page'}`);
+                const sessionWarning = /session warning|another siebel session|session is currently active/i.test(bodyText);
+                if (sessionWarning) {
+                    notify('Siebel concurrent-session warning detected. Attempting to dismiss it...');
+                    await dismissSessionWarning(page);
+                }
+                notify(`Login form not found (attempt ${loginAttempt}/3)${blocked ? ' - blocked by Cloudflare challenge' : ''}${sessionWarning ? ' - session warning' : ''}: ${bodyText || 'empty page'}`);
                 if (loginAttempt < 3) {
                     await new Promise(r => setTimeout(r, 5000));
                     await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 90000 }).catch(() => {});
@@ -220,11 +250,21 @@ let botUser = location.username;
         
         // Take screenshot after login
         await page.screenshot({ path: scratch('debug_after_login.png') });
-        
-        // Final check if login failed
-        bodyText = await page.evaluate(() => document.body.innerText);
-        if (bodyText.includes('user ID or password that you entered is incorrect') || bodyText.includes('SBL-UIF-00272')) {
-            throw new Error(`Login failed for ${botUser}: Invalid credentials.`);
+
+        // Final check: if the login form is still present, the sign-in did not go
+        // through. The portal allows only one session per user, so a stale session
+        // (e.g. from an aborted run) leaves us on the login page. Detect that
+        // explicitly instead of assuming success and failing later during navigation.
+        const stillOnLogin = await page.$('input[name="SWEUserName"]');
+        if (stillOnLogin) {
+            const pageText = await page.evaluate(() => (document.body ? document.body.innerText : '').replace(/\s+/g, ' ').trim()).catch(() => '');
+            if (/concurrent|only one session|timed out session|improper logged out/i.test(pageText)) {
+                throw new Error(`Login blocked for ${botUser}: a concurrent Siebel session is active. The portal releases it after 15-20 min; make sure previous runs log out.`);
+            }
+            if (pageText.includes('user ID or password that you entered is incorrect') || pageText.includes('SBL-UIF-00272')) {
+                throw new Error(`Login failed for ${botUser}: Invalid credentials.`);
+            }
+            throw new Error(`Login failed for ${botUser}: still on the login page after submit. ${pageText.slice(0, 200)}`);
         }
 
         notify('Login successful. Navigating to Inventory report via Site Map...');
@@ -350,8 +390,13 @@ let botUser = location.username;
             if (page.url().includes('Auto+Home+Page+View')) return false;
             for (const frame of page.frames()) {
                 try {
-                    const ok = await frame.evaluate(() =>
-                        /Part #/.test(document.body.innerText) && /Spare Part Browser/.test(document.body.innerText));
+                    const ok = await frame.evaluate(() => {
+                        const t = document.body.innerText || '';
+                        // The Spares Inventory list applet is identified by its column
+                        // headers. "Spare Part Browser" is NOT present on this
+                        // deployment, so rely on the table headers instead.
+                        return (/Part\s*#/.test(t) && /Description/.test(t)) || /Spare Part Browser/.test(t);
+                    });
                     if (ok) return true;
                 } catch (e) {}
             }
@@ -415,7 +460,12 @@ let botUser = location.username;
 
         if (!reachedInventoryView) {
             optionUnavailable = true;
-            notify(`WARNING: Could not open the MIS Spares data option for ${location.location_name}.`);
+            notify(`WARNING: Could not open the MIS Spares data option for ${location.location_name}. Skipping export for this location.`);
+            // Short-circuit: without the report view there is nothing to export, so
+            // do not burn the next ~15 minutes clicking Go/Export on a dead page.
+            const skipErr = new Error(`MIS Spares report option not available for ${location.location_name}`);
+            skipErr.optionUnavailable = true;
+            throw skipErr;
         }
 
         // 4. Wait for report/applet to load
@@ -580,11 +630,12 @@ let botUser = location.username;
         
         notify('Waiting for file to download (handling popups if any)...');
         let downloadedFile = null;
-        const timeout = 480000; // 8 minutes (large exports take a while to build)
+        const timeout = 900000; // 15 minutes (large exports take a while to build)
         const start = Date.now();
         let settleTicks = 0;
         let best = null;      // largest completed download seen so far
         let nextClicks = 0;
+        let wizardDone = false; // true once the export wizard has no more "Next" steps
 
         // The portal prepares a large export incrementally, and each click while it
         // is still preparing returns only the part built so far (a truncated file).
@@ -619,22 +670,28 @@ let botUser = location.username;
         while (Date.now() - start < timeout) {
             const { found, inProgress } = scanNewFiles();
 
-            // 1. Keep driving the export wizard. The portal builds a large export
-            //    in stages and only serves the part prepared so far, so we prompt it
-            //    repeatedly and remember the biggest file it gives us.
-            if (!inProgress && nextClicks < 200) {
+            // 1. Drive the export/pagination wizard to completion. The portal serves
+            //    a large export one page per "Next" click, so we must keep clicking
+            //    until there is no more "Next" — only then is the export complete.
+            if (!inProgress && nextClicks < 1000) {
                 try {
                     const clicked = await robustClickText(['Next', 'NEXT', 'next', 'Next >', '>>'], false);
                     if (clicked) {
                         nextClicks++;
+                        wizardDone = false;
                         notify('Found and clicked Next button on the popup!');
                         await new Promise(r => setTimeout(r, 2000));
+                    } else {
+                        wizardDone = true; // no more "Next" → every page fetched
                     }
                 } catch(e) {}
+            } else if (nextClicks >= 1000) {
+                wizardDone = true; // safety cap: accept whatever the portal produced
             }
 
-            // 2. Track the largest completed file; accept once it stops growing so
-            //    we never parse a partial export.
+            // 2. Accept only once the wizard is done (or the file has been stable a
+            //    long while) AND the file ends cleanly, so we never parse a partial
+            //    export.
             if (found.length && !inProgress) {
                 found.sort((a, b) => b.size - a.size);
                 const largest = found[0];
@@ -645,7 +702,9 @@ let botUser = location.username;
                 } else {
                     settleTicks++;
                 }
-                if (best && settleTicks >= 8) {
+                // Accept when the wizard finished (8s stable) or after a long
+                // stability window (30s) in case a stale "Next" lingers.
+                if (best && ((wizardDone && settleTicks >= 8) || settleTicks >= 30)) {
                     // A truncated export stops mid-row; a complete one ends with a
                     // newline. Only accept a file that looks whole, otherwise keep
                     // driving the portal until a complete export arrives.
@@ -656,7 +715,7 @@ let botUser = location.username;
                         const tail = Buffer.alloc(Math.min(4, size));
                         fs.readSync(fd, tail, 0, tail.length, Math.max(0, size - tail.length));
                         fs.closeSync(fd);
-                        endsCleanly = tail.includes(0x0a); // last byte is \n or \r
+                        endsCleanly = tail.includes(0x0a) || tail.includes(0x0d); // last byte is \n or \r
                     } catch { /* if we cannot read it, do not block on this */ }
 
                     if (!endsCleanly) {
@@ -674,13 +733,24 @@ let botUser = location.username;
             } else {
                 settleTicks = 0;
             }
+
+            // Disk hygiene: the portal re-downloads the export on every "Next"
+            // click, so delete every new file except the largest (the candidate
+            // export). Without this a large export can fill the temp disk.
+            if (best) {
+                for (const f of found) {
+                    if (f.full !== best.full && f.size <= best.size) {
+                        try { fs.unlinkSync(f.full); } catch {}
+                    }
+                }
+            }
             await new Promise(r => setTimeout(r, 1000));
         }
         
         if (!downloadedFile) {
-            notify('WARNING: Download timed out after 2 minutes. This usually means there are 0 records available for this location. Skipping.');
+            notify('WARNING: Download timed out after 15 minutes with no export file. Treating this as a failed export (it will be retried), not as an empty report.');
             await page.screenshot({ path: scratch('debug_download_failed.png') });
-            throw new Error('No records available or download failed');
+            throw new Error(`DOWNLOAD_TIMEOUT: no export file arrived for ${location.location_name}`);
         }
         
         if (downloadedFile) {
@@ -706,6 +776,8 @@ let botUser = location.username;
         const rowsCount = await new Promise((resolve, reject) => {
             csvStream.pipe(parser)
                     .on('data', (data) => {
+                        // Skip blank/footer lines the CSV parser emits as all-empty rows.
+                        if (Object.values(data).every(v => v === null || v === undefined || String(v).trim() === '')) return;
                         const firstKey = Object.keys(data)[0];
                         
                         const val = (key, alt1, alt2) => data[key] || (alt1 ? data[alt1] : null) || (alt2 ? data[alt2] : null);
@@ -747,28 +819,44 @@ let botUser = location.username;
 
                             notify(`Finished parsing CSV for ${location.location_name}. Found ${results.length} rows. Replacing existing rows for this location...`);
 
-                            // Only clear this location's rows now that we know we have real
-                            // replacement data, so a failed download can never wipe the table.
-                            const { error: deleteError } = await supabase
-                                .from('tata_spare_inventory')
-                                .delete()
-                                .eq('division', location.location_name);
-                            if (deleteError) {
-                                throw new Error('Failed to clear old rows for ' + location.location_name + ': ' + deleteError.message);
-                            }
+                            // Insert-first upload with a unique fetch marker so the table is
+                            // never left empty: the old rows are removed only after the new
+                            // ones are safely stored. A retried run also clears any partial
+                            // rows a previous attempt may have inserted, so duplicates can
+                            // never accumulate.
+                            const fetchMarker = new Date().toISOString();
+                            for (const row of results) row.fetched_at = fetchMarker;
 
                             const BATCH_SIZE = 1000;
                             console.log(`Starting upload to Supabase in batches of ${BATCH_SIZE}...`);
-                            
+
                             for (let i = 0; i < results.length; i += BATCH_SIZE) {
                                 const batch = results.slice(i, i + BATCH_SIZE);
                                 const { error: insertError } = await supabase.from('tata_spare_inventory').insert(batch);
                                 if (insertError) {
                                     console.error(`Error inserting batch ${i / BATCH_SIZE + 1}:`, insertError.message);
+                                    // Remove any rows this attempt already inserted so a retry
+                                    // cannot leave partial duplicates behind.
+                                    await supabase.from('tata_spare_inventory')
+                                        .delete()
+                                        .eq('division', location.location_name)
+                                        .eq('fetched_at', fetchMarker);
                                     throw insertError;
                                 } else {
                                     console.log(`Successfully inserted batch ${i / BATCH_SIZE + 1} (${batch.length} rows)`);
                                 }
+                            }
+
+                            // Delete the superseded rows (everything for this location that
+                            // does not carry this run's marker). If this fails, the next
+                            // retry's marker-based delete removes the leftovers automatically.
+                            const { error: deleteError } = await supabase
+                                .from('tata_spare_inventory')
+                                .delete()
+                                .eq('division', location.location_name)
+                                .neq('fetched_at', fetchMarker);
+                            if (deleteError) {
+                                throw new Error('Failed to clear old rows for ' + location.location_name + ': ' + deleteError.message);
                             }
                             notify(`Upload complete for ${location.location_name}! File processed and deleted.`);
                             
@@ -797,13 +885,13 @@ let botUser = location.username;
 
     } catch (error) {
         console.error(`An error occurred during scraping for ${location.location_name}:`, error);
-        if (error.message && error.message.includes('No records available')) {
-            optionUnavailable = true;
-            notify(`Finished ${location.location_name}: No inventory records found.`);
+        if (error && error.optionUnavailable) {
+            // The report menu itself was not available (e.g. month-end close).
+            notify(`Skipped ${location.location_name}: the MIS Spares option was not available.`);
         } else {
-            // A genuine failure (login, navigation, download). Remember it so a
-            // single-location job is reported as failed and retried by the worker
-            // instead of being silently marked "done" with 0 rows.
+            // A genuine failure (login, navigation, download, upload). Remember it so
+            // the job is reported as failed and retried instead of being silently
+            // marked "done" with 0 rows.
             lastLocationError = error;
             notify(`ERROR: ${location.location_name} failed due to: ${error.message}`);
         }
@@ -811,6 +899,13 @@ let botUser = location.username;
     } finally {
         clearTimeout(watchdog);
         if (browser) {
+            // Release the Siebel session so the next run for this user is not
+            // blocked by the one-session-per-user restriction.
+            try {
+                const logoutPage = await browser.newPage();
+                await logoutPage.goto('https://carsdms.inservices.tatamotors.com/siebel/app/workspace_enu?SWECmd=LogOut', { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
+                await logoutPage.close();
+            } catch (e) {}
             console.log('Closing browser...');
             try { await browser.close(); } catch (e) {}
         }
@@ -819,10 +914,12 @@ let botUser = location.username;
         if (optionUnavailable) unavailableLocations.push(location.location_name);
     } // End of locations loop
 
-    // A single-location job that produced no rows because of a real error (as
-    // opposed to a genuinely empty report, which is handled above) is surfaced so
-    // the worker retries the unit instead of reporting a misleading success.
-    if (!anyRowsParsed && lastLocationError && locations.length === 1) {
+    // A run that produced no rows because of a real error (as opposed to a
+    // genuinely empty report, which is handled above) is surfaced so the worker
+    // retries instead of reporting a misleading success. Applies to single- and
+    // multi-location runs alike: if nothing succeeded and something failed, the
+    // run failed.
+    if (!anyRowsParsed && lastLocationError) {
         throw lastLocationError;
     }
 

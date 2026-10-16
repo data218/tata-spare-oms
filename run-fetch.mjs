@@ -109,6 +109,22 @@ async function main() {
   const [arg = 'all', fromArg, toArg] = process.argv.slice(2);
   const window = trailingDays(30);
 
+  // Refuse to start (and clobber) a run the permanent worker is already executing.
+  const { data: existing } = await supabase
+    .from('tata_bot_settings').select('value').eq('key', JOB_KEY).maybeSingle();
+  if (existing?.value) {
+    try {
+      const cur = JSON.parse(existing.value);
+      const active = cur.status === 'processing' &&
+        Array.isArray(cur.queue?.units) &&
+        cur.queue.units.some((u) => u.status === 'running');
+      if (active) {
+        console.error('A sync job is already running (started by the worker). Aborting to avoid clobbering it.');
+        process.exit(0);
+      }
+    } catch { /* unparseable row: safe to overwrite */ }
+  }
+
   const units = [];
   if (arg === 'consumption' || arg === 'all') {
     units.push({ kind: 'consumption', location: 'ALL', fromDate: fromArg || window.from, toDate: toArg || window.to });
@@ -139,7 +155,8 @@ async function main() {
     if (await runUnit(unit)) ok += 1;
   }
 
-  currentJob.status = ok === units.length ? 'done' : 'failed';
+  currentJob.status = ok === units.length ? 'completed' : 'failed';
+  currentJob.finishedAt = new Date().toISOString();
   currentJob.logs += `${new Date().toISOString()} - Local runner finished: ${ok} of ${units.length} unit(s) succeeded.\n`;
   await setJob(currentJob);
 

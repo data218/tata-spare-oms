@@ -1,4 +1,5 @@
 import { supabase } from './supabase.js';
+import { escapeHtml } from './escape.js';
 
 export let claimsData = [];
 window.claimsCurrentPage = 1;
@@ -579,19 +580,19 @@ function renderClaimsTable(searchQuery = '') {
     
     if (window.claimsEditModeId === c.id) {
       tr.innerHTML = `
-        <td><input type="text" style="width:100%; box-sizing:border-box; padding:4px;" id="edit-dealer" value="${c.dealer_name || ''}"></td>
-        <td><input type="text" style="width:100%; box-sizing:border-box; padding:4px;" id="edit-invoice" value="${c.invoice_number || ''}"></td>
-        <td><input type="text" style="width:100%; box-sizing:border-box; padding:4px;" id="edit-req-action" value="${c.requested_action || ''}"></td>
-        <td><input type="text" style="width:100%; box-sizing:border-box; padding:4px;" id="edit-part-no" value="${c.part_number || ''}"></td>
-        <td><input type="text" style="width:100%; box-sizing:border-box; padding:4px;" id="edit-part-desc" value="${c.part_description || ''}"></td>
-        <td><input type="text" style="width:100%; box-sizing:border-box; padding:4px;" id="edit-issue-type" value="${c.type_of_issue || ''}"></td>
-        <td><input type="text" style="width:100%; box-sizing:border-box; padding:4px;" id="edit-issue-desc" value="${c.other_issue_details || c.detailed_description || ''}"></td>
-        <td><input type="text" style="width:100%; box-sizing:border-box; padding:4px;" id="edit-remarks" value="${c.remarks || ''}"></td>
+        <td><input type="text" style="width:100%; box-sizing:border-box; padding:4px;" id="edit-dealer" value="${escapeHtml(c.dealer_name || '')}"></td>
+        <td><input type="text" style="width:100%; box-sizing:border-box; padding:4px;" id="edit-invoice" value="${escapeHtml(c.invoice_number || '')}"></td>
+        <td><input type="text" style="width:100%; box-sizing:border-box; padding:4px;" id="edit-req-action" value="${escapeHtml(c.requested_action || '')}"></td>
+        <td><input type="text" style="width:100%; box-sizing:border-box; padding:4px;" id="edit-part-no" value="${escapeHtml(c.part_number || '')}"></td>
+        <td><input type="text" style="width:100%; box-sizing:border-box; padding:4px;" id="edit-part-desc" value="${escapeHtml(c.part_description || '')}"></td>
+        <td><input type="text" style="width:100%; box-sizing:border-box; padding:4px;" id="edit-issue-type" value="${escapeHtml(c.type_of_issue || '')}"></td>
+        <td><input type="text" style="width:100%; box-sizing:border-box; padding:4px;" id="edit-issue-desc" value="${escapeHtml(c.other_issue_details || c.detailed_description || '')}"></td>
+        <td><input type="text" style="width:100%; box-sizing:border-box; padding:4px;" id="edit-remarks" value="${escapeHtml(c.remarks || '')}"></td>
         <td><input type="date" style="width:100%; box-sizing:border-box; padding:4px;" id="edit-recv-date" value="${c.part_received_date ? c.part_received_date.split('T')[0] : ''}"></td>
         <td><input type="date" style="width:100%; box-sizing:border-box; padding:4px;" id="edit-claim-date" value="${c.claim_request_date ? c.claim_request_date.split('T')[0] : ''}"></td>
-        <td><input type="text" style="width:100%; box-sizing:border-box; padding:4px;" id="edit-claim-no" value="${c.claim_number || ''}"></td>
+        <td><input type="text" style="width:100%; box-sizing:border-box; padding:4px;" id="edit-claim-no" value="${escapeHtml(c.claim_number || '')}"></td>
         <td>${calculateGap(c.part_received_date, c.claim_request_date)}</td>
-        <td><input type="number" style="width:100%; box-sizing:border-box; padding:4px;" id="edit-amount" value="${c.amount || ''}"></td>
+        <td><input type="number" style="width:100%; box-sizing:border-box; padding:4px;" id="edit-amount" value="${escapeHtml(c.amount || '')}"></td>
         <td>
           <button class="btn-save primary-btn" style="padding:4px 8px; font-size:0.8rem; margin-right:4px;">Save</button>
           <button class="btn-cancel secondary-btn" style="padding:4px 8px; font-size:0.8rem;">Cancel</button>
@@ -636,14 +637,14 @@ function renderClaimsTable(searchQuery = '') {
       
     } else {
       tr.innerHTML = `
-        <td>${toProperText(c.dealer_name)}</td>
-        <td>${toProperText(c.invoice_number)}</td>
-        <td>${toProperText(c.requested_action)}</td>
-        <td>${toProperText(c.part_number)}</td>
-        <td>${toProperText(c.part_description)}</td>
-        <td>${toProperText(c.type_of_issue)}</td>
-        <td>${toProperText(c.other_issue_details || c.detailed_description)}</td>
-        <td>${toProperText(c.remarks)}</td>
+        <td>${escapeHtml(toProperText(c.dealer_name))}</td>
+        <td>${escapeHtml(toProperText(c.invoice_number))}</td>
+        <td>${escapeHtml(toProperText(c.requested_action))}</td>
+        <td>${escapeHtml(toProperText(c.part_number))}</td>
+        <td>${escapeHtml(toProperText(c.part_description))}</td>
+        <td>${escapeHtml(toProperText(c.type_of_issue))}</td>
+        <td>${escapeHtml(toProperText(c.other_issue_details || c.detailed_description))}</td>
+        <td>${escapeHtml(toProperText(c.remarks))}</td>
         <td>${c.part_received_date ? new Date(c.part_received_date).toLocaleDateString() : '-'}</td>
         <td>${c.claim_request_date ? new Date(c.claim_request_date).toLocaleDateString() : '-'}</td>
         <td>${toProperText(c.claim_number)}</td>
@@ -710,7 +711,7 @@ function renderPivotDealer() {
     row.innerHTML = `
       <div style="display: flex; gap: 10px; align-items: center; padding: 6px 12px; border-right: 1px solid #f1f5f9;">
         <span style="color: #94a3b8; font-size: 0.75rem;">${index + 1}..</span>
-        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${key}</span>
+        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(key)}</span>
       </div>
       <div style="position: relative; text-align: center; display: flex; align-items: center; justify-content: center; height: 100%; padding: 6px 12px; border-right: 1px solid #f1f5f9;">
         <div style="position: absolute; left: 0; top: 0; bottom: 0; width: ${countPct}%; background-color: ${getHeatmapColor(countPct)}; z-index: 1;"></div>
@@ -764,7 +765,7 @@ function renderPivotIssue() {
     row.innerHTML = `
       <div style="display: flex; gap: 10px; align-items: center; justify-content: center; padding: 6px 12px; border-right: 1px solid #f1f5f9; position: relative;">
         <span style="color: #94a3b8; font-size: 0.75rem; position: absolute; left: 12px;">${index + 1}..</span>
-        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;">${key}</span>
+        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;">${escapeHtml(key)}</span>
       </div>
       <div style="position: relative; text-align: center; display: flex; align-items: center; justify-content: center; height: 100%; padding: 6px 12px; border-right: 1px solid #f1f5f9;">
         <div style="position: absolute; left: 0; top: 0; bottom: 0; width: ${countPct}%; background-color: ${getHeatmapColor(countPct)}; z-index: 1;"></div>
@@ -820,7 +821,7 @@ function renderPivotAction() {
     row.innerHTML = `
       <div style="display: flex; gap: 10px; align-items: center; justify-content: center; padding: 6px 12px; border-right: 1px solid #f1f5f9; position: relative;">
         <span style="color: #94a3b8; font-size: 0.75rem; position: absolute; left: 12px;">${index + 1}.</span>
-        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;">${key}</span>
+        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;">${escapeHtml(key)}</span>
       </div>
       
       <!-- Record Count -->

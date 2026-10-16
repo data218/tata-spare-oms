@@ -28,6 +28,7 @@ ALTER TABLE "tata_locations" ALTER COLUMN "password" DROP NOT NULL;
 -- -- Optional, once nothing reads the columns anymore:
 -- ALTER TABLE "tata_locations" DROP COLUMN "password";
 
--- 3. Verify no plaintext secrets remain:
--- SELECT key FROM "tata_bot_settings" WHERE value = 'Amsmam@2027';
+-- 3. Verify no plaintext secrets remain (adjust the string to whatever was once
+--    stored, then check it matches nothing):
+-- SELECT key FROM "tata_bot_settings" WHERE value LIKE '%@%';
 -- SELECT location_name FROM "tata_locations" WHERE password <> '';

@@ -1,5 +1,7 @@
 // management_dashboard.js
 
+import { escapeHtml } from './escape.js';
+
 // This overrides the original renderDashboardAnalytics in main.js
 window.renderDashboardAnalytics = function() {
   if (!window.originalProcessedParts || window.originalProcessedParts.length === 0) return;
@@ -87,7 +89,7 @@ window.renderDashboardAnalytics = function() {
       const st = locationStats[loc];
       locTable.innerHTML += `
         <tr style="border-bottom: 1px solid #f1f5f9;">
-          <td style="padding: 10px 4px; font-weight: 500; color: #0f172a;">${loc}</td>
+          <td style="padding: 10px 4px; font-weight: 500; color: #0f172a;">${escapeHtml(loc)}</td>
           <td style="padding: 10px 4px; text-align: right; color: #0f172a; font-weight: 500;">₹${Math.round(st.invValue).toLocaleString('en-IN')}</td>
           <td style="padding: 10px 4px; text-align: right; color: ${st.criticalCount > 0 ? '#ef4444' : '#10b981'}; font-weight: 500;">${st.criticalCount}</td>
           <td style="padding: 10px 4px; text-align: right; color: #64748b;">₹${Math.round(st.nonMovingValue).toLocaleString('en-IN')}</td>
@@ -103,8 +105,8 @@ window.renderDashboardAnalytics = function() {
     criticalExceptions.slice(0, 15).forEach(c => {
       critTable.innerHTML += `
         <tr style="border-bottom: 1px solid #f1f5f9;">
-          <td style="padding: 10px 4px; color: #3b82f6; font-weight: 600;">${c.partId}</td>
-          <td style="padding: 10px 4px;">${c.location}</td>
+          <td style="padding: 10px 4px; color: #3b82f6; font-weight: 600;">${escapeHtml(c.partId)}</td>
+          <td style="padding: 10px 4px;">${escapeHtml(c.location)}</td>
           <td style="padding: 10px 4px; text-align: right; font-weight: 700; color: #ef4444;">${c.stock}</td>
           <td style="padding: 10px 4px; text-align: right; color: #64748b; font-weight: 600;">${c.min}</td>
         </tr>
@@ -172,7 +174,7 @@ window.renderDashboardAnalytics = function() {
      window.reorderData.forEach(r => {
         if (r.recQty > 0) {
            roCount++;
-           roValue += r.recQty * (parseFloat(r.cost) || 0);
+           roValue += Number(r.value) || 0;
         }
      });
      if (document.getElementById('mgmt-ro-critical')) document.getElementById('mgmt-ro-critical').textContent = roCount;

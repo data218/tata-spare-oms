@@ -2,6 +2,7 @@ import './movement_entry.js';
 import './management_dashboard.js';
 import { supabase } from './supabase.js';
 import { initClaims } from './claims.js';
+import { escapeHtml, escapeJsAttr } from './escape.js';
 
 // Initialize Lucide Icons
 lucide.createIcons();
@@ -154,7 +155,17 @@ window.applyAccessControls = applyAccessControls;
 function checkSession() {
   const session = sessionStorage.getItem('currentUser');
   if (session) {
-    const user = JSON.parse(session);
+    let user = {};
+    try {
+      user = JSON.parse(session) || {};
+    } catch {
+      sessionStorage.removeItem('currentUser');
+      return;
+    }
+    if (!user || !user.username) {
+      sessionStorage.removeItem('currentUser');
+      return;
+    }
     if (loginPage) loginPage.classList.remove('active');
     if (dashboardPage) dashboardPage.classList.add('active');
 
@@ -295,7 +306,7 @@ const tableFilterConfigs = {
     getRows: () => (window.rawInventoryData && window.rawInventoryData.consumption) || [],
     fields: {
       'Date': 'date', 'Location': 'division', 'Part No.': 'part_no',
-      'Description': 'part_desc', 'Qty': 'sold_qty', 'Value (Γé╣)': 'value'
+      'Description': 'part_desc', 'Qty': 'sold_qty', 'Value (₹)': 'value'
     },
     render: (rows) => { window.tableFilterData['recent-activity-table'] = rows; renderRecentActivity(); }
   },
@@ -842,9 +853,6 @@ document.addEventListener('click', (e) => {
   trackFilterDropdown(div, th);
   placeFilterDropdown(div, th);
 
-  // Escape HTML in values to prevent quote breakage
-  const escapeHtml = (str) => String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-
   // --- Numeric columns: min/max range instead of a value checklist ---
   if (isNumericColumn(tableId, key)) {
     const nums = sourceRows.map(r => getNumericValue(r, key, tableId));
@@ -1114,13 +1122,22 @@ if (loginFormElement) {
     submitBtn.textContent = 'Signing in...';
     submitBtn.disabled = true;
 
-    // Local authentication check
-    const users = JSON.parse(localStorage.getItem('dashboardUsers')) || [
-      { id: 1, username: 'admin', password: 'password', role: 'Super Admin', location: 'ALL' },
-      { id: 2, username: 'JS_3008420', password: 'secret', role: 'User', location: 'ALL' }
-    ];
-    
-    const user = users.find(u => u.username === usernameInput && u.password === passwordInput);
+    // Local authentication check. No hardcoded fallback account: on first run an
+    // admin is created with a random password (logged to the console once).
+    let users = [];
+    try {
+      users = JSON.parse(localStorage.getItem('dashboardUsers')) || [];
+    } catch {
+      users = [];
+    }
+    if (!Array.isArray(users) || users.length === 0) {
+      const initialPassword = Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
+      users = [{ id: 1, username: 'admin', password: initialPassword, role: 'Super Admin', location: 'ALL' }];
+      localStorage.setItem('dashboardUsers', JSON.stringify(users));
+      console.warn(`Tata OMS first-run admin created — username: admin  password: ${initialPassword}  (change it in Settings).`);
+    }
+
+    const user = users.find(u => (u.username === usernameInput || u.id.toString() === usernameInput) && u.password === passwordInput);
     
     setTimeout(() => {
       submitBtn.textContent = originalText;
@@ -1284,8 +1301,8 @@ async function loadLocations() {
       row.style.border = '1px solid #e2e8f0';
       
       row.innerHTML = `
-        <div style="flex: 1; font-weight: 500;">${loc.location_name}</div>
-        <div style="flex: 1; color: #475569;">${loc.username || ''}</div>
+        <div style="flex: 1; font-weight: 500;">${escapeHtml(loc.location_name)}</div>
+        <div style="flex: 1; color: #475569;">${escapeHtml(loc.username || '')}</div>
         <button class="delete-loc-btn" data-id="${loc.id}" style="background: none; border: none; color: #ef4444; cursor: pointer; padding: 4px;">
           <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
         </button>
@@ -1355,7 +1372,7 @@ function showLocationAlert(type, message) {
   toast.innerHTML = `
     <div class="tata-location-alert-icon"><i data-lucide="${icon}"></i></div>
     <div>
-      <div class="tata-location-alert-title">${label}: ${message}</div>
+      <div class="tata-location-alert-title">${label}: ${escapeHtml(message)}</div>
       <div class="tata-location-alert-close">&times;</div>
     </div>`;
   toast.style.background = type === 'error' ? '#fee2e2' : '#dcfce7';
@@ -1744,8 +1761,13 @@ function filterByDateRange(data, dateField, range) {
 
 async function fetchInventoryData() {
   try {
-    const sessionStr = sessionStorage.getItem('currentUser') || '{}';
-    const currentUser = JSON.parse(sessionStr);
+    const sessionStr = sessionStorage.getItem('currentUser');
+    let currentUser = {};
+    try {
+      currentUser = sessionStr ? JSON.parse(sessionStr) || {} : {};
+    } catch {
+      currentUser = {};
+    }
     const userLocation = currentUser.location || 'ALL';
     const isAdmin = currentUser.role === 'Super Admin' || currentUser.role === 'Admin' || userLocation === 'ALL';
     const filter = isAdmin ? null : userLocation;
@@ -2053,12 +2075,12 @@ function calculateRequirements(parts) {
     if (available < part.min) kpis.critical++;
 
     // AI Reason String
-    const aiReason = `<strong>Part ${part.partId} — Order ${orderQty} units</strong><br><br>
+    const aiReason = `<strong>Part ${escapeHtml(part.partId)} — Order ${orderQty} units</strong><br><br>
       Current available: ${available}<br>
       6-month consumption: ${consumption6m} (avg ~${Math.round(avgDailyConsumption*30)}/month)<br>
-      Open demand: ${part.demand}<br>
+      Open demand: ${escapeHtml(String(part.demand))}<br>
       Safety stock (14 days): ${safetyStock}<br>
-      In-transit: ${part.inTransit}<br>
+      In-transit: ${escapeHtml(String(part.inTransit))}<br>
       Supplier lead time: ${leadTime} days<br><br>
       <strong>Reason:</strong> ${orderQty > 0 ? 'Available stock is insufficient to cover current demand and safety stock after considering confirmed incoming stock.' : 'Current inventory and incoming stock are sufficient to meet demand and maintain safety thresholds.'}`;
 
@@ -2082,8 +2104,8 @@ async function checkMissingDataAlerts() {
       <div style="display: flex; align-items: center; gap: 12px;">
         <i data-lucide="alert-triangle" style="color: #ef4444; width: 22px; height: 22px;"></i>
         <div>
-          <h4 style="margin: 0; color: #ef4444; font-size: 0.95rem; font-weight: 600;">${title}</h4>
-          <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.85rem;">${message}${locations && locations.length ? ' (Locations: ' + locations.join(', ') + ')' : ''}</p>
+          <h4 style="margin: 0; color: #ef4444; font-size: 0.95rem; font-weight: 600;">${escapeHtml(title)}</h4>
+          <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.85rem;">${escapeHtml(message)}${locations && locations.length ? ' (Locations: ' + escapeHtml(locations.join(', ')) + ')' : ''}</p>
         </div>
       </div>`;
 
@@ -2195,7 +2217,7 @@ function lastUpdatedRow(label, timestamp, count) {
     : '';
   return `
     <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 0.85rem;">
-      <span style="color: #475569; font-weight: 600;">${label}</span>
+      <span style="color: #475569; font-weight: 600;">${escapeHtml(label)}</span>
       <span style="display: inline-flex; align-items: baseline; gap: 10px; white-space: nowrap;">
         ${countHtml}
         <span style="color: ${color}; font-weight: 700; white-space: nowrap;">${value}</span>
@@ -2574,7 +2596,7 @@ function renderInventoryAnalytics() {
       data: {
         labels,
         datasets: [{
-          label: isHorizontal ? 'Part No.' : 'Value (Γé╣)',
+          label: isHorizontal ? 'Part No.' : 'Value (₹)',
           data,
           backgroundColor: color,
           borderRadius: 4
@@ -2588,13 +2610,13 @@ function renderInventoryAnalytics() {
           legend: { display: false },
           tooltip: {
             callbacks: {
-              label: (c) => formatMoney ? 'Γé╣' + Number(c.parsed.x !== undefined ? c.parsed.x : c.parsed.y).toLocaleString('en-IN', { maximumFractionDigits: 0 }) : String(c.parsed.y !== undefined ? c.parsed.y : c.parsed.x)
+              label: (c) => formatMoney ? '₹' + Number(c.parsed.x !== undefined ? c.parsed.x : c.parsed.y).toLocaleString('en-IN', { maximumFractionDigits: 0 }) : String(c.parsed.y !== undefined ? c.parsed.y : c.parsed.x)
             }
           }
         },
         scales: {
           x: { ticks: { font: { size: 10 } }, grid: { display: false } },
-          y: { beginAtZero: true, ticks: { font: { size: 10 }, callback: (v) => formatMoney ? 'Γé╣' + v.toLocaleString('en-IN', { notation: 'compact' }) : v } }
+          y: { beginAtZero: true, ticks: { font: { size: 10 }, callback: (v) => formatMoney ? '₹' + v.toLocaleString('en-IN', { notation: 'compact' }) : v } }
         }
       }
     });
@@ -2641,12 +2663,12 @@ function renderRecentActivity() {
   recentCons.forEach(c => {
      const tr = document.createElement('tr');
      tr.innerHTML = `
-       <td style="padding:12px 16px; border-bottom:1px solid var(--border-color); font-size:0.85rem;">${c.date || c.fetched_at?.slice(0,10) || '-'}</td>
-       <td style="padding:12px 16px; border-bottom:1px solid var(--border-color); font-size:0.85rem;">${c.division || 'ALL'}</td>
-       <td style="padding:12px 16px; border-bottom:1px solid var(--border-color); font-size:0.85rem;">${c.part_no || c.part_number || 'Unknown'}</td>
-       <td style="padding:12px 16px; border-bottom:1px solid var(--border-color); font-size:0.85rem;">${c.part_desc || '-'}</td>
+       <td style="padding:12px 16px; border-bottom:1px solid var(--border-color); font-size:0.85rem;">${escapeHtml(c.date || c.fetched_at?.slice(0,10) || '-')}</td>
+       <td style="padding:12px 16px; border-bottom:1px solid var(--border-color); font-size:0.85rem;">${escapeHtml(c.division || 'ALL')}</td>
+       <td style="padding:12px 16px; border-bottom:1px solid var(--border-color); font-size:0.85rem;">${escapeHtml(c.part_no || c.part_number || 'Unknown')}</td>
+       <td style="padding:12px 16px; border-bottom:1px solid var(--border-color); font-size:0.85rem;">${escapeHtml(c.part_desc || '-')}</td>
        <td style="padding:12px 16px; border-bottom:1px solid var(--border-color); font-size:0.85rem; text-align:center;">${c.sold_qty || 0}</td>
-       <td style="padding:12px 16px; border-bottom:1px solid var(--border-color); font-size:0.85rem; text-align:right;">Γé╣${(Number(c.value) || 0).toLocaleString('en-IN', {maximumFractionDigits: 0})}</td>
+       <td style="padding:12px 16px; border-bottom:1px solid var(--border-color); font-size:0.85rem; text-align:right;">₹${(Number(c.value) || 0).toLocaleString('en-IN', {maximumFractionDigits: 0})}</td>
      `;
      tbody.appendChild(tr);
   }); 
@@ -2685,8 +2707,8 @@ function _renderTablePage_internal() {
   pageItems.forEach(part => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${part.partId}</td>
-      <td title="${part.model}">${part.model}</td>
+      <td>${escapeHtml(part.partId)}</td>
+      <td title="${escapeHtml(part.model)}">${escapeHtml(part.model)}</td>
       <td>${part.currentStock}</td>
       <td>${part.reserved}</td>
       <td>${part.available}</td>
@@ -2695,7 +2717,7 @@ function _renderTablePage_internal() {
       <td>${part.demand}</td>
       <td>${part.netRequirement}</td>
       <td>${part.orderQty}</td>
-      <td><span class="status-badge ${part.status.class}">${part.status.text}</span></td>
+      <td><span class="status-badge ${part.status.class}">${escapeHtml(part.status.text)}</span></td>
       <td><button class="ai-btn" data-reason="${encodeURIComponent(part.aiReason)}" title="View AI Insights"><i data-lucide="bar-chart-2"></i></button></td>
     `;
     tbody.appendChild(tr);
@@ -2892,10 +2914,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
   // --- Dashboard User Management Logic ---
-  let dashboardUsers = JSON.parse(localStorage.getItem('dashboardUsers')) || [
-    { id: 1, username: 'admin', password: 'password', role: 'Super Admin', location: 'ALL' },
-    { id: 2, username: 'manager1', password: 'password', role: 'Manager', location: 'SUPWAL' }
-  ];
+  let dashboardUsers = [];
+  try {
+    dashboardUsers = JSON.parse(localStorage.getItem('dashboardUsers')) || [];
+  } catch {
+    dashboardUsers = [];
+  }
+  if (!Array.isArray(dashboardUsers) || dashboardUsers.length === 0) {
+    const initialPassword = Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
+    dashboardUsers = [{ id: 1, username: 'admin', password: initialPassword, role: 'Super Admin', location: 'ALL' }];
+    localStorage.setItem('dashboardUsers', JSON.stringify(dashboardUsers));
+  }
   
   function saveUsers() {
     localStorage.setItem('dashboardUsers', JSON.stringify(dashboardUsers));
@@ -2913,12 +2942,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${user.id}</td>
-        <td><strong>${user.username}</strong></td>
-        <td style="font-family: monospace; color: #475569;">${user.password || 'N/A'}</td>
-        <td><span class="status-badge ${user.role === 'Super Admin' || user.role === 'Admin' ? 'purple' : 'blue'}">${user.role}</span></td>
-        <td><span class="status-badge" style="background:#e2e8f0; color:#475569;">${user.location || 'ALL'}</span></td>
+        <td><strong>${escapeHtml(user.username)}</strong></td>
+        <td style="font-family: monospace; color: #475569;">${user.password ? '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022' : 'N/A'}</td>
+        <td><span class="status-badge ${user.role === 'Super Admin' || user.role === 'Admin' ? 'purple' : 'blue'}">${escapeHtml(user.role)}</span></td>
+        <td><span class="status-badge" style="background:#e2e8f0; color:#475569;">${escapeHtml(user.location || 'ALL')}</span></td>
         <td style="text-align: right;">
-          <button class="btn-change-pwd" data-id="${user.id}" data-username="${user.username}" style="background:none; border:none; cursor:pointer; color: #f59e0b; margin-right: 8px;" title="Change Password"><i data-lucide="key"></i></button>
+          <button class="btn-change-pwd" data-id="${user.id}" data-username="${escapeHtml(user.username)}" style="background:none; border:none; cursor:pointer; color: #f59e0b; margin-right: 8px;" title="Change Password"><i data-lucide="key"></i></button>
           <button class="btn-delete-user" data-id="${user.id}" style="background:none; border:none; cursor:pointer; color: #ef4444;" title="Delete User"><i data-lucide="trash-2"></i></button>
         </td>
       `;
@@ -3343,10 +3372,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const tr = document.createElement('tr');
         tr.style.borderBottom = '1px solid var(--border-color)';
         tr.innerHTML = `
-          <td style="padding: 8px 12px; font-weight: 500;">${part.partId}</td>
-          <td style="padding: 8px 12px; color: var(--text-secondary);">${part.model}</td>
-          <td style="padding: 8px 12px;">${part.location}</td>
-          <td style="padding: 8px 12px;">${part.productCategory || 'TATA'}</td>
+          <td style="padding: 8px 12px; font-weight: 500;">${escapeHtml(part.partId)}</td>
+          <td style="padding: 8px 12px; color: var(--text-secondary);">${escapeHtml(part.model)}</td>
+          <td style="padding: 8px 12px;">${escapeHtml(part.location)}</td>
+          <td style="padding: 8px 12px;">${escapeHtml(part.productCategory || 'TATA')}</td>
           <td style="padding: 8px 12px; text-align: right; color: #10b981; font-weight: 500;">₹${(part.ndpPrice || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
           <td style="padding: 8px 12px; text-align: right; font-weight: 600;">${part.currentStock}</td>
           <td style="padding: 8px 12px; text-align: right; font-weight: 600; color: #3b82f6;">₹${(part.stockValue || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
@@ -3679,9 +3708,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const tr = document.createElement('tr');
         tr.style.borderBottom = '1px solid var(--border-color)';
         tr.innerHTML = `
-          <td style="padding: 8px 12px; font-weight: 500;">${part.partId}</td>
-          <td style="padding: 8px 12px; color: var(--text-secondary);">${part.model}</td>
-          <td style="padding: 8px 12px;">${part.location || 'Narwal'}</td>
+          <td style="padding: 8px 12px; font-weight: 500;">${escapeHtml(part.partId)}</td>
+          <td style="padding: 8px 12px; color: var(--text-secondary);">${escapeHtml(part.model)}</td>
+          <td style="padding: 8px 12px;">${escapeHtml(part.location || 'Narwal')}</td>
           <td style="padding: 8px 12px; text-align: center;">${part.currentStock || 0}</td>
           <td style="padding: 8px 12px; text-align: center; color: var(--purple); font-weight: 500;">${part.inTransit || 0}</td>
           <td style="padding: 8px 12px; text-align: center;">${Math.round((part.consumption6m || 0) / 6)}/mo</td>
@@ -3869,7 +3898,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
       } catch (err) {
-        monthlyCanvas.parentElement.innerHTML = `<div style="color:red; padding:10px; font-size:12px; overflow:auto;">Monthly Error: ${err.message}</div>`;
+        monthlyCanvas.parentElement.innerHTML = `<div style="color:red; padding:10px; font-size:12px; overflow:auto;">Monthly Error: ${escapeHtml(err.message)}</div>`;
       }
     }
 
@@ -3986,7 +4015,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
       } catch (err) {
-        btypeCanvas.parentElement.innerHTML = `<div style="color:red; padding:10px; font-size:12px; overflow:auto;">BillingType Error: ${err.message}</div>`;
+        btypeCanvas.parentElement.innerHTML = `<div style="color:red; padding:10px; font-size:12px; overflow:auto;">BillingType Error: ${escapeHtml(err.message)}</div>`;
       }
     }
   };
@@ -4079,16 +4108,16 @@ document.addEventListener('DOMContentLoaded', () => {
         
         tr.innerHTML = `
           <td style="padding: 6px 8px; font-weight: 500; text-align: center; font-size: 0.7rem;">#${rank}</td>
-          <td style="padding: 6px 8px; font-weight: 600;"><span style="background: rgba(139, 92, 246, 0.1); color: #8b5cf6; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="calendar" style="width: 12px; height: 12px;"></i>${monthYear}</span></td>
-          <td style="padding: 6px 8px; font-weight: 500; white-space: nowrap; font-size: 0.7rem;">${partNo}</td>
-          <td style="padding: 6px 8px; color: var(--text-secondary); max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.7rem;" title="${part.part_desc || ''}">${part.part_desc || '-'}</td>
+          <td style="padding: 6px 8px; font-weight: 600;"><span style="background: rgba(139, 92, 246, 0.1); color: #8b5cf6; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="calendar" style="width: 12px; height: 12px;"></i>${escapeHtml(monthYear)}</span></td>
+          <td style="padding: 6px 8px; font-weight: 500; white-space: nowrap; font-size: 0.7rem;">${escapeHtml(partNo)}</td>
+          <td style="padding: 6px 8px; color: var(--text-secondary); max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.7rem;" title="${escapeHtml(part.part_desc || '')}">${escapeHtml(part.part_desc || '-')}</td>
           <td style="padding: 6px 8px; text-align: center; font-weight: bold; color: var(--text-primary);"><span style="background: rgba(59, 130, 246, 0.1); color: #3b82f6; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">${part.sold_qty || 0}</span></td>
           <td style="padding: 6px 8px; text-align: right; color: var(--text-primary); font-weight: 600; font-size: 0.7rem;">₹${(Number(part.value)||0).toLocaleString('en-IN')}</td>
           <td style="padding: 6px 8px; text-align: right; color: var(--text-secondary); font-size: 0.7rem;">₹${ndp.toLocaleString('en-IN')}</td>
           <td style="padding: 6px 8px; text-align: right; color: var(--text-secondary); font-size: 0.7rem;">₹${(Number(part.tax_amount)||0).toLocaleString('en-IN')}</td>
-          <td style="padding: 6px 8px; text-align: center;"><span style="background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16,185,129,0.2); padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; white-space: nowrap;">${part.billing_type || '-'}</span></td>
-          <td style="padding: 6px 8px; text-align: center;"><span style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245,158,11,0.2); padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; white-space: nowrap;">${part.order_type || '-'}</span></td>
-          <td style="padding: 6px 8px; text-align: center;"><span style="color: var(--text-secondary); font-size: 0.7rem; font-weight: 500;">${part.mode_of_payment || '-'}</span></td>
+          <td style="padding: 6px 8px; text-align: center;"><span style="background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16,185,129,0.2); padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; white-space: nowrap;">${escapeHtml(part.billing_type || '-')}</span></td>
+          <td style="padding: 6px 8px; text-align: center;"><span style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245,158,11,0.2); padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; white-space: nowrap;">${escapeHtml(part.order_type || '-')}</span></td>
+          <td style="padding: 6px 8px; text-align: center;"><span style="color: var(--text-secondary); font-size: 0.7rem; font-weight: 500;">${escapeHtml(part.mode_of_payment || '-')}</span></td>
           <td style="padding: 6px 8px; text-align: center;">${trendHtml}</td>
         `;
         tbody.appendChild(tr);
@@ -4756,10 +4785,10 @@ window._renderPPNI_internal = function() {
       const tr = document.createElement('tr');
       tr.style.borderBottom = '1px solid var(--border-color)';
       tr.innerHTML = `
-        <td style="padding: 4px 8px; font-size: 0.85rem; font-weight: 500;">${part.partId}</td>
-        <td style="padding: 4px 8px; font-size: 0.85rem; color: var(--text-secondary);">${part.model}</td>
-        <td style="padding: 4px 8px; font-size: 0.85rem;">${part.location || 'Narwal'}</td>
-        <td style="padding: 4px 8px; font-size: 0.85rem;">${part.productCategory || 'N/A'}</td>
+        <td style="padding: 4px 8px; font-size: 0.85rem; font-weight: 500;">${escapeHtml(part.partId)}</td>
+        <td style="padding: 4px 8px; font-size: 0.85rem; color: var(--text-secondary);">${escapeHtml(part.model)}</td>
+        <td style="padding: 4px 8px; font-size: 0.85rem;">${escapeHtml(part.location || 'Narwal')}</td>
+        <td style="padding: 4px 8px; font-size: 0.85rem;">${escapeHtml(part.productCategory || 'N/A')}</td>
         <td style="padding: 4px 8px; font-size: 0.85rem;"><span class="h-badge ${badgeClass}">${ageText}</span></td>
         <td style="padding: 4px 8px; font-size: 0.85rem;">${lrText}</td>
         <td style="padding: 4px 8px; font-size: 0.85rem; text-align: center; font-weight: bold;">${part.currentStock}</td>
@@ -4803,11 +4832,6 @@ window._renderPPNI_internal = function() {
     }
   }
 };
-
-
-window.ppniLocationChartInstance = null;
-window.ppniYearChartInstance = null;
-window.ppniMonthChartInstance = null;
 
 
 window.ppniLocationChartInstance = null;
@@ -5035,14 +5059,14 @@ function renderPriceList(page = 0) {
   
   let html = '';
   pageData.forEach(p => {
-    html += `<tr data-part="${p.part_number}">
-      <td class="font-medium">${p.part_number}</td>
-      <td>${p.description || '-'}</td>
-      <td><span class="status-badge status-good">${p.category || '-'}</span></td>
+    html += `<tr data-part="${escapeHtml(p.part_number)}">
+      <td class="font-medium">${escapeHtml(p.part_number)}</td>
+      <td>${escapeHtml(p.description || '-')}</td>
+      <td><span class="status-badge status-good">${escapeHtml(p.category || '-')}</span></td>
       <td style="text-align: right; font-weight: bold;">₹${Number(p.ndp || 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
       <td style="text-align: right; display: flex; justify-content: flex-end; gap: 8px;">
-        <button class="btn-edit-price" style="padding: 6px 12px; font-size: 0.75rem; font-weight: 500; background-color: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.backgroundColor='#2563eb'" onmouseout="this.style.backgroundColor='#3b82f6'" data-part="${p.part_number}" data-ndp="${p.ndp}">Edit</button>
-        <button class="btn-remove-price" style="padding: 6px 12px; font-size: 0.75rem; font-weight: 500; background-color: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.backgroundColor='#dc2626'" onmouseout="this.style.backgroundColor='#ef4444'" data-part="${p.part_number}">Remove</button>
+        <button class="btn-edit-price" style="padding: 6px 12px; font-size: 0.75rem; font-weight: 500; background-color: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.backgroundColor='#2563eb'" onmouseout="this.style.backgroundColor='#3b82f6'" data-part="${escapeHtml(p.part_number)}" data-ndp="${escapeHtml(p.ndp)}">Edit</button>
+        <button class="btn-remove-price" style="padding: 6px 12px; font-size: 0.75rem; font-weight: 500; background-color: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.backgroundColor='#dc2626'" onmouseout="this.style.backgroundColor='#ef4444'" data-part="${escapeHtml(p.part_number)}">Remove</button>
       </td>
     </tr>`;
   });
