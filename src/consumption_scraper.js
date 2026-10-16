@@ -23,18 +23,29 @@ async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
         throw new Error("fromDate and toDate are required.");
     }
 
-    notify('Fetching master credentials from Supabase...');
-    const { data: settings, error: setErr } = await supabase.from('tata_bot_settings').select('*');
-    if (setErr) throw new Error('Failed to fetch settings from Supabase');
+    // Credentials are read from environment variables first. This is the
+    // recommended setup because it keeps the Tata BI password out of any table
+    // the browser (anon key) can read. The database is only used as a legacy
+    // fallback so existing installs keep working until they migrate.
+    let masterUsername = process.env.TATA_BI_USERNAME;
+    let masterPassword = process.env.TATA_BI_PASSWORD;
 
-    const uRow = settings.find(r => r.key === 'master_username' || r.key === 'tata_bi_username');
-    const pRow = settings.find(r => r.key === 'master_password' || r.key === 'tata_bi_password');
-    
-    if (!uRow || !pRow) {
-        throw new Error('Master credentials not found in tata_bot_settings table. Please save Tata BI Portal Credentials in Settings.');
+    if (!masterUsername || !masterPassword) {
+        notify('TATA_BI_USERNAME/TATA_BI_PASSWORD not set; falling back to Supabase credentials...');
+        const { data: settings, error: setErr } = await supabase.from('tata_bot_settings').select('*');
+        if (setErr) throw new Error('Failed to fetch settings from Supabase');
+
+        const uRow = settings.find(r => r.key === 'master_username' || r.key === 'tata_bi_username');
+        const pRow = settings.find(r => r.key === 'master_password' || r.key === 'tata_bi_password');
+        if (uRow) masterUsername = masterUsername || uRow.value;
+        if (pRow) masterPassword = masterPassword || pRow.value;
     }
-    
-    const location = { location_name: 'Master', username: uRow.value, password: pRow.value };
+
+    if (!masterUsername || !masterPassword) {
+        throw new Error('Tata BI credentials not found. Set TATA_BI_USERNAME and TATA_BI_PASSWORD in the server environment (recommended), or save them in Settings.');
+    }
+
+    const location = { location_name: 'Master', username: masterUsername, password: masterPassword };
 
     notify('Consumption refresh starting (existing rows are kept until new data is parsed).');
 

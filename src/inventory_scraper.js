@@ -50,10 +50,32 @@ async function fetchInventoryData(onProgress = null, targetLocation = 'ALL') {
         console.log(msg);
         if (onProgress) onProgress(msg);
     };
-    notify('Fetching locations from Supabase...');
-    let { data: locations, error: locError } = await supabase.from('tata_locations').select('*');
-    if (locError) {
-        throw new Error('Failed to fetch locations: ' + locError.message);
+    // Locations + credentials come from TATA_LOCATIONS_JSON when set. This is
+    // the recommended setup because it keeps the Siebel location passwords out
+    // of the anon-readable tata_locations table (only the browser needs location
+    // NAMES, which can stay in Supabase). Falls back to the database otherwise.
+    // Format: TATA_LOCATIONS_JSON='[{"location_name":"NARWAL","username":"..","password":".."}]'
+    let locations;
+    if (process.env.TATA_LOCATIONS_JSON) {
+        notify('Using location credentials from TATA_LOCATIONS_JSON (server-side).');
+        try {
+            const parsed = JSON.parse(process.env.TATA_LOCATIONS_JSON);
+            if (!Array.isArray(parsed)) throw new Error('expected a JSON array');
+            locations = parsed.map(l => ({
+                location_name: String(l.location_name || '').toUpperCase().trim(),
+                username: l.username,
+                password: l.password
+            }));
+        } catch (e) {
+            throw new Error('TATA_LOCATIONS_JSON is invalid: ' + e.message);
+        }
+    } else {
+        notify('Fetching locations from Supabase...');
+        const { data, error: locError } = await supabase.from('tata_locations').select('*');
+        if (locError) {
+            throw new Error('Failed to fetch locations: ' + locError.message);
+        }
+        locations = data || [];
     }
     
     if (targetLocation && targetLocation !== 'ALL') {

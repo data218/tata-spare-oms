@@ -1583,20 +1583,14 @@
                         <input type="text" id="tata-username" required="" style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px;" placeholder="e.g. JS_3008420">
                       </div>
                       
-                      <div style="margin-bottom: 24px;">
-                        <label style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--text-primary);">TATA Password</label>
-                        <div style="position: relative; display: flex; align-items: center;">
-                          <input type="password" id="tata-password" required="" style="width: 100%; padding: 10px; padding-right: 36px; border: 1px solid var(--border-color); border-radius: 6px;" placeholder="Enter new password">
-                          <button type="button" id="toggle-tata-password" style="position: absolute; right: 8px; background: transparent; border: none; cursor: pointer; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; padding: 4px;" title="Toggle Password Visibility">
-                            <i data-lucide="eye" style="width: 16px; height: 16px;"></i>
-                          </button>
-                        </div>
-                      </div>
+                      <p style="color: var(--text-secondary); font-size: 0.9rem; margin: 0 0 16px 0;">
+                        For security, the Tata BI <strong>password is configured on the server</strong> (environment variable <code>TATA_BI_PASSWORD</code>) and is never stored in the database or shown here.
+                      </p>
                       
                       <button type="submit" class="btn-primary" style="display: flex; align-items: center; gap: 8px;">
-                        <i data-lucide="save"></i> Save Credentials
+                        <i data-lucide="save"></i> Save Username
                       </button>
-                      <div id="settings-msg" style="margin-top: 12px; color: #10b981; font-weight: 500; display: none;">Credentials updated securely!</div>
+                      <div id="settings-msg" style="margin-top: 12px; color: #10b981; font-weight: 500; display: none;">Username saved!</div>
                     </form>
                   </div>
                 </div><div class="settings-card" style="background: var(--card-bg); border-radius: 8px; padding: 14px; border: 1px solid var(--border-color); width: 100%; margin-bottom: 20px;">
@@ -1623,19 +1617,13 @@
                     <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.85rem;">Username</label>
                     <input type="text" id="loc-username" style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px;" required="">
                   </div>
-                  <div style="flex: 1;">
-                    <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.85rem;">Password</label>
-                    <div style="position: relative; display: flex; align-items: center;">
-                      <input type="password" id="loc-password" style="width: 100%; padding: 8px; padding-right: 30px; border: 1px solid var(--border-color); border-radius: 4px;" required="">
-                      <button type="button" id="toggle-loc-password" style="position: absolute; right: 5px; background: transparent; border: none; cursor: pointer; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; padding: 4px;" title="Toggle Password Visibility">
-                        <i data-lucide="eye" style="width: 16px; height: 16px;"></i>
-                      </button>
-                    </div>
-                  </div>
                   <button type="submit" style="background: #3b82f6; color: white; border: none; padding: 9px 12px; border-radius: 4px; cursor: pointer;">
                     <i data-lucide="plus"></i>
                   </button>
                 </form>
+                <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 10px;">
+                  Passwords are configured on the server (environment variable <code>TATA_LOCATIONS_JSON</code>) and are never stored in the database.
+                </p>
               </div>
             </div><div class="settings-card" style="background: var(--card-bg); border-radius: 8px; padding: 14px; border: 1px solid var(--border-color); max-width: 500px; margin-bottom: 20px;">
               <div class="settings-header" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">

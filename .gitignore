@@ -25,6 +25,7 @@ dist-ssr
 
 .vercel
 .env*
+!.env.example
 
 # Puppeteer profile - contains session cookies / login data, never commit
 chrome-profile/

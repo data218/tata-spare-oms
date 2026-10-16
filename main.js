@@ -1264,7 +1264,7 @@ async function loadLocations() {
   if (!locList) return;
 
   try {
-    const { data, error } = await supabase.from('tata_locations').select('*');
+    const { data, error } = await supabase.from('tata_locations').select('id, location_name, username');
     if (error) throw error;
     
     locList.innerHTML = '';
@@ -1285,8 +1285,7 @@ async function loadLocations() {
       
       row.innerHTML = `
         <div style="flex: 1; font-weight: 500;">${loc.location_name}</div>
-        <div style="flex: 1; color: #475569;">${loc.username}</div>
-        <div style="flex: 1; color: #475569;">••••••••</div>
+        <div style="flex: 1; color: #475569;">${loc.username || ''}</div>
         <button class="delete-loc-btn" data-id="${loc.id}" style="background: none; border: none; color: #ef4444; cursor: pointer; padding: 4px;">
           <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
         </button>
@@ -1370,29 +1369,14 @@ function showLocationAlert(type, message) {
 // --- Master Credentials Logic ---
 const credForm = document.getElementById('tata-credentials-form');
 const tataUserInput = document.getElementById('tata-username');
-const tataPassInput = document.getElementById('tata-password');
-const toggleTataPassBtn = document.getElementById('toggle-tata-password');
-
-if (toggleTataPassBtn && tataPassInput) {
-  toggleTataPassBtn.addEventListener('click', () => {
-    if (tataPassInput.type === 'password') {
-      tataPassInput.type = 'text';
-      toggleTataPassBtn.innerHTML = '<i data-lucide="eye-off" style="width: 16px; height: 16px;"></i>';
-    } else {
-      tataPassInput.type = 'password';
-      toggleTataPassBtn.innerHTML = '<i data-lucide="eye" style="width: 16px; height: 16px;"></i>';
-    }
-    lucide.createIcons();
-  });
-}
 
 async function loadMasterCredentials() {
-  if (!tataUserInput || !tataPassInput) return;
+  if (!tataUserInput) return;
   try {
+    // Only the (non-secret) username is read back. The password lives in the
+    // server environment and is deliberately never fetched into the browser.
     const { data: userRow } = await supabase.from('tata_bot_settings').select('value').eq('key', 'master_username').single();
-    const { data: passRow } = await supabase.from('tata_bot_settings').select('value').eq('key', 'master_password').single();
-    if (userRow) tataUserInput.value = userRow.value;
-    if (passRow) tataPassInput.value = passRow.value;
+    if (userRow && tataUserInput) tataUserInput.value = userRow.value;
   } catch (err) {
     console.error('Error loading master credentials:', err);
   }
@@ -1409,8 +1393,7 @@ if (credForm) {
     
     try {
       await supabase.from('tata_bot_settings').upsert([
-        { key: 'master_username', value: tataUserInput.value },
-        { key: 'master_password', value: tataPassInput.value }
+        { key: 'master_username', value: tataUserInput.value }
       ], { onConflict: 'key' });
       
       const msg = document.getElementById('settings-msg');
@@ -1430,21 +1413,6 @@ if (credForm) {
 }
 
 const addLocForm = document.getElementById('add-location-form');
-const toggleLocPassBtn = document.getElementById('toggle-loc-password');
-const locPassInput = document.getElementById('loc-password');
-
-if (toggleLocPassBtn && locPassInput) {
-  toggleLocPassBtn.addEventListener('click', () => {
-    if (locPassInput.type === 'password') {
-      locPassInput.type = 'text';
-      toggleLocPassBtn.innerHTML = '<i data-lucide="eye-off" style="width: 16px; height: 16px;"></i>';
-    } else {
-      locPassInput.type = 'password';
-      toggleLocPassBtn.innerHTML = '<i data-lucide="eye" style="width: 16px; height: 16px;"></i>';
-    }
-    lucide.createIcons();
-  });
-}
 
 if (addLocForm) {
   addLocForm.addEventListener('submit', async (e) => {
@@ -1454,10 +1422,11 @@ if (addLocForm) {
     
     const locName = document.getElementById('loc-name').value.trim().toUpperCase();
     const username = document.getElementById('loc-username').value;
-    const password = document.getElementById('loc-password').value;
     
     try {
-      await supabase.from('tata_locations').insert({ location_name: locName, username, password });
+      // Only the location name/username are stored here. The Siebel password is
+      // configured server-side (TATA_LOCATIONS_JSON) and never written to the DB.
+      await supabase.from('tata_locations').insert({ location_name: locName, username, password: '' });
       addLocForm.reset();
       loadLocations();
     } catch (err) {
@@ -1645,7 +1614,7 @@ if (fetchForm) {
                   }
               }
           } catch(e) { console.error('Polling error', e); }
-      }, 1000);
+      }, 3000);
           
     } catch (err) {
       console.error('Error fetching data:', err);
