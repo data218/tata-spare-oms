@@ -264,14 +264,28 @@ async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
         }
         if (!foundExport) console.log('WARNING: Could not find Export button');
 
-        console.log('Clicking Data...');
-        let foundData = false;
-        for(let i = 0; i < 10; i++) {
-            foundData = await robustClick('Data');
-            if (foundData) break;
-            await new Promise(r => setTimeout(r, 1000));
+        // Oracle BI opens the "Data" export submenu on mouseover, not click: its
+        // anchor is onclick="return false;" with onmouseover="saw.menuItemMouseOver(...)".
+        // A plain click therefore leaves the format list hidden, and the CSV entry
+        // (offsetParent === null) can never be matched by visible text. Hover it
+        // open, then fire the CSV export link via its Format=csv handler directly.
+        console.log('Opening Export > Data submenu...');
+        for (const frame of [page, ...page.frames()]) {
+            try {
+                const hovered = await frame.evaluate(() => {
+                    const els = Array.from(document.querySelectorAll('a, td, span, div'));
+                    const dataItem = els.find(el =>
+                        /idDownloadDataMenu/i.test(el.getAttribute('onmouseover') || '') &&
+                        (el.textContent || '').trim() === 'Data');
+                    if (!dataItem) return false;
+                    dataItem.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+                    dataItem.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+                    return true;
+                });
+                if (hovered) break;
+            } catch (e) {}
         }
-        if (!foundData) console.log('WARNING: Could not find Data button');
+        await new Promise(r => setTimeout(r, 1000));
 
         console.log('Clicking CSV...');
         let foundCSV = false;
@@ -283,7 +297,23 @@ async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
             filesBeforeDownload2 = new Set(fs.readdirSync(userDownloadsPath));
         }
         for(let i = 0; i < 10; i++) {
-            foundCSV = await robustClick('CSV');
+            for (const frame of [page, ...page.frames()]) {
+                try {
+                    const clicked = await frame.evaluate(() => {
+                        // Primary: the CSV download link, identified by Format=csv in its
+                        // onclick (Tab-Delimited also ends in Extension=.csv, so match Format).
+                        const anchors = Array.from(document.querySelectorAll('a'));
+                        const csvLink = anchors.find(a => /Format=csv[&"']/i.test(a.getAttribute('onclick') || ''));
+                        if (csvLink) { csvLink.click(); return 'handler'; }
+                        // Fallback: any element labelled exactly "CSV".
+                        const all = Array.from(document.querySelectorAll('a, span, div, td, button, input[type="button"]'));
+                        const byText = all.find(el => (el.textContent || '').trim() === 'CSV');
+                        if (byText) { byText.click(); return 'text'; }
+                        return false;
+                    });
+                    if (clicked) { foundCSV = true; break; }
+                } catch (e) {}
+            }
             if (foundCSV) break;
             await new Promise(r => setTimeout(r, 1000));
         }
