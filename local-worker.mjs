@@ -55,7 +55,7 @@ process.on('exit', () => { try { fs.unlinkSync(LOCK_FILE); } catch { /* ignore *
 
 const JOB_KEY        = 'fetch_job';
 const MAX_LOG_CHARS  = 40_000;
-const POLL_MS        = 5 * 60 * 1000; // slow safety poll; Realtime drives the fast path
+const POLL_MS        = 30 * 1000;     // primary pickup path; Realtime is a bonus when the table is in the realtime publication
 const STALE_UNIT_MS  = 8 * 60 * 1000; // treat a "running" unit as stale only after a full inventory export could have finished
 const MAX_UNIT_ATTEMPTS = 3;          // give up on a unit after this many tries
 const MAX_JOB_REVIVALS  = 3;          // never revive a failed job more than this many times
