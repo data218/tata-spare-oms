@@ -155,6 +155,12 @@ async function processQueue() {
   const { job, raw } = await readJob();
   if (!job || !job.queue || !Array.isArray(job.queue.units)) return;
 
+  // A local runner (run-fetch.mjs, driven by Task Scheduler) owns the job while
+  // its status is "running" — the mirror of run-fetch's own guard, which watches
+  // for the worker ("processing" + a running unit). Never scrape alongside it:
+  // two logins at once trip the Tata portal's concurrent-session limit.
+  if (job.status === 'running') return;
+
   // ── Reset jobs that Vercel may have touched but could never run ──────────
   // The API only queues; if a job was marked failed/done without the local
   // worker finishing it, re-arm the unfinished units. A revival counter and a
