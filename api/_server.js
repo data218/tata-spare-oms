@@ -148,7 +148,7 @@ async function unitsForSpec(spec) {
 // run is re-armed instead of being silently skipped: otherwise a user could not
 // re-fetch a location until the whole run ended. Units that are still pending or
 // running are left untouched so we never double-run a live scrape.
-async function startOrMergeJob(spec) {
+export async function startOrMergeJob(spec) {
   const units = await unitsForSpec(spec);
   const { job, raw } = await readJobRaw();
 
@@ -215,7 +215,7 @@ async function healFinishedJob() {
   return job;
 }
 
-function enqueueDailySpec() {
+export function enqueueDailySpec() {
   const today = new Date();
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);

@@ -4,9 +4,13 @@
 
 .DESCRIPTION
   Vercel's shared egress IPs are blocked by the Cloudflare layer in front of the
-  Tata BI portal, so the serverless /api/sync can never load the login page. This
-  wrapper runs run-fetch.mjs on a machine whose network the portal allows, and
-  publishes progress to the same Supabase row the dashboard reads.
+  Tata BI portal, so the serverless /api/sync can never load the login page. The
+  actual scraping is done by local-worker.mjs (running 24/7 on this machine).
+
+  This task does NOT scrape. At the scheduled time it runs enqueue-daily.mjs,
+  which only writes a `pending` job into the same Supabase row the dashboard
+  reads. Because that is the SAME queue a manual "Fetch" uses, the daily run and
+  any manual fetch are merged by the single worker and never collide.
 
   Run this once to register a daily 05:00 task:
 
@@ -17,7 +21,7 @@
     powershell -ExecutionPolicy Bypass -File run-fetch-scheduled.ps1 -Unregister
 
 .PARAMETER Time
-  Time of day to run, 24h HH:mm. Defaults to 05:00.
+  Time of day to run, 24h HH:mm. Defaults to 10:00.
 
 .PARAMETER Register
   Create the scheduled task.
@@ -32,9 +36,7 @@ param(
   [string]$Time = '10:00',
   [switch]$Register,
   [switch]$Unregister,
-  [switch]$Status,
-  [ValidateSet('all', 'consumption', 'inventory')]
-  [string]$Target = 'all'
+  [switch]$Status
 )
 
 $ErrorActionPreference = 'Stop'
@@ -75,15 +77,15 @@ if ($Time -notmatch '^([01]\d|2[0-3]):([0-5]\d)$') {
 }
 
 $node = (Get-Command node -ErrorAction Stop).Source
-$script = Join-Path $RepoRoot 'run-fetch.mjs'
+$script = Join-Path $RepoRoot 'enqueue-daily.mjs'
 if (-not (Test-Path $script)) { throw "Cannot find $script" }
 
 # Node is invoked directly rather than through cmd.exe: wrapping a path with spaces
 # in cmd /c "..." strips the inner quotes and node then tries to load a module whose
-# name ends in a stray quote. run-fetch.mjs writes logs/log-YYYY-MM-DD.log itself.
+# name ends in a stray quote. enqueue-daily.mjs appends to logs/fetch-YYYY-MM-DD.log.
 $action = New-ScheduledTaskAction `
   -Execute $node `
-  -Argument "`"$script`" $Target" `
+  -Argument "`"$script`"" `
   -WorkingDirectory $RepoRoot
 
 $trigger = New-ScheduledTaskTrigger -Daily -At $Time
@@ -96,12 +98,12 @@ $settings = New-ScheduledTaskSettingsSet `
   -AllowStartIfOnBatteries
 
 Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings `
-  -Description 'Fetches Tata BI consumption and inventory data into Supabase.' -Force | Out-Null
+  -Description 'Queues the daily Tata BI consumption + inventory fetch; the local worker executes it.' -Force | Out-Null
 
-Write-Host "Registered '$TaskName' to run daily at $Time."
+Write-Host "Registered '$TaskName' to queue the daily fetch at $Time."
 Write-Host "  node    : $node"
 Write-Host "  script  : $script"
-Write-Host "  target  : $Target"
 Write-Host '  logs    : logs\fetch-YYYY-MM-DD.log'
 Write-Host 'The machine must be on and connected to the network at that time.'
 Write-Host 'If it was off, the task runs at the next sign-in (StartWhenAvailable).'
+Write-Host 'The local worker (local-worker.mjs) must be running to execute the queued job.'
