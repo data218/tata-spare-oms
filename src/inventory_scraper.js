@@ -634,13 +634,31 @@ let botUser = location.username;
         const start = Date.now();
         let settleTicks = 0;
         let best = null;      // largest completed download seen so far
+        let stableSince = Date.now(); // when the candidate last stopped growing
         let nextClicks = 0;
         let wizardDone = false; // true once the export wizard has no more "Next" steps
+        const NO_EXPORT_TIMEOUT = 300000; // 5 min with no export file at all
+        const TRUNCATED_GRACE = 45000; // accept a stable file after 45s even without a trailing newline
 
-        // The portal prepares a large export incrementally, and each click while it
-        // is still preparing returns only the part built so far (a truncated file).
-        // So we keep prompting the popup, remember the LARGEST file seen, and only
-        // accept once that size stops growing - i.e. the full export is ready.
+        // We also watch the user's real Downloads folder (the portal's download does
+        // not always land in downloadPath), and that folder collects whatever else
+        // the user saves while a fetch is running. Only a NEW file that starts with
+        // the inventory report header may be treated as the export - otherwise an
+        // unrelated download gets mistaken for the report and stalls this loop.
+        const looksLikeExport = (full) => {
+            if (/\.(xlsx|xlsm|xlsb|zip|7z|rar|pdf|png|jpe?g|gif|bmp|docx?|pptx?|mp[34]|exe|msi|json|html?)$/i.test(full)) return false;
+            try {
+                const fd = fs.openSync(full, 'r');
+                const head = Buffer.alloc(4096);
+                const n = fs.readSync(fd, head, 0, head.length, 0);
+                fs.closeSync(fd);
+                if (n < 4) return false;
+                const asUtf16 = head.subarray(0, n - (n % 2)).toString('utf16le');
+                const asUtf8 = head.subarray(0, n).toString('utf8');
+                return /part\s*(#|number|no\b)/i.test(asUtf16) || /part\s*(#|number|no\b)/i.test(asUtf8);
+            } catch { return false; }
+        };
+
         const scanNewFiles = () => {
             const found = [];
             let inProgress = false;
@@ -659,6 +677,7 @@ let botUser = location.username;
                 for (const f of files) {
                     if (oldFiles.has(f) || f.endsWith('.crdownload') || f.endsWith('.tmp')) continue;
                     const full = path.join(dir, f);
+                    if (!looksLikeExport(full)) continue;
                     let size = 0;
                     try { size = fs.statSync(full).size; } catch { continue; }
                     found.push({ full, size });
@@ -670,23 +689,31 @@ let botUser = location.username;
         while (Date.now() - start < timeout) {
             const { found, inProgress } = scanNewFiles();
 
-            // 1. Drive the export/pagination wizard to completion. The portal serves
-            //    a large export one page per "Next" click, so we must keep clicking
-            //    until there is no more "Next" — only then is the export complete.
-            if (!inProgress && nextClicks < 1000) {
+            // Fail fast when the portal produced nothing at all: surface it as an
+            // app/login problem instead of blocking the queue for 15 minutes, so the
+            // operator can go straight to Settings > Manual Upload.
+            if (!found.length && !downloadedFile && Date.now() - start > NO_EXPORT_TIMEOUT) {
+                await page.screenshot({ path: scratch('debug_no_export.png') }).catch(() => {});
+                throw new Error(`NO_EXPORT: The Tata app did not return an export file for ${location.location_name} within 5 minutes. The app is not working or the session/login failed - use Settings > Manual Upload to add today's data.`);
+            }
+
+            // 1. The export dialog needs exactly ONE "Next" click to start building
+            //    the file — it does not page the report. Click it once, then stop
+            //    and just wait for the download to finish (the checks below are the
+            //    "check download" step). Clicking "Next" in a loop used to spin
+            //    forever: Siebel's own toolbar always shows disabled "Next Record" /
+            //    "Next Record Set" / "Next Task Step" / "Next >" controls, which
+            //    robustClickText kept matching ("Match 5/5").
+            if (!inProgress && nextClicks < 1) {
                 try {
                     const clicked = await robustClickText(['Next', 'NEXT', 'next', 'Next >', '>>'], false);
-                    if (clicked) {
-                        nextClicks++;
-                        wizardDone = false;
-                        notify('Found and clicked Next button on the popup!');
-                        await new Promise(r => setTimeout(r, 2000));
-                    } else {
-                        wizardDone = true; // no more "Next" → every page fetched
-                    }
-                } catch(e) {}
-            } else if (nextClicks >= 1000) {
-                wizardDone = true; // safety cap: accept whatever the portal produced
+                    nextClicks++;
+                    notify(clicked
+                        ? 'Clicked "Next" once on the export dialog - waiting for the download...'
+                        : 'No "Next" found on the export dialog - waiting for the download...');
+                    await new Promise(r => setTimeout(r, 2000));
+                } catch (e) { nextClicks++; }
+                wizardDone = true; // a single click is all the dialog needs
             }
 
             // 2. Accept only once the wizard is done (or the file has been stable a
@@ -698,6 +725,7 @@ let botUser = location.username;
                 if (!best || largest.size > best.size) {
                     best = largest;
                     settleTicks = 0;
+                    stableSince = Date.now();
                     notify(`Download in progress... largest so far ${(largest.size / 1048576).toFixed(1)} MB (${found.length} file(s)).`);
                 } else {
                     settleTicks++;
@@ -707,7 +735,9 @@ let botUser = location.username;
                 if (best && ((wizardDone && settleTicks >= 8) || settleTicks >= 30)) {
                     // A truncated export stops mid-row; a complete one ends with a
                     // newline. Only accept a file that looks whole, otherwise keep
-                    // driving the portal until a complete export arrives.
+                    // waiting - but never forever: once the file has stopped growing
+                    // for TRUNCATED_GRACE we take it as finished rather than burning
+                    // the whole timeout on a missing trailing newline.
                     let endsCleanly = true;
                     try {
                         const fd = fs.openSync(best.full, 'r');
@@ -718,10 +748,14 @@ let botUser = location.username;
                         endsCleanly = tail.includes(0x0a) || tail.includes(0x0d); // last byte is \n or \r
                     } catch { /* if we cannot read it, do not block on this */ }
 
-                    if (!endsCleanly) {
+                    const stableMs = Date.now() - stableSince;
+                    if (!endsCleanly && stableMs < TRUNCATED_GRACE) {
                         settleTicks = 0;
                         notify(`Largest file (${(best.size / 1048576).toFixed(1)} MB) looks truncated; still waiting for the complete export...`);
                     } else {
+                        if (!endsCleanly) {
+                            notify(`Export stable for ${Math.round(stableMs / 1000)}s with no trailing newline - accepting it as complete.`);
+                        }
                         downloadedFile = best.full.endsWith('.csv') ? best.full : `${best.full}.csv`;
                         if (best.full !== downloadedFile) {
                             try { fs.renameSync(best.full, downloadedFile); } catch { downloadedFile = best.full; }
@@ -748,9 +782,9 @@ let botUser = location.username;
         }
         
         if (!downloadedFile) {
-            notify('WARNING: Download timed out after 15 minutes with no export file. Treating this as a failed export (it will be retried), not as an empty report.');
-            await page.screenshot({ path: scratch('debug_download_failed.png') });
-            throw new Error(`DOWNLOAD_TIMEOUT: no export file arrived for ${location.location_name}`);
+            notify('WARNING: Download timed out with no export file. Treating this as a failed export (it will be retried), not as an empty report.');
+            await page.screenshot({ path: scratch('debug_download_failed.png') }).catch(() => {});
+            throw new Error(`DOWNLOAD_TIMEOUT: the Tata app did not finish exporting ${location.location_name}. The app is not working or the session/login failed - use Settings > Manual Upload to add today's data.`);
         }
         
         if (downloadedFile) {
