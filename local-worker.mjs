@@ -81,23 +81,50 @@ async function readJob() {
   catch { return { job: null, raw: null }; }
 }
 
-async function writeJob(job) {
+function trimLogs(job) {
   let logs = job.logs || '';
   if (logs.length > MAX_LOG_CHARS) {
     logs = '<div>... earlier steps truncated ...</div>' + logs.slice(-MAX_LOG_CHARS);
   }
+  return logs;
+}
+
+async function writeJob(job) {
+  const logs = trimLogs(job);
   await supabase
     .from('tata_bot_settings')
     .upsert({ key: JOB_KEY, value: JSON.stringify({ ...job, logs }) }, { onConflict: 'key' });
 }
 
-// CAS write — only saves if Supabase still has the value we read (prevents races)
+// CAS write — only saves if Supabase still has the value we read (prevents races).
+//
+// The WHERE clause carries the entire job JSON, so once the job grows past the
+// request URL limit PostgREST/CDN rejects the request outright. That looks
+// exactly like a lost race (0 rows) and made processQueue return silently on
+// every tick — the worker froze forever with pending units it never claimed.
+// Re-read the row to tell the two apart: an unchanged row means the predicate
+// itself was rejected, so write with a merge-aware upsert instead of dropping
+// the claim. Only a row that actually moved is a real conflict.
 async function casWrite(job, raw) {
   const { data } = await supabase
     .from('tata_bot_settings')
-    .update({ value: JSON.stringify(job) })
+    .update({ value: JSON.stringify({ ...job, logs: trimLogs(job) }) })
     .eq('key', JOB_KEY).eq('value', raw).select('value');
-  return Array.isArray(data) && data.length > 0;
+  if (Array.isArray(data) && data.length > 0) return true;
+
+  try {
+    const { data: again, error } = await supabase
+      .from('tata_bot_settings').select('value').eq('key', JOB_KEY).maybeSingle();
+    if (error || !again) return false;
+    if (again.value === raw) {
+      console.error(clock(), '⚠ CAS predicate rejected (job value too large for the request URL); writing claim via merge.');
+      await mergeAndWrite(job);
+      return true;
+    }
+  } catch (e) {
+    console.error(clock(), '⚠ CAS fallback failed:', e.message);
+  }
+  return false; // genuine conflict — someone else wrote first
 }
 
 // Persists the local worker's view of the job while preserving any unit the
