@@ -1232,22 +1232,24 @@ navItems.forEach(item => {
 });
 
 // "Upload Manually" shortcut inside the missing-data alert -> opens Settings > Inventory Manual Upload
+function openManualInventoryUpload() {
+  const settingsNav = document.querySelector('[data-target="view-settings"]');
+  if (settingsNav) settingsNav.click();
+
+  const invCard = document.getElementById('inventory-upload-form');
+  const invHeader = invCard ? invCard.closest('.settings-card').querySelector('.settings-header') : null;
+  if (invHeader) {
+    const content = invHeader.nextElementSibling;
+    if (content && content.style.display === 'none') invHeader.click();
+  }
+
+  const fileInput = document.getElementById('inventory-upload-file');
+  if (fileInput) fileInput.focus();
+}
+
 const btnUploadMissingData = document.getElementById('btn-upload-missing-data');
 if (btnUploadMissingData) {
-  btnUploadMissingData.addEventListener('click', () => {
-    const settingsNav = document.querySelector('[data-target="view-settings"]');
-    if (settingsNav) settingsNav.click();
-
-    const invCard = document.getElementById('inventory-upload-form');
-    const invHeader = invCard ? invCard.closest('.settings-card').querySelector('.settings-header') : null;
-    if (invHeader) {
-      const content = invHeader.nextElementSibling;
-      if (content && content.style.display === 'none') invHeader.click();
-    }
-
-    const fileInput = document.getElementById('inventory-upload-file');
-    if (fileInput) fileInput.focus();
-  });
+  btnUploadMissingData.addEventListener('click', openManualInventoryUpload);
 }
 
 // --- Locations Settings Logic ---
@@ -2107,7 +2109,8 @@ async function checkMissingDataAlerts() {
           <h4 style="margin: 0; color: #ef4444; font-size: 0.95rem; font-weight: 600;">${escapeHtml(title)}</h4>
           <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.85rem;">${escapeHtml(message)}${locations && locations.length ? ' (Locations: ' + escapeHtml(locations.join(', ')) + ')' : ''}</p>
         </div>
-      </div>`;
+      </div>
+      <button type="button" id="alert-upload-btn" style="flex: 0 0 auto; padding: 9px 18px; background: #ef4444; color: #fff; border: none; border-radius: 20px; font-weight: 600; font-size: 0.85rem; cursor: pointer; white-space: nowrap;">Upload Data</button>`;
 
     const dashboardContent = document.querySelector('#view-dashboard .dashboard-content') || document.getElementById('view-dashboard');
     if (dashboardContent) {
@@ -2115,6 +2118,8 @@ async function checkMissingDataAlerts() {
     } else {
       document.body.prepend(banner);
     }
+    const action = banner.querySelector('#alert-upload-btn');
+    if (action) action.addEventListener('click', openManualInventoryUpload);
     try { lucide.createIcons(); } catch (e) {}
   };
 
@@ -2147,26 +2152,37 @@ async function checkMissingDataAlerts() {
     return;
   }
 
+  // A location counts as missing when it has no rows at all OR when its rows are
+  // left over from an earlier day — a stale day is just as wrong as no data, and
+  // that is the case that needs the manual-upload fallback.
+  const isToday = (t) => {
+    if (!t) return false;
+    const d = new Date(t), n = new Date();
+    return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate();
+  };
+
   const missing = [];
   for (const loc of locations) {
     if (!loc.location_name) continue;
     try {
-      const { count, error } = await supabase
+      const { data, error } = await supabase
         .from('tata_spare_inventory')
-        .select('*', { count: 'exact', head: true })
-        .eq('division', loc.location_name);
+        .select('fetched_at')
+        .eq('division', loc.location_name)
+        .order('fetched_at', { ascending: false })
+        .limit(1);
       if (error) throw error;
-      if (!count) missing.push(loc.location_name);
+      if (!data || data.length === 0 || !isToday(data[0].fetched_at)) missing.push(loc.location_name);
     } catch (e) {
-      console.error('Error counting inventory for', loc.location_name, e);
+      console.error('Error reading inventory freshness for', loc.location_name, e);
     }
   }
 
   if (!missing.length) return;
 
   renderAlertBanner(
-    `Inventory data not fetched for: ${missing.join(', ')}`,
-    'Unable to fetch data for the above location(s). Check the Tata DMS login credentials and retry the fetch. This alert hides automatically once data is available.'
+    `Today's data has not been fetched for: ${missing.join(', ')}`,
+    'The Tata app is not working or the login failed, so the latest data could not be downloaded for the location(s) above. Upload the file manually to keep every page showing accurate numbers.'
   );
 }
 
@@ -4447,7 +4463,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 weighted_average: String(getVal(['Weighted Average', 'Weighted ']) || ''),
                 safety_stock: String(getVal(['Safety Stock', 'Safety ']) || ''),
                 tm_part_indicator: String(getVal(['TM Part Indicator', 'TM Part In']) || ''),
-                product_line: String(getVal(['Product Line', 'Product Li']) || '')
+                product_line: String(getVal(['Product Line', 'Product Li']) || ''),
+                // Stamp it exactly like the scraper does, otherwise the Last Updated
+                // badge keeps showing the previous automated fetch after a manual upload.
+                fetched_at: new Date().toISOString()
             };
           }).filter(row => row.part_no && row.part_no !== 'null' && row.part_no.trim() !== '');
 
@@ -4557,7 +4576,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 value: parseFloat(getVal(['Value', 'Total'])) || 0,
                 tax_amount: parseFloat(getVal(['Tax Amount', 'Tax'])) || 0,
                 mode_of_payment: String(getVal(['Mode of Payment', 'Payment Mode']) || ''),
-                dealer: String(getVal(['Dealer', 'Dealer Name']) || '')
+                dealer: String(getVal(['Dealer', 'Dealer Name']) || ''),
+                // Consumption badge reads fetched_at; without it a manual upload
+                // leaves the "Last Updated" timestamp on the old automated run.
+                fetched_at: new Date().toISOString()
             };
           }).filter(row => row.part_no && row.part_no !== 'null' && row.part_no.trim() !== '');
 
