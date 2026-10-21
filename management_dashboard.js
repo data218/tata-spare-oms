@@ -1,4 +1,5 @@
-import { summarizeInventory, quantityTotals } from './src/inventory-math.js';
+import { renderQuantityKpi } from './src/dashboard-display.js';
+import { summarizeInventory } from './src/inventory-math.js';
 // management_dashboard.js
 
 import { escapeHtml } from './escape.js';
@@ -63,13 +64,11 @@ window.renderDashboardAnalytics = function() {
 
   // 1. Update Executive KPI Strip
   if (document.getElementById('mgmt-kpi-inv-value')) document.getElementById('mgmt-kpi-inv-value').textContent = '₹' + Math.round(totalInvValue).toLocaleString('en-IN');
-  if (document.getElementById('mgmt-kpi-avail-stock')) document.getElementById('mgmt-kpi-avail-stock').textContent = quantityTotals(parts, 'available');
-  if (document.getElementById('mgmt-kpi-transit')) document.getElementById('mgmt-kpi-transit').textContent = quantityTotals(parts, 'inTransit');
+  if (document.getElementById('mgmt-kpi-avail-stock')) renderQuantityKpi(document.getElementById('mgmt-kpi-avail-stock'), parts, 'available');
+  if (document.getElementById('mgmt-kpi-transit')) renderQuantityKpi(document.getElementById('mgmt-kpi-transit'), parts, 'inTransit');
   if (document.getElementById('mgmt-kpi-crit-stock')) document.getElementById('mgmt-kpi-crit-stock').textContent = criticalStockCount.toLocaleString('en-IN');
   if (document.getElementById('mgmt-kpi-non-moving')) document.getElementById('mgmt-kpi-non-moving').textContent = '₹' + Math.round(nonMovingValue).toLocaleString('en-IN');
   
-  const qtyElement = document.getElementById('mgmt-kpi-avail-stock');
-  if (qtyElement) { qtyElement.style.fontSize = '1rem'; qtyElement.style.overflowWrap = 'anywhere'; }
 
   // 3. Update Inventory Position
   if (document.getElementById('mgmt-pos-total')) document.getElementById('mgmt-pos-total').textContent = '₹' + Math.round(totalInvValue).toLocaleString('en-IN');

@@ -754,6 +754,22 @@ h2.welcome-text {
   color: var(--text-secondary);
 }
 
+#view-inventory .overview-section .widget-card { min-height: 104px; box-sizing: border-box; }
+#view-inventory .overview-section .widget-info { gap: 7px; min-width: 0; }
+#view-inventory .overview-section .widget-value { font-size: 1.4rem; font-variant-numeric: tabular-nums; }
+.quantity-kpi { display: inline-flex; flex-direction: column; gap: 7px; font-variant-numeric: tabular-nums; }
+.quantity-primary { display: inline-flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+.quantity-primary small { font-size: 0.65em; font-weight: 500; color: var(--text-secondary); }
+.quantity-secondary { display: flex; flex-wrap: wrap; gap: 5px; }
+.quantity-chip { display: inline-flex; align-items: baseline; gap: 4px; padding: 3px 6px; border-radius: 4px; background: var(--bg-color, #f1f5f9); font-size: 0.7rem; font-weight: 500; color: var(--text-secondary); }
+.quantity-chip small { font-size: inherit; }
+.quality-note { margin: 0 0 14px; font-size: 0.75rem; color: var(--text-secondary); }
+.quality-note summary { cursor: pointer; width: fit-content; }
+.quality-note[open] > div { margin-top: 8px; padding: 12px; border: 1px solid var(--border-color); border-radius: 6px; line-height: 1.6; }
+.description-note { margin-left: 5px; color: #b7791f; cursor: help; }
+#data-load-error summary { cursor: pointer; }
+#data-load-error details > div { margin-top: 8px; font-size: 0.75rem; font-weight: 400; }
+
 .light-green { background-color: var(--widget-green-bg); }
 .light-green .widget-icon { background-color: rgba(56, 161, 105, 0.1); color: var(--widget-green-icon); }
 .light-blue { background-color: var(--widget-blue-bg); }

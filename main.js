@@ -1,3 +1,4 @@
+import { renderQuantityKpi } from './src/dashboard-display.js';
 import { readDashboardTable } from './src/dashboard-data.js';
 import { parseNumber } from './src/inventory-math.js';
 import { processInventoryData, parseTataDate, isLubePart, quantityTotals, summarizeInventory, toBaseQuantity, normalizeLocation, reorderMetrics } from './src/inventory-math.js';
@@ -2019,7 +2020,13 @@ async function loadDataAndRender() {
     console.error('Failed to load dashboard data:', err);
     const banner = document.getElementById('data-load-error');
     if (banner) {
-      banner.textContent = 'Failed to load data: ' + (err && err.message ? err.message : err);
+      const summary = document.createElement('summary');
+      summary.textContent = 'Refresh failed — try again';
+      const detail = document.createElement('div');
+      detail.textContent = err && err.message ? err.message : String(err);
+      const note = document.createElement('details');
+      note.append(summary, detail);
+      banner.replaceChildren(note);
       banner.style.display = 'block';
     }
   } finally {
@@ -2032,10 +2039,14 @@ function showCalculationQuality(parts) {
   const quality = summarizeInventory(parts);
   let banner = document.getElementById('calculation-quality');
   if (!banner) {
-    banner = document.createElement('div');
+    banner = document.createElement('details');
     banner.id = 'calculation-quality';
-    banner.style.cssText = 'margin:12px 0;padding:12px;border:1px solid #f59e0b;border-radius:6px;background:#fffbeb;color:#92400e;font-size:0.85rem;';
-    (document.querySelector('.main-content') || document.getElementById('dashboard-page'))?.prepend(banner);
+    banner.className = 'quality-note';
+    const summary = document.createElement('summary');
+    summary.textContent = 'Data notes';
+    const content = document.createElement('div');
+    banner.append(summary, content);
+    document.querySelector('#view-inventory .welcome-text')?.insertAdjacentElement('afterend', banner);
   }
   const warnings = [];
   if (quality.missingPrices) warnings.push(`${quality.missingPrices} stocked part/location groups have no NDP`);
@@ -2043,7 +2054,7 @@ function showCalculationQuality(parts) {
   if (quality.descriptionMismatches) warnings.push(`${quality.descriptionMismatches} part/location descriptions differ from the price list`);
   if (quality.unknownAge) warnings.push(`${quality.unknownAge} stocked groups have unknown receipt age`);
   if (quality.unreconciledMovements) warnings.push(`${quality.unreconciledMovements} older/manual adjustments need reconciliation with the stock snapshot`);
-  banner.textContent = warnings.length ? `Data needs review: ${warnings.join('; ')}. Values include priced stock only. Refresh/re-import source exports after the numeric-import fix; earlier comma-separated quantities may have been truncated.` : '';
+  banner.querySelector('div').textContent = warnings.length ? `Data needs review: ${warnings.join('; ')}. Values include priced stock only. Refresh/re-import source exports after the numeric-import fix; earlier comma-separated quantities may have been truncated.` : '';
   banner.style.display = warnings.length ? 'block' : 'none';
 }
 
@@ -2422,7 +2433,7 @@ function _renderTablePage_internal() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${escapeHtml(part.partId)}</td>
-      <td title="${escapeHtml(part.model)}">${escapeHtml(part.model)}${part.descriptionMismatch ? `<small title="Source: ${escapeHtml(part.sourceDescription)}" style="display:block;color:var(--warning)">Description differs from source</small>` : ''}</td>
+      <td title="${escapeHtml(part.model)}">${escapeHtml(part.model)}${part.descriptionMismatch ? `<span class="description-note" title="Description differs from source: ${escapeHtml(part.sourceDescription)}" aria-label="Description needs review">ⓘ</span>` : ''}</td>
       <td>${part.currentStock.toLocaleString('en-IN', {maximumFractionDigits: 3})} ${escapeHtml(part.uom)}</td>
       <td>${part.reserved}</td>
       <td>${part.available}</td>
@@ -2999,19 +3010,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (kpiTotal) kpiTotal.textContent = totalItems.toLocaleString('en-IN');
     if (kpiValue) kpiValue.textContent = '₹' + stats.onhandVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
-    if (kpiOnhand) kpiOnhand.textContent = quantityTotals(displayParts);
+    if (kpiOnhand) renderQuantityKpi(kpiOnhand, displayParts);
     if (kpiOnhandVal) kpiOnhandVal.textContent = '₹' + stats.onhandVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
     
-    if (kpiTransit) kpiTransit.textContent = quantityTotals(displayParts, 'inTransit');
+    if (kpiTransit) renderQuantityKpi(kpiTransit, displayParts, 'inTransit');
     if (kpiTransitVal) kpiTransitVal.textContent = '₹' + stats.transitVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
     
-    if (kpiReserved) kpiReserved.textContent = quantityTotals(displayParts, 'reserved');
+    if (kpiReserved) renderQuantityKpi(kpiReserved, displayParts, 'reserved');
     if (kpiReservedVal) kpiReservedVal.textContent = '₹' + stats.resVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
     
     if (kpiOos) kpiOos.textContent = stats.oos.toLocaleString('en-IN');
     if (kpiLow) kpiLow.textContent = stats.low.toLocaleString('en-IN');
     
-    if (kpiLube) kpiLube.textContent = quantityTotals(displayParts.filter(p => isLubePart(p.productCategory, p.model)));
+    if (kpiLube) renderQuantityKpi(kpiLube, displayParts.filter(p => isLubePart(p.productCategory, p.model)), 'currentStock', 'L');
     if (kpiLubeVal) kpiLubeVal.textContent = '₹' + stats.lubeVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
 
     if (kpiWsVal) kpiWsVal.textContent = '₹' + stats.wsVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
@@ -3087,7 +3098,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tr.style.borderBottom = '1px solid var(--border-color)';
         tr.innerHTML = `
           <td style="padding: 8px 12px; font-weight: 500;">${escapeHtml(part.partId)}</td>
-          <td style="padding: 8px 12px; color: var(--text-secondary);">${escapeHtml(part.model)}${part.descriptionMismatch ? `<small title="Source: ${escapeHtml(part.sourceDescription)}" style="display:block;color:var(--warning)">Description differs from source</small>` : ''}</td>
+          <td style="padding: 8px 12px; color: var(--text-secondary);">${escapeHtml(part.model)}${part.descriptionMismatch ? `<span class="description-note" title="Description differs from source: ${escapeHtml(part.sourceDescription)}" aria-label="Description needs review">ⓘ</span>` : ''}</td>
           <td style="padding: 8px 12px;">${escapeHtml(part.location)}</td>
           <td style="padding: 8px 12px;">${escapeHtml(part.productCategory || 'TATA')}</td>
           <td style="padding: 8px 12px; text-align: right; color: #10b981; font-weight: 500;">${part.priceKnown ? '₹' + part.ndpPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '/' + escapeHtml(part.uom) : 'Missing price'}</td>
@@ -3212,15 +3223,15 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       if (kpiTotal) kpiTotal.textContent = filtered.length.toLocaleString('en-IN');
       if (kpiValue) kpiValue.textContent = '₹' + onhandVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
-      if (kpiOnhand) kpiOnhand.textContent = quantityTotals(window.filteredProcessedParts || []);
+      if (kpiOnhand) renderQuantityKpi(kpiOnhand, window.filteredProcessedParts || []);
       if (kpiOnhandVal) kpiOnhandVal.textContent = '₹' + onhandVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
-      if (kpiTransit) kpiTransit.textContent = quantityTotals(window.filteredProcessedParts || [], 'inTransit');
+      if (kpiTransit) renderQuantityKpi(kpiTransit, window.filteredProcessedParts || [], 'inTransit');
       if (kpiTransitVal) kpiTransitVal.textContent = '₹' + transitVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
-      if (kpiReserved) kpiReserved.textContent = quantityTotals(window.filteredProcessedParts || [], 'reserved');
+      if (kpiReserved) renderQuantityKpi(kpiReserved, window.filteredProcessedParts || [], 'reserved');
       if (kpiReservedVal) kpiReservedVal.textContent = '₹' + resVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
       if (kpiOos) kpiOos.textContent = oos.toLocaleString('en-IN');
       if (kpiLow) kpiLow.textContent = low.toLocaleString('en-IN');
-      if (kpiLube) kpiLube.textContent = quantityTotals((window.filteredProcessedParts || []).filter(p => isLubePart(p.productCategory, p.model)));
+      if (kpiLube) renderQuantityKpi(kpiLube, (window.filteredProcessedParts || []).filter(p => isLubePart(p.productCategory, p.model)), 'currentStock', 'L');
       if (kpiLubeVal) kpiLubeVal.textContent = '₹' + lubeVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
       if (kpiWsVal) kpiWsVal.textContent = '₹' + wsVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
       if (kpiWsQty) kpiWsQty.textContent = quantityTotals(window.filteredProcessedParts || [], p => p.subStock?.workshop) + ' Qty';
@@ -3282,15 +3293,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (kpiTotal) kpiTotal.textContent = parts.length.toLocaleString('en-IN');
         if (kpiValue) kpiValue.textContent = '₹' + onhandVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
-        if (kpiOnhand) kpiOnhand.textContent = quantityTotals(window.filteredProcessedParts || []);
+        if (kpiOnhand) renderQuantityKpi(kpiOnhand, window.filteredProcessedParts || []);
         if (kpiOnhandVal) kpiOnhandVal.textContent = '₹' + onhandVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
-        if (kpiTransit) kpiTransit.textContent = quantityTotals(window.filteredProcessedParts || [], 'inTransit');
+        if (kpiTransit) renderQuantityKpi(kpiTransit, window.filteredProcessedParts || [], 'inTransit');
         if (kpiTransitVal) kpiTransitVal.textContent = '₹' + transitVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
-        if (kpiReserved) kpiReserved.textContent = quantityTotals(window.filteredProcessedParts || [], 'reserved');
+        if (kpiReserved) renderQuantityKpi(kpiReserved, window.filteredProcessedParts || [], 'reserved');
         if (kpiReservedVal) kpiReservedVal.textContent = '₹' + resVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
         if (kpiOos) kpiOos.textContent = oos.toLocaleString('en-IN');
         if (kpiLow) kpiLow.textContent = low.toLocaleString('en-IN');
-        if (kpiLube) kpiLube.textContent = quantityTotals((window.filteredProcessedParts || []).filter(p => isLubePart(p.productCategory, p.model)));
+        if (kpiLube) renderQuantityKpi(kpiLube, (window.filteredProcessedParts || []).filter(p => isLubePart(p.productCategory, p.model)), 'currentStock', 'L');
         if (kpiLubeVal) kpiLubeVal.textContent = '₹' + lubeVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
         if (kpiWsVal) kpiWsVal.textContent = '₹' + wsVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
         if (kpiWsQty) kpiWsQty.textContent = quantityTotals(window.filteredProcessedParts || [], p => p.subStock?.workshop) + ' Qty';
@@ -3422,7 +3433,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tr.style.borderBottom = '1px solid var(--border-color)';
         tr.innerHTML = `
           <td style="padding: 8px 12px; font-weight: 500;">${escapeHtml(part.partId)}</td>
-          <td style="padding: 8px 12px; color: var(--text-secondary);">${escapeHtml(part.model)}${part.descriptionMismatch ? `<small title="Source: ${escapeHtml(part.sourceDescription)}" style="display:block;color:var(--warning)">Description differs from source</small>` : ''}</td>
+          <td style="padding: 8px 12px; color: var(--text-secondary);">${escapeHtml(part.model)}${part.descriptionMismatch ? `<span class="description-note" title="Description differs from source: ${escapeHtml(part.sourceDescription)}" aria-label="Description needs review">ⓘ</span>` : ''}</td>
           <td style="padding: 8px 12px;">${escapeHtml(part.location || 'Narwal')}</td>
           <td style="padding: 8px 12px; text-align: center;">${part.currentStock.toLocaleString('en-IN', {maximumFractionDigits: 3})} ${escapeHtml(part.uom)}</td>
           <td style="padding: 8px 12px; text-align: center; color: var(--purple); font-weight: 500;">${part.inTransit || 0}</td>
@@ -3864,7 +3875,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const slowMoving = uniquePartsArray.filter(qty => qty > 0 && qty < 5).length;
     
     const tEl = document.getElementById('cons-kpi-total');
-    if (tEl) tEl.textContent = quantityTotals(consRecords.map(r => ({currentStock:consumptionQuantity(r),uom:consumptionUnit(r)})));
+    if (tEl) renderQuantityKpi(tEl, consRecords.map(r => ({currentStock:consumptionQuantity(r),uom:consumptionUnit(r)})));
     
     const fEl = document.getElementById('cons-kpi-fast');
     if (fEl) fEl.textContent = fastMoving;
@@ -4507,7 +4518,7 @@ window._renderPPNI_internal = function() {
       tr.style.borderBottom = '1px solid var(--border-color)';
       tr.innerHTML = `
         <td style="padding: 4px 8px; font-size: 0.85rem; font-weight: 500;">${escapeHtml(part.partId)}</td>
-        <td style="padding: 4px 8px; font-size: 0.85rem; color: var(--text-secondary);">${escapeHtml(part.model)}${part.descriptionMismatch ? `<small title="Source: ${escapeHtml(part.sourceDescription)}" style="display:block;color:var(--warning)">Description differs from source</small>` : ''}</td>
+        <td style="padding: 4px 8px; font-size: 0.85rem; color: var(--text-secondary);">${escapeHtml(part.model)}${part.descriptionMismatch ? `<span class="description-note" title="Description differs from source: ${escapeHtml(part.sourceDescription)}" aria-label="Description needs review">ⓘ</span>` : ''}</td>
         <td style="padding: 4px 8px; font-size: 0.85rem;">${escapeHtml(part.location || 'Narwal')}</td>
         <td style="padding: 4px 8px; font-size: 0.85rem;">${escapeHtml(part.productCategory || 'N/A')}</td>
         <td style="padding: 4px 8px; font-size: 0.85rem;"><span class="h-badge ${badgeClass}">${ageText}</span></td>
