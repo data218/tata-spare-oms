@@ -16,6 +16,7 @@
  * Intended to be driven by the Windows Task Scheduler (see run-fetch-scheduled.ps1).
  */
 import fs from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fetchConsumptionData } from './src/consumption_scraper.js';
@@ -62,6 +63,7 @@ let currentJob = null;
  * shows the same shape it gets from the serverless runner.
  */
 function setJob(job) {
+  job.revision = randomUUID();
   currentJob = job;
   const logs = job.logs.slice(-MAX_LOG_CHARS);
   return supabase

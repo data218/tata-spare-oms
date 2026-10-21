@@ -27,7 +27,8 @@ import { fileURLToPath } from 'url';
 import { fetchConsumptionData } from './src/consumption_scraper.js';
 import { fetchInventoryData }    from './src/inventory_scraper.js';
 import { supabase }              from './src/server-config.js';
-import { isCancelled, sameRun, mergeWorkerJob } from './src/fetch-job.js';
+import { isCancelled, sameRun, mergeWorkerJob, compareJob } from './src/fetch-job.js';
+import { randomUUID } from 'node:crypto';
 
 // ── Single-instance guard ────────────────────────────────────────────────────
 // run-worker.cmd restarts this process in a loop. If the PC ever ends up with
@@ -92,6 +93,7 @@ function trimLogs(job) {
 }
 
 async function writeJob(job) {
+  job.revision = randomUUID();
   const logs = trimLogs(job);
   // Enforce cancellation/run identity in the write itself, including when Stop
   // arrives after mergeAndWrite's read. Keep predicates short for long scrape logs.
@@ -107,43 +109,28 @@ async function writeJob(job) {
   return Boolean(data?.length);
 }
 
-// CAS write — only saves if Supabase still has the value we read (prevents races).
-//
-// The WHERE clause carries the entire job JSON, so once the job grows past the
-// request URL limit PostgREST/CDN rejects the request outright. That looks
-// exactly like a lost race (0 rows) and made processQueue return silently on
-// every tick — the worker froze forever with pending units it never claimed.
-// Re-read the row to tell the two apart: an unchanged row means the predicate
-// itself was rejected, so write with a merge-aware upsert instead of dropping
-// the claim. Only a row that actually moved is a real conflict.
+// Compare queue state without putting scraper logs in the request URL.
 async function casWrite(job, raw) {
-  const { data } = await supabase
+  job.revision = randomUUID();
+  const query = supabase
     .from('tata_bot_settings')
     .update({ value: JSON.stringify({ ...job, logs: trimLogs(job) }) })
-    .eq('key', JOB_KEY).eq('value', raw).select('value');
-  if (Array.isArray(data) && data.length > 0) return true;
-
-  try {
-    const { data: again, error } = await supabase
-      .from('tata_bot_settings').select('value').eq('key', JOB_KEY).maybeSingle();
-    if (error || !again) return false;
-    if (again.value === raw) {
-      console.error(clock(), '⚠ CAS predicate rejected (job value too large for the request URL); writing claim via merge.');
-      return await mergeAndWrite(job);
-    }
-  } catch (e) {
-    console.error(clock(), '⚠ CAS fallback failed:', e.message);
-  }
-  return false; // genuine conflict — someone else wrote first
+    .eq('key', JOB_KEY);
+  const { data, error } = await compareJob(query, raw).select('value');
+  if (error) throw error;
+  return Boolean(data?.length);
 }
 
 // Persists the local worker's view of the job while preserving any unit the
 // server queued in the meantime (a dashboard fetch issued during a long scrape),
 // so a merge never clobbers a freshly-queued unit.
 async function mergeAndWrite(job) {
-  const { job: latest } = await readJob();
-  if (!mergeWorkerJob(job, latest)) return false;
-  return await writeJob(job);
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const { job: latest, raw } = await readJob();
+    if (!mergeWorkerJob(job, latest)) return false;
+    if (await casWrite(job, raw)) return true;
+  }
+  throw new Error('Fetch queue changed repeatedly while saving worker progress.');
 }
 
 // Progress is written back to Supabase while a unit is still running, throttled

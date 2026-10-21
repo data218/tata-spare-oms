@@ -6,6 +6,21 @@ export const unitKey = (unit) => unit.kind === 'consumption'
 export const isCancelled = (job) => Boolean(job?.cancelledAt || job?.status === 'cancelled');
 export const sameRun = (a, b) => (a?.id || a?.queue?.createdAt) === (b?.id || b?.queue?.createdAt);
 
+const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// PostgREST puts filters in the URL. Comparing a whole job there exceeds proxy
+// limits once scrape logs grow. Compare all queue state exactly, allowing only
+// the JSON log string to vary. New writes also carry a revision, so concurrent
+// updates (including log flushes) still invalidate the snapshot.
+export function compareJob(query, raw) {
+  const logs = /"logs"\s*:\s*("(?:[^"\\]|\\.)*")/.exec(raw);
+  if (!logs) return query.eq('value', raw);
+  const start = logs.index + logs[0].length - logs[1].length;
+  const pattern = '^' + escapeRegex(raw.slice(0, start)) +
+    '"(?:[^"\\\\]|\\\\.)*"' + escapeRegex(raw.slice(start + logs[1].length)) + '$';
+  return query.filter('value', 'match', pattern);
+}
+
 export function mergeWorkerJob(job, latest) {
   if (!latest || !sameRun(job, latest) || isCancelled(latest)) return null;
   for (const unit of latest.queue?.units || []) {

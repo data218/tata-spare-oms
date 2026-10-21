@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { unitKey, isCancelled, sameRun, mergeWorkerJob } from '../src/fetch-job.js';
+import { unitKey, isCancelled, sameRun, mergeWorkerJob, compareJob } from '../src/fetch-job.js';
 import { toISODate, replaceConsumptionPeriod } from '../src/consumption-store.js';
 import { watchFetchJob } from '../src/fetch-progress.js';
 
@@ -12,19 +12,21 @@ function apiHarness(initial, { conflicts = 0, writeError = null } = {}) {
   let stored = initial ? { value: JSON.stringify(initial) } : null;
   let updates = 0;
   const supabase = { from(table) {
-    let op, payload, filters = [];
+    let op, payload, filters = [], oversized = false;
     const query = {
-      select() { return query; }, eq(k, v) { filters.push([k, v]); return query; },
+      select() { return query; }, eq(k, v) { filters.push([k, v]); if (k === 'value' && encodeURIComponent(v).length > 8000) oversized = true; return query; },
+      filter(k, op, pattern) { assert.equal(op, 'match'); assert.ok(encodeURIComponent(pattern).length < 8000); filters.push(['regex', new RegExp(pattern)]); return query; },
       maybeSingle() { return Promise.resolve({ data: stored, error: null }); },
       update(p) { op = 'update'; payload = p; return query; },
       upsert(p) { op = 'upsert'; payload = p; return query; },
       then(resolve, reject) {
         if (table === 'tata_locations') return Promise.resolve({ data: [{ location_name: 'NARWAL' }] }).then(resolve, reject);
+        if (oversized) return Promise.resolve({error: new Error('Bad Request')}).then(resolve, reject);
         if (writeError) return Promise.resolve({ error: { message: writeError } }).then(resolve, reject);
         if (op === 'update') {
           updates++;
           if (conflicts-- > 0) return Promise.resolve({ data: [] }).then(resolve, reject);
-          if (!filters.every(([k, v]) => k === 'key' || stored?.[k] === v)) return Promise.resolve({ data: [] }).then(resolve, reject);
+          if (!filters.every(([k, v]) => k === 'regex' ? v.test(stored?.value) : k === 'key' || stored?.[k] === v)) return Promise.resolve({ data: [] }).then(resolve, reject);
         }
         if (op) stored = { value: payload.value };
         return Promise.resolve({ data: stored ? [stored] : [], error: null }).then(resolve, reject);
@@ -35,7 +37,7 @@ function apiHarness(initial, { conflicts = 0, writeError = null } = {}) {
   let source = readFileSync(new URL('../api/_server.js', import.meta.url), 'utf8')
     .replace(/^import .*;\n/gm, '').replaceAll('export async function ', 'async function ')
     .replaceAll('export function ', 'function ').replace('export default async function handler', 'async function handler');
-  const context = vm.createContext({ supabase, randomUUID, unitKey, isCancelled, toISODate, console, Date, Set, process: { env: {} } });
+  const context = vm.createContext({ supabase, randomUUID, unitKey, isCancelled, compareJob, toISODate, console, Date, Set, process: { env: {} } });
   vm.runInContext(source, context);
   return { context, job: () => JSON.parse(stored.value), updates: () => updates };
 }
@@ -165,7 +167,7 @@ function workerHarness(initial, scrape = async () => 1) {
   let job = structuredClone(initial), cancelPoll, scrapes = 0;
   const source = readFileSync(new URL('../local-worker.mjs', import.meta.url), 'utf8');
   const core = source.slice(source.indexOf('const JOB_KEY'), source.indexOf('// ── Startup'));
-  const c = vm.createContext({ console, Date, JSON, AbortController, isCancelled, sameRun, mergeWorkerJob,
+  const c = vm.createContext({ console, Date, JSON, AbortController, isCancelled, sameRun, mergeWorkerJob, compareJob, randomUUID,
     setTimeout: () => 1, clearTimeout() {}, setInterval: fn => {cancelPoll = fn;return 1;},clearInterval() {cancelPoll=null;},
     fetchConsumptionData: async (...args) => {scrapes++;return scrape(...args);},
     fetchInventoryData: async (...args) => {scrapes++;return scrape(...args);},
@@ -199,10 +201,28 @@ test('worker database write guards reject a cancellation arriving after the merg
     like(_k,v){filters.push(s=>s.includes(v.slice(1,-1)));return q;},
     not(_k,_op,v){filters.push(s=>!s.includes(v.slice(1,-1)));return q;},
     select(){const raw=JSON.stringify(stored);if(!filters.every(f=>f(raw)))return Promise.resolve({data:[],error:null});stored=JSON.parse(payload.value);return Promise.resolve({data:[{value:payload.value}],error:null});}};return q;}};
-  const c=vm.createContext({supabase,console,Date});vm.runInContext(core,c);
+  const c=vm.createContext({supabase,console,Date,randomUUID});vm.runInContext(core,c);
   assert.equal(await c.writeJob(run([inventory],'processing')),false);
   assert.equal(stored.status,'cancelled');
   stored={...run([inventory]),id:'replacement'};
   assert.equal(await c.writeJob(run([inventory],'processing')),false);
   assert.equal(stored.id,'replacement');
+});
+
+test('a new fetch can update an existing job with 40 KB of scraper logs', async () => {
+  const h=apiHarness({...run([inventory],'processing'),logs:'<div>Scraper progress, quoted "value", slash \\ and newline\n</div>'.repeat(800)});
+  await h.context.startOrMergeJob({type:'consumption',fromDate:'10/01/2026',toDate:'10/20/2026'});
+  assert.equal(h.job().queue.units.length,2);
+  assert.ok(h.job().revision);
+});
+test('compact comparison preserves exact queue state and revisions and escapes regex syntax', () => {
+  const job={...run([{...inventory,error:'bad [a-z].*+? ^ $ (x) {y} | \\ end'}]),revision:'version-1',logs:'x'.repeat(40000)};
+  let pattern;compareJob({filter(_c,op,p){assert.equal(op,'match');pattern=p;}},JSON.stringify(job));
+  assert.ok(encodeURIComponent(pattern).length<4000);
+  const re=new RegExp(pattern);
+  assert.ok(re.test(JSON.stringify(job)));
+  assert.ok(re.test(JSON.stringify({...job,logs:'different log "quoted" \\ and\nnew line'})));
+  assert.equal(re.test(JSON.stringify({...job,status:'cancelled'})),false);
+  assert.equal(re.test(JSON.stringify({...job,revision:'version-2'})),false);
+  assert.equal(re.test(JSON.stringify({...job,queue:{units:[],createdAt:job.queue.createdAt}})),false);
 });

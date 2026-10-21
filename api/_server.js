@@ -1,6 +1,6 @@
 import { supabase } from '../src/server-config.js';
 import { randomUUID } from 'node:crypto';
-import { unitKey, isCancelled } from '../src/fetch-job.js';
+import { unitKey, isCancelled, compareJob } from '../src/fetch-job.js';
 import { toISODate } from '../src/consumption-store.js';
 
 const JOB_KEY = 'fetch_job';
@@ -40,6 +40,7 @@ async function readJob() {
 }
 
 async function writeJob(job) {
+  job.revision = randomUUID();
   const { data, error } = await supabase
     .from('tata_bot_settings')
     .upsert({ key: JOB_KEY, value: JSON.stringify(job) }, { onConflict: 'key', ignoreDuplicates: true })
@@ -55,12 +56,12 @@ async function casWriteJob(job, expectedRaw) {
   if (expectedRaw === null || expectedRaw === undefined) {
     return await writeJob(job);
   }
-  const { data, error } = await supabase
+  job.revision = randomUUID();
+  const query = supabase
     .from('tata_bot_settings')
     .update({ value: JSON.stringify(job) })
-    .eq('key', JOB_KEY)
-    .eq('value', expectedRaw)
-    .select('value');
+    .eq('key', JOB_KEY);
+  const { data, error } = await compareJob(query, expectedRaw).select('value');
   if (error) throw error;
   return Array.isArray(data) && data.length > 0;
 }
