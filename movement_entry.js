@@ -1,3 +1,4 @@
+import { parseNumber } from './src/inventory-math.js';
 import { supabase } from './supabase.js';
 import { escapeHtml } from './escape.js';
 document.addEventListener('DOMContentLoaded', () => {
@@ -159,7 +160,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const item = window.originalProcessedParts.find(p => String(p.location || '').toUpperCase() === String(loc || '').toUpperCase() && String(p.partId || '').toUpperCase() === String(part || '').toUpperCase());
     if (item) {
-      availQtySpan.textContent = item.currentStock;
+      availQtySpan.textContent = item.currentStock + ' ' + (item.uom || '');
+      qtyInput.step = item.uom === 'EA' ? '1' : '0.001';
       if (partNameInput) partNameInput.value = item.model || 'N/A';
     } else {
       availQtySpan.textContent = '0';
@@ -171,7 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const loc = locSelect.value;
     const part = partSelect.value;
     const type = typeSelect.value;
-    const qty = parseInt(qtyInput.value, 10);
+    const qty = parseNumber(qtyInput.value);
     const date = dateInput.value;
 
     errorMsg.style.display = 'none';
@@ -217,7 +219,8 @@ document.addEventListener('DOMContentLoaded', () => {
           location: loc,
           movement_type: type,
           qty: qty,
-          reference: "Manual Entry"
+          reference: "Manual Entry",
+          date: date && date !== new Date().toLocaleDateString('en-CA') ? date : new Date().toISOString()
         });
       if (movErr) throw movErr;
     } catch (e) {
@@ -349,7 +352,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const type = row['Movement'] ? row['Movement'].toString().toUpperCase() : null;
           const part = row['Part ID'] ? row['Part ID'].toString().trim().toUpperCase() : null;
           const loc = row['Location'] ? row['Location'].toString().trim().toUpperCase() : null;
-          const qty = parseInt(row['Qty'], 10);
+          const qty = parseNumber(row['Qty']);
           const ref = row['Reference'] || "Bulk Upload";
 
           if (!type || !part || !loc || isNaN(qty) || qty <= 0) {

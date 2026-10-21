@@ -1,3 +1,4 @@
+import { parseNumber } from './inventory-math.js';
 import { createClient } from '@supabase/supabase-js';
 import * as dotenv from 'dotenv';
 import fs from 'fs';
@@ -55,11 +56,11 @@ async function uploadData() {
                 order_num: data['Order Number'],
                 order_type: data['Order Type'],
                 order_sub: data['Order Sub-Type'],
-                rate: parseFloat(data['Rate']) || 0,
+                rate: parseNumber(data['Rate']) || 0,
                 billing_type: data['Billing Type'],
-                sold_qty: parseFloat(data['Sold Qty']) || 0,
-                value: parseFloat(data['Value']) || 0,
-                tax_amount: parseFloat(data['Tax Amount After Discount']) || 0,
+                sold_qty: parseNumber(data['Sold Qty']) || 0,
+                value: parseNumber(data['Value']) || 0,
+                tax_amount: parseNumber(data['Tax Amount After Discount']) || 0,
                 dealer: data['Dealer']
             });
         })

@@ -1,3 +1,4 @@
+import { toBaseQuantity, quantityTotals } from './src/inventory-math.js';
 // movement.js
 // Handles IN / OUT Movement Logic
 
@@ -94,7 +95,7 @@ async function generateMovementData() {
       const ndpPrice = invPart?.ndpPrice || 0;
 
       let finalQty = qtyRaw;
-      if (isLube) finalQty = finalQty / 1000;
+      finalQty = toBaseQuantity(qtyRaw, invPart?.uom);
 
       const value = ndpPrice > 0 ? (finalQty * ndpPrice) : (parseFloat(c.value) || 0);
 
@@ -107,6 +108,7 @@ async function generateMovementData() {
         description: c.part_desc,
         location: loc,
         qty: finalQty,
+        uom: invPart?.uom || 'UNKNOWN',
         value: value,
         reference: c.invoice_no || c.order_num || '-',
         isLube: isLube
@@ -126,7 +128,7 @@ async function generateMovementData() {
       const ndpPrice = invPart?.ndpPrice || 0;
       
       let finalQty = qtyRaw;
-      if (isLubeFinal) finalQty = finalQty / 1000;
+      // Manual entries already use the displayed canonical unit.
       
       const value = ndpPrice > 0 ? (finalQty * ndpPrice) : 0;
       
@@ -139,6 +141,7 @@ async function generateMovementData() {
         description: invPart ? invPart.model : 'Manual Entry',
         location: mapLocation(log.location),
         qty: finalQty,
+        uom: invPart?.uom || 'UNKNOWN',
         value: value,
         reference: log.reference || '-',
         isLube: isLubeFinal
@@ -146,44 +149,8 @@ async function generateMovementData() {
     });
   }
 
-  // 2. Generate synthetic IN transactions based on Current Stock + Total OUT
-  if (sourceParts && sourceParts.length > 0) {
-    sourceParts.forEach((p, index) => {
-      const pLoc = mapLocation(p.location);
-      const partKey = `${p.partId}_${pLoc}`;
-      const totalOutRaw = outSumByPartLoc[partKey] || 0;
-      const currentStockRaw = p.currentStock || 0;
-      
-      const totalInRaw = currentStockRaw + totalOutRaw;
-      
-      const isLube = p.productCategory?.toUpperCase().includes('LUB') || false;
-      let finalInQty = totalInRaw;
-      if (isLube) finalInQty = finalInQty / 1000;
-      
-      if (finalInQty > 0) {
-        let d = new Date();
-        if (p.last_receipt && p.last_receipt !== '-') {
-          d = (window.parseTataDate ? window.parseTataDate(p.last_receipt) : new Date(p.last_receipt));
-          if (!d || isNaN(d.getTime())) d = new Date();
-        }
-        
-        transactions.push({
-          id: `IN-${p.partId}-${index}`,
-          date: d,
-          direction: 'IN',
-          type: 'RECEIPT',
-          partNo: p.partId,
-          description: p.model,
-          location: pLoc,
-          qty: finalInQty,
-          value: finalInQty * (p.ndpPrice || 0),
-          reference: 'SYS-REC-001',
-          isLube: isLube
-        });
-      }
-    });
-  }
-
+  // Actual receipt history is unavailable. Do not fabricate IN transactions
+  // from a stock snapshot plus consumption; only recorded movements are shown.
   // Sort by date desc
   transactions.sort((a, b) => b.date - a.date);
   window.movementData = transactions;
@@ -395,11 +362,11 @@ function updateMovementKPIs() {
     }
   };
 
-  setKPI('mov-kpi-in', totalIn.toLocaleString('en-IN'));
-  setKPI('mov-kpi-out', totalOut.toLocaleString('en-IN'));
+  setKPI('mov-kpi-in', quantityTotals(window.movementFiltered.filter(t => t.direction === 'IN'), 'qty'));
+  setKPI('mov-kpi-out', quantityTotals(window.movementFiltered.filter(t => t.direction === 'OUT'), 'qty'));
   
   const net = totalIn - totalOut;
-  setKPI('mov-kpi-net', Math.abs(net).toLocaleString('en-IN'), net >= 0 ? '+' : '-', net >= 0 ? '#10b981' : '#ef4444');
+  setKPI('mov-kpi-net', quantityTotals(window.movementFiltered, t => t.direction === 'IN' ? t.qty : -t.qty));
   
   setKPI('mov-kpi-in-val', inVal.toLocaleString('en-IN', {maximumFractionDigits:0}), '₹');
   setKPI('mov-kpi-out-val', outVal.toLocaleString('en-IN', {maximumFractionDigits:0}), '₹');

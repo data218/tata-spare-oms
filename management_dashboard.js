@@ -1,3 +1,4 @@
+import { summarizeInventory, quantityTotals } from './src/inventory-math.js';
 // management_dashboard.js
 
 import { escapeHtml } from './escape.js';
@@ -20,16 +21,17 @@ window.renderDashboardAnalytics = function() {
   const criticalExceptions = [];
 
   const now = new Date();
+  const totals = summarizeInventory(parts);
 
   parts.forEach(p => {
     const stock = parseFloat(p.currentStock) || 0;
     const transit = parseFloat(p.inTransit) || 0;
     const price = parseFloat(p.ndpPrice) || 0;
     const min = parseFloat(p.min) || 0;
-    const val = stock * price;
+    const val = p.stockValue || 0;
 
     totalInvValue += val;
-    availableStock += stock;
+    availableStock += stock - (p.reserved || 0);
     inTransit += transit;
 
     // Location grouping
@@ -39,45 +41,40 @@ window.renderDashboardAnalytics = function() {
     locationStats[p.location].invValue += val;
 
     // Critical Stock
-    if (stock <= min && min > 0) {
+    if (p.unitKnown && p.available < min) {
       criticalStockCount++;
       locationStats[p.location].criticalCount++;
-      criticalExceptions.push({ partId: p.partId, location: p.location, stock, min, shortage: min - stock });
+      criticalExceptions.push({ partId: p.partId, location: p.location, stock: p.available, min, shortage: min - p.available });
     }
 
-    // Ageing / Non-Moving
-    if (p.last_receipt) {
-       const receiptDate = new Date(p.last_receipt);
-       const daysOld = Math.floor((now - receiptDate) / (1000 * 60 * 60 * 24));
-       if (daysOld <= 30) ageingStats['0-30'] += val;
-       else if (daysOld <= 60) ageingStats['31-60'] += val;
-       else if (daysOld <= 90) ageingStats['61-90'] += val;
-       else {
-         ageingStats['90+'] += val;
-         nonMovingValue += val;
-         locationStats[p.location].nonMovingValue += val;
-       }
-    } else {
-       // If no receipt date but has stock, consider it non-moving 90+
-       if (stock > 0) {
-         ageingStats['90+'] += val;
-         nonMovingValue += val;
-         locationStats[p.location].nonMovingValue += val;
-       }
+    // Unknown dates remain unknown; receipt age and last movement are distinct.
+    const daysOld = p.ageingDays;
+    if (daysOld != null && stock > 0) {
+      if (daysOld <= 30) ageingStats['0-30'] += val;
+      else if (daysOld <= 60) ageingStats['31-60'] += val;
+      else if (daysOld <= 90) ageingStats['61-90'] += val;
+      else ageingStats['90+'] += val;
+    }
+    if (p.nonMovingDays != null && p.nonMovingDays > 180) {
+      nonMovingValue += val;
+      locationStats[p.location].nonMovingValue += val;
     }
   });
 
   // 1. Update Executive KPI Strip
   if (document.getElementById('mgmt-kpi-inv-value')) document.getElementById('mgmt-kpi-inv-value').textContent = '₹' + Math.round(totalInvValue).toLocaleString('en-IN');
-  if (document.getElementById('mgmt-kpi-avail-stock')) document.getElementById('mgmt-kpi-avail-stock').textContent = availableStock.toLocaleString('en-IN');
-  if (document.getElementById('mgmt-kpi-transit')) document.getElementById('mgmt-kpi-transit').textContent = inTransit.toLocaleString('en-IN');
+  if (document.getElementById('mgmt-kpi-avail-stock')) document.getElementById('mgmt-kpi-avail-stock').textContent = quantityTotals(parts, 'available');
+  if (document.getElementById('mgmt-kpi-transit')) document.getElementById('mgmt-kpi-transit').textContent = quantityTotals(parts, 'inTransit');
   if (document.getElementById('mgmt-kpi-crit-stock')) document.getElementById('mgmt-kpi-crit-stock').textContent = criticalStockCount.toLocaleString('en-IN');
   if (document.getElementById('mgmt-kpi-non-moving')) document.getElementById('mgmt-kpi-non-moving').textContent = '₹' + Math.round(nonMovingValue).toLocaleString('en-IN');
   
+  const qtyElement = document.getElementById('mgmt-kpi-avail-stock');
+  if (qtyElement) { qtyElement.style.fontSize = '1rem'; qtyElement.style.overflowWrap = 'anywhere'; }
+
   // 3. Update Inventory Position
   if (document.getElementById('mgmt-pos-total')) document.getElementById('mgmt-pos-total').textContent = '₹' + Math.round(totalInvValue).toLocaleString('en-IN');
-  if (document.getElementById('mgmt-pos-avail')) document.getElementById('mgmt-pos-avail').textContent = '₹' + Math.round(totalInvValue).toLocaleString('en-IN'); // Assuming all available
-  if (document.getElementById('mgmt-pos-reserved')) document.getElementById('mgmt-pos-reserved').textContent = '₹0';
+  if (document.getElementById('mgmt-pos-avail')) document.getElementById('mgmt-pos-avail').textContent = '₹' + Math.round(totals.availableValue).toLocaleString('en-IN');
+  if (document.getElementById('mgmt-pos-reserved')) document.getElementById('mgmt-pos-reserved').textContent = '₹' + Math.round(totals.reservedValue).toLocaleString('en-IN');
   if (document.getElementById('mgmt-pos-nonmoving')) document.getElementById('mgmt-pos-nonmoving').textContent = '₹' + Math.round(nonMovingValue).toLocaleString('en-IN');
 
 
@@ -186,7 +183,7 @@ window.renderDashboardAnalytics = function() {
   if (insightsList) {
      let insightsHTML = '';
      if (nonMovingValue > 0) {
-        insightsHTML += `<li><strong>Capital Efficiency:</strong> You have ₹${Math.round(nonMovingValue).toLocaleString('en-IN')} blocked in non-moving stock over 90 days. Liquidating 20% of this could free up ₹${Math.round(nonMovingValue * 0.2).toLocaleString('en-IN')}.</li>`;
+        insightsHTML += `<li><strong>Capital Efficiency:</strong> You have ₹${Math.round(nonMovingValue).toLocaleString('en-IN')} blocked in non-moving stock over 180 days. Liquidating 20% of this could free up ₹${Math.round(nonMovingValue * 0.2).toLocaleString('en-IN')}.</li>`;
      }
      if (criticalStockCount > 0) {
         insightsHTML += `<li><strong>Service Level Risk:</strong> ${criticalStockCount} critical parts are out of stock or below minimums, risking fulfillment delays.</li>`;

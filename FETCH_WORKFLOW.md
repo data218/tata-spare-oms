@@ -23,8 +23,8 @@ npm run build
 ```
 
 The fetch regression suite uses in-memory database adapters and does not queue
-live work or change production records. The separate legacy
-`filter-smoke-test.mjs` has an existing missing `escapeHtml` fixture dependency.
+live work or change production records. Run `npm test` for all arithmetic and
+fetch tests, and `npm run test:filters` for dashboard filter fixtures.
 
 ## Roll out
 

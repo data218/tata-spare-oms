@@ -1,3 +1,5 @@
+import { escapeHtml, escapeJsAttr } from './escape.js';
+import { toBaseQuantity } from './src/inventory-math.js';
 // Smoke test for the column-filter dropdown.
 // Extracts only the filter machinery from main.js and runs it in jsdom,
 // then simulates clicking each header of the In/Out table.
@@ -52,6 +54,8 @@ const code = [
   sliceByBraces('function consVelocityTrend(partNo)'),
   sliceByBraces('function getConsNdpLookup()'),
   sliceByBraces('function consNdp(row)'),
+  sliceByBraces('function consumptionUnit(row)'),
+  sliceByBraces('function consumptionQuantity(row)'),
   sliceByBraces('function consMonthYear(row)'),
   sliceByBraces('const tableFilterConfigs = {'),
   sliceByBraces('function getPriceMapCache()'),
@@ -134,6 +138,9 @@ window.tableFilterData = {};
 window.getScopedMovementRows = () => window.movementData;
 
 try {
+  window.escapeHtml = escapeHtml;
+  window.escapeJsAttr = escapeJsAttr;
+  window.toBaseQuantity = toBaseQuantity;
   window.eval(code);
   window.markFilterHeaders();
 } catch (e) {

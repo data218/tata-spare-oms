@@ -35,7 +35,9 @@
     "worker:uninstall": "powershell -ExecutionPolicy Bypass -File worker-service.ps1 -Unregister",
     "worker:status": "powershell -ExecutionPolicy Bypass -File worker-service.ps1 -Status",
     "worker:start": "powershell -ExecutionPolicy Bypass -File worker-service.ps1 -Start",
-    "cron": "node cron.mjs"
+    "cron": "node cron.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "test:filters": "node filter-smoke-test.mjs"
   },
   "devDependencies": {
     "vite": "^8.3.0"

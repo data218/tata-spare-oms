@@ -1,3 +1,4 @@
+import { parseNumber } from './inventory-math.js';
 import { launchBrowser } from './puppeteer-runtime.js';
 import { clickSessionWarningAction } from './siebel-session.js';
 import * as dotenv from 'dotenv';
@@ -817,8 +818,8 @@ let botUser = location.username;
                             division: location.location_name,
                             part_no: val('Part #', 'Part Number'),
                             description: val('Description', 'Descriptic', 'Descriptio'),
-                            qty: parseFloat(val('Qty', 'Quantity')) || 0,
-                            total_price: parseFloat(val('Total Price')) || 0,
+                            qty: parseNumber(val('Qty', 'Quantity')) || 0,
+                            total_price: parseNumber(val('Total Price')) || 0,
                             last_issue: val('Last Issue Date', 'Last Issue'),
                             last_receipt: val('Last Received Date', 'Last Receipt'),
                             availability: val('Availability', 'Availabilit'),
@@ -829,8 +830,8 @@ let botUser = location.username;
                             location_3: val('Location 3'),
                             location_2: val('Location 2'),
                             location_1: val('Location 1'),
-                            min: parseFloat(val('Min', 'Minimum')) || 0,
-                            max: parseFloat(val('Max', 'Maximum')) || 0,
+                            min: parseNumber(val('Min', 'Minimum')) || 0,
+                            max: parseNumber(val('Max', 'Maximum')) || 0,
                             inventory_indicator: val('Inventory Location', 'Inventory Indicator', 'Inventory I'),
                             xyz_class: val('XYZ Class'),
                             abc_class: val('ABC Class'),

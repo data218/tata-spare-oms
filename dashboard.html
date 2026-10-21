@@ -209,7 +209,7 @@
               <div class="mgmt-kpi-card" style="background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); padding: 24px; border-radius: 16px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.02); border: 1px solid rgba(255,255,255,0.8); position: relative; overflow: hidden; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;" onclick="document.querySelector('[data-target=\'view-ppni\']').click()" onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 15px 25px -5px rgba(100,116,139,0.15)';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 10px 15px -3px rgba(0,0,0,0.05)';">
                 <div style="position: absolute; top: -20px; right: -20px; width: 100px; height: 100px; background: radial-gradient(circle, rgba(100,116,139,0.1) 0%, transparent 70%); border-radius: 50%;"></div>
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
-                  <div style="font-size: 0.85rem; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Non-Moving Value</div>
+                  <div style="font-size: 0.85rem; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">No Movement >180 Days</div>
                   <div style="background: rgba(100,116,139,0.1); padding: 8px; border-radius: 12px;"><i data-lucide="hourglass" style="color: #64748b; width: 20px; height: 20px;"></i></div>
                 </div>
                 <div id="mgmt-kpi-non-moving" style="font-size: 2.2rem; font-weight: 800; color: #0f172a; font-family: 'Inter', sans-serif; letter-spacing: -1px;">₹0</div>
@@ -319,7 +319,7 @@
                 </h3>
                 <div style="display: flex; flex-direction: column; gap: 12px;">
                   <div style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 16px; border-radius: 8px; border-left: 4px solid #3b82f6;">
-                    <span style="color: #475569; font-weight: 600; font-size: 0.95rem;">Total Inventory Value</span>
+                    <span style="color: #475569; font-weight: 600; font-size: 0.95rem;">Priced Inventory Value</span>
                     <strong id="mgmt-pos-total" style="color: #0f172a; font-size: 1.15rem;">₹0</strong>
                   </div>
                   <div style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 16px; border-radius: 8px; border-left: 4px solid #10b981;">
@@ -331,7 +331,7 @@
                     <strong id="mgmt-pos-reserved" style="color: #f59e0b; font-size: 1.15rem;">₹0</strong>
                   </div>
                   <div style="display: flex; justify-content: space-between; align-items: center; background: #fff1f2; padding: 16px; border-radius: 8px; border-left: 4px solid #ef4444;">
-                    <span style="color: #991b1b; font-weight: 600; font-size: 0.95rem;">Non-Moving Value (Blocked)</span>
+                    <span style="color: #991b1b; font-weight: 600; font-size: 0.95rem;">No Movement >180 Days (Known Dates)</span>
                     <strong id="mgmt-pos-nonmoving" style="color: #ef4444; font-size: 1.15rem;">₹0</strong>
                   </div>
                   <!-- Hidden elements for backward compatibility with JS scripts -->
@@ -405,7 +405,7 @@
                 <div class="widget-card clickable" data-hfilter="lube" style="background: white; border-left: 4px solid #64748b; padding: 14px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
                   <div class="widget-info">
                     <span class="widget-value" id="invh-kpi-lube">0</span>
-                    <span class="widget-label">Lubricant Qty · <span id="invh-kpi-lube-val">₹0</span></span>
+                    <span class="widget-label">Oil / Lubricants · <span id="invh-kpi-lube-val">₹0</span></span>
                   </div>
                 </div>
 
@@ -569,10 +569,7 @@
               </div>
               <div style="display: flex; gap: 10px; align-items: center;">
                 <select id="reorder-time-filter" class="form-select" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color);">
-                  <option value="7">Last 7 Days</option>
-                  <option value="30" selected>Last 30 Days</option>
-                  <option value="90">Last 90 Days</option>
-                  <option value="all">All Time</option>
+                  <option value="180" selected>Last 180 Days (6 Months)</option>
                 </select>
                 <button id="reorder-refresh-btn" class="btn btn-outline" onclick="window.initReorderModule()"><i data-lucide="refresh-cw" style="width: 14px; height: 14px;"></i> Refresh</button>
                 <button id="reorder-export-btn" class="btn btn-outline"><i data-lucide="download" style="width: 14px; height: 14px;"></i> Export</button>
@@ -1703,41 +1700,16 @@
               <div class="settings-content" style="display: none; margin-top: 15px; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
                 <p>This section details the logic and formulas used across the dashboard to generate metrics and insights.</p>
                 <div style="background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid var(--border-color); margin-bottom: 10px;">
-                  <h4 style="margin: 0 0 8px 0; color: #334155;">1. Inventory Valuation</h4>
-                  <ul style="margin: 0; padding-left: 20px;">
-                    <li><strong>Total Value (₹):</strong> <code>Available Stock × NDP (Net Dealer Price)</code></li>
-                    <li><strong>Total Tax (₹):</strong> <code>Calculated from Price List tax rates</code></li>
+                  <h4 style="margin:0 0 8px">Calculation rules</h4>
+                  <ul style="padding-left:20px">
+                    <li><strong>Value:</strong> quantity in the price-list unit × NDP. Oil in ml is divided by 1,000 to litres; grams are divided by 1,000 to kilograms. Pieces stay pieces.</li>
+                    <li><strong>Available:</strong> on-hand quantity − reserved quantity, calculated separately for each part and location.</li>
+                    <li><strong>Reorder:</strong> last 180 days’ consumption ÷ 180 × (7 lead-time days + 7 safety-stock days), less available and confirmed in-transit stock. Final orders are rounded to pieces or 0.001 L/KG.</li>
+                    <li><strong>Descriptions:</strong> the exact part-number match in the price list is used. Conflicting source descriptions are flagged.</li>
+                    <li><strong>Unknown data:</strong> missing prices, units and receipt dates are flagged, not assumed to be zero or old stock. Financial totals include priced stock only.</li>
+                    <li><strong>Non-moving:</strong> over 180 days since the last known receipt, issue, or consumption. Unknown dates are excluded.</li>
                   </ul>
-                </div>
-                <div style="background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid var(--border-color); margin-bottom: 10px;">
-                  <h4 style="margin: 0 0 8px 0; color: #334155;">2. PART AGEING</h4>
-                  <ul style="margin: 0; padding-left: 20px;">
-                    <li><strong>Condition:</strong> Parts with <code>Stock &gt; 0</code> but lacking recent billing or installation activity.</li>
-                    <li><strong>Ageing (Days):</strong> <code>Current Date - Part Received Date</code></li>
-                  </ul>
-                </div>
-                <div style="background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid var(--border-color); margin-bottom: 10px;">
-                  <h4 style="margin: 0 0 8px 0; color: #334155;">3. Reorder Management (ROP)</h4>
-                  <ul style="margin: 0; padding-left: 20px;">
-                    <li><strong>Daily Consumption (ADC):</strong> <code>30-Day Consumption ÷ 30</code></li>
-                    <li><strong>Reorder Point (ROP):</strong> <code>ADC × Lead Time (Days) + Safety Stock</code></li>
-                    <li><strong>Recommended Order Qty:</strong> <code>Max(0, ROP - Available Stock)</code></li>
-                  </ul>
-                </div>
-                <div style="background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid var(--border-color);">
-                  <h4 style="margin: 0 0 8px 0; color: #334155;">4. Part Claims Analytics</h4>
-                  <ul style="margin: 0; padding-left: 20px;">
-                    <li><strong>Gap in Days:</strong> <code>Claim Request Date - Part Received Date</code></li>
-                    <li><strong>Contribution (%):</strong> <code>(Category Amount ÷ Total Claims Amount) × 100</code></li>
-                  </ul>
-                </div>
-                <div style="background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid var(--border-color); margin-bottom: 10px;">
-                  <h4 style="margin: 0 0 8px 0; color: #334155;">5. Lubricants (Lube Qty)</h4>
-                  <ul style="margin: 0; padding-left: 20px;">
-                    <li><strong>Categories:</strong> LUBRICANT, LUBRICANTS, LUBE, LUBES, OIL</li>
-                    <li><strong>Quantity Conversion:</strong> System automatically divides sheet values (ML) by 1000 to display in Liters (L).</li>
-                  </ul>
-                </div>
+              </div>
               </div>
             </div></div><div>
       <h3 style="margin-top: 0; margin-bottom: 20px; color: var(--text-primary); border-bottom: 2px solid var(--border-color); padding-bottom: 10px; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">

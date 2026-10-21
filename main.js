@@ -1,3 +1,5 @@
+import { parseNumber } from './src/inventory-math.js';
+import { processInventoryData, parseTataDate, isLubePart, quantityTotals, summarizeInventory, toBaseQuantity, normalizeLocation, reorderMetrics } from './src/inventory-math.js';
 import { watchFetchJob } from './src/fetch-progress.js';
 import { renderFetchStatus, fetchRequestUnits } from './src/fetch-display.js';
 import './movement_entry.js';
@@ -18,38 +20,10 @@ const sidebar = document.getElementById('sidebar');
 const hamburgerBtn = document.getElementById('hamburger-btn');
 
 // --- Live Clock & Beautiful Date Formatter ---
-window.isLubePart = function(category, description) {
-  const cat = (category || '').toUpperCase();
-  if (['LUBRICANT', 'LUBRICANTS', 'LUBE', 'LUBES', 'OIL'].includes(cat)) return true;
-  const desc = (description || '').toUpperCase();
-  if (desc.includes('15W40') || desc.includes('MOBIL') || desc.includes('LUBE') || desc.includes('OIL') || desc.includes('GREASE') || desc.includes('DEF ')) return true;
-  return false;
-};
-
-window.parseTataDate = function(dateStr) {
-  if (!dateStr) return null;
-  if (typeof dateStr === 'number') return new Date(Math.round((dateStr - 25569) * 86400 * 1000));
-  if (typeof dateStr !== 'string') return new Date(dateStr);
-  if (dateStr.match(/^\d{4}-\d{2}-\d{2}/)) return new Date(dateStr);
-  
-  if (/^\d{5}(\.\d+)?$/.test(dateStr.trim())) {
-      return new Date(Math.round((Number(dateStr.trim()) - 25569) * 86400 * 1000));
-  }
-  
-  const datePart = dateStr.split(' ')[0];
-  const parts = datePart.split(/[-/]/);
-  if (parts.length === 3) {
-    let d = parseInt(parts[0], 10);
-    let m = parseInt(parts[1], 10);
-    let y = parseInt(parts[2], 10);
-    if (y < 100) y += 2000;
-    if (m > 12 && d <= 12) { 
-      return new Date(y, d - 1, m);
-    }
-    return new Date(y, m - 1, d);
-  }
-  return new Date(dateStr);
-};
+window.isLubePart = isLubePart;
+window.parseTataDate = parseTataDate;
+window.quantityTotals = quantityTotals;
+window.toBaseQuantity = toBaseQuantity;
 
 function formatBeautifulDate(dateInput) {
   let d = window.parseTataDate(dateInput);
@@ -323,7 +297,7 @@ const tableFilterConfigs = {
     formatters: {
       ndpPrice: (r) => '₹' + Number(r.ndpPrice || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       stockValue: (r) => '₹' + Number(r.stockValue || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-      ageingText: (r) => (r.ageingDays >= 0 ? `${r.ageingDays} Days` : 'N/A')
+      ageingText: (r) => (r.ageingDays != null && r.ageingDays >= 0 ? `${r.ageingDays} Days` : 'N/A')
     },
     // Money/quantity columns have far too many distinct values for a checkbox
     // list (Total Amount is effectively unique per row), so they get a
@@ -346,7 +320,7 @@ const tableFilterConfigs = {
     },
     fields: {
       'Part No.': 'partId', 'Description': 'model', 'Location': 'location', 'Category': 'productCategory',
-      'Ageing (Days)': 'ageingDays', 'Receipt Date': 'last_receipt', 'Qty': 'currentStock', 'Value (₹)': 'stockValue'
+      'Ageing (Days)': 'nonMovingDays', 'Receipt Date': 'last_receipt', 'Qty': 'currentStock', 'Value (₹)': 'stockValue'
     },
     numeric: { currentStock: 'currentStock', stockValue: 'stockValue' },
     render: (rows) => { window.tableFilterData['ppni-table-body'] = rows; window.pCurrentPage = 1; if(typeof window.renderPPNI === 'function') window.renderPPNI();
@@ -403,7 +377,7 @@ const tableFilterConfigs = {
     numeric: {
       ndpPrice: (r) => consNdp(r),
       value: 'value',
-      sold_qty: 'sold_qty',
+      sold_qty: (row) => consumptionQuantity(row),
       tax_amount: 'tax_amount'
     },
     render: (rows) => { window.tableFilterData['cons-table-body'] = rows; window.cCurrentPage = 1; window.renderConsumptionTable(); }
@@ -430,7 +404,7 @@ function getConsVelocityMap() {
     const m = {};
     rows.forEach(r => {
       const pn = r.part_no || 'Unknown';
-      m[pn] = (m[pn] || 0) + (Number(r.sold_qty) || 0);
+      m[pn] = (m[pn] || 0) + consumptionQuantity(r);
     });
     window._consVelocityCache = m;
     window._consVelocityCacheSource = rows;
@@ -455,27 +429,27 @@ function getConsNdpLookup() {
   if (!window._consNdpCache || window._consNdpCacheSource !== rows) {
     const byPart = {};
     const byDesc = {};
+    const byUnit = {};
     rows.forEach(p => {
-      const pn = String(p.part_number || '').trim();
-      if (pn) byPart[pn] = Number(p.ndp) || 0;
+      const pn = String(p.part_number || '').trim().toUpperCase();
+      if (pn) { byPart[pn] = Number(p.ndp) || 0; byUnit[pn] = p.uom || 'UNKNOWN'; }
       const desc = String(p.description || '').trim().toUpperCase().replace(/\s+/g, ' ');
       if (desc && !byDesc[desc]) byDesc[desc] = Number(p.ndp) || 0;
     });
-    window._consNdpCache = { byPart, byDesc };
+    window._consNdpCache = { byPart, byDesc, byUnit };
     window._consNdpCacheSource = rows;
   }
   return window._consNdpCache;
 }
 
+function consumptionUnit(row) {
+  return getConsNdpLookup().byUnit[String(row.part_no || row.part_number || '').trim().toUpperCase()] || 'UNKNOWN';
+}
+function consumptionQuantity(row) { return toBaseQuantity(row.sold_qty, consumptionUnit(row)); }
 function consNdp(row) {
-  const { byPart, byDesc } = getConsNdpLookup();
-  const byNo = byPart[String(row.part_no || '').trim()];
-  if (byNo) return byNo;
-  const descKey = String(row.part_desc || '').trim().toUpperCase().replace(/\s+/g, ' ');
-  return (descKey && byDesc[descKey]) || 0;
+  return getConsNdpLookup().byPart[String(row.part_no || row.part_number || '').trim().toUpperCase()] || 0;
 }
 
-// Month/Year label, identical to the badge in the cell
 function consMonthYear(row) {
   const dStr = row.date || row.fetched_at || '';
   const d = dStr ? (window.parseTataDate ? window.parseTataDate(dStr) : new Date(dStr)) : null;
@@ -1670,12 +1644,12 @@ async function fetchTableData(tableName, locationFilter = null, columns = '*') {
   const { count, error: countErr } = await countQuery;
   if (countErr) {
     console.error(`Error counting ${tableName}:`, countErr);
-    return [];
+    throw countErr;
   }
   if (!count) return [];
 
   // 2. Fetch first chunk to detect Supabase's max-rows limit, but cap at 10,000 to avoid statement timeouts
-  let firstQuery = supabase.from(tableName).select(columns).range(0, 9999);
+  let firstQuery = supabase.from(tableName).select(columns).order('id').range(0, 9999);
   if (locationFilter) {
     firstQuery = firstQuery.eq('division', locationFilter);
   }
@@ -1683,7 +1657,7 @@ async function fetchTableData(tableName, locationFilter = null, columns = '*') {
   
   if (firstErr) {
     console.error(`Error fetching first chunk of ${tableName}:`, firstErr);
-    return [];
+    throw firstErr;
   }
   if (!firstData || firstData.length === 0) return [];
   
@@ -1691,7 +1665,7 @@ async function fetchTableData(tableName, locationFilter = null, columns = '*') {
   const detectedLimit = firstData.length;
   
   // If we got everything, or if the count is within what we got, we are done! 100x faster!
-  if (tableData.length >= count || detectedLimit < 1000) {
+  if (tableData.length >= count) {
     return tableData;
   }
 
@@ -1701,7 +1675,7 @@ async function fetchTableData(tableName, locationFilter = null, columns = '*') {
   
   const queries = [];
   for (let page = 1; page <= remainingPages; page++) {
-    let query = supabase.from(tableName).select(columns).range(page * pageSize, (page + 1) * pageSize - 1);
+    let query = supabase.from(tableName).select(columns).order('id').range(page * pageSize, (page + 1) * pageSize - 1);
     if (locationFilter) {
       query = query.eq('division', locationFilter);
     }
@@ -1716,7 +1690,7 @@ async function fetchTableData(tableName, locationFilter = null, columns = '*') {
       for (const { data, error } of results) {
         if (error) {
           console.error(`Error fetching ${tableName}:`, error);
-          continue;
+          throw error;
         }
         if (data && data.length) tableData.push(...data);
       }
@@ -1740,8 +1714,8 @@ function filterByDateRange(data, dateField, range) {
   return data.filter(row => {
     const val = row[dateField];
     if (!val) return false;
-    const d = new Date(val);
-    if (isNaN(d.getTime())) return false;
+    const d = parseTataDate(val);
+    if (!d || isNaN(d.getTime())) return false;
     if (range.from && d < new Date(range.from)) return false;
     if (range.to && d > new Date(range.to + 'T23:59:59')) return false;
     return true;
@@ -1759,22 +1733,22 @@ async function fetchInventoryData() {
     }
     const userLocation = currentUser.location || 'ALL';
     const isAdmin = currentUser.role === 'Super Admin' || currentUser.role === 'Admin' || userLocation === 'ALL';
-    const filter = isAdmin ? null : userLocation;
+    const filter = isAdmin ? null : normalizeLocation(userLocation);
     const dateRange = getDateRangeFilter();
 
     let [inventoryData, consumptionData, priceListData, movementLogsData] = await Promise.all([
-      fetchTableData('tata_spare_inventory', filter, 'part_no, division, qty, availability, product_category, description, last_receipt, fetched_at, inventory_indicator'),
+      fetchTableData('tata_spare_inventory', filter, 'part_no, division, qty, availability, product_category, description, last_receipt, last_issue, fetched_at, inventory_indicator, min'),
       fetchTableData('tata_consumption_data', filter, '*'),
-      fetchTableData('tata_price_list', null, 'part_number, ndp, description, category'),
-      supabase.from('tata_movement_logs').select('*')
+      fetchTableData('tata_price_list', null, 'part_number, ndp, description, category, uom'),
+      fetchTableData('tata_movement_logs')
     ]);
 
     if (dateRange) {
-      inventoryData = filterByDateRange(inventoryData, 'last_receipt', dateRange);
-      consumptionData = filterByDateRange(consumptionData, 'date', dateRange);
+      // Stock is a current snapshot; a sales date range must not remove stock.
+      // Keep full consumption history for rolling demand; filter only its views.
     }
     
-    let movementLogs = movementLogsData.data || [];
+    let movementLogs = movementLogsData || [];
     if (filter) {
       movementLogs = movementLogs.filter(l => {
          if (!l.location) return false;
@@ -1788,234 +1762,17 @@ async function fetchInventoryData() {
     return { inventory: inventoryData, consumption: consumptionData, priceList: priceListData, movementLogs: movementLogs };
   } catch (err) {
     console.error('Network error fetching from Supabase:', err);
-    return { inventory: [], consumption: [], priceList: [] };
+    throw err;
   }
 }
 
-function processRawData({ inventory, consumption, priceList = [], movementLogs = [] }) {
-  const grouped = new Map();
-  
-  // Pre-process price list data
-  const priceByPart = new Map();
-  priceList.forEach(row => {
-    const pn = String(row.part_number || '').trim().toUpperCase();
-    if (!pn) return;
-    let ndp = parseFloat(row.ndp) || 0;
-
-    // Normalization for bulk pack vs. individual applicator units:
-    // Tata price list quotes the full bulk box/case price, while physical DMS inventory counts individual 100g tubes/units.
-    if (pn === '8855FUCH0003') {
-      // Box of 6x100g applicator units (60,186 / box -> 60.18 per unit, billed at 63.92 in invoices)
-      ndp = 60.1866;
-    } else if (pn === '8855RAKA0001') {
-      // 100g unit pack (12,299 / bulk case -> 12.30 per unit)
-      ndp = 12.2992;
-    }
-
-    priceByPart.set(pn, {
-      ndp: ndp,
-      description: row.description || '',
-      category: row.category || ''
-    });
-  });
-
-  // Helper to map raw division strings to standard location names
-  const mapLocation = (divisionStr) => {
-    if (!divisionStr) return 'NARWAL';
-    const lowerD = divisionStr.toLowerCase().replace(/\s+/g, '');
-    if (lowerD.includes('channirama') || lowerD.includes('chhanirama')) return 'CHANNIRAMA';
-    if (lowerD.includes('supwal') || lowerD.includes('smamsamba')) return 'SUPWAL';
-    if (lowerD.includes('kathua') || lowerD.includes('smamkathua')) return 'KATHUA';
-    if (lowerD.includes('reasi')) return 'REASI';
-    if (lowerD.includes('jammu') || lowerD.includes('narwal') || lowerD.includes('narval')) return 'NARWAL';
-    if (lowerD.includes('lambheri')) return 'LAMBHERI';
-    if (lowerD.includes('poonch')) return 'POONCH';
-    return divisionStr; // Default
-  };
-
-  // Pre-process consumption data grouped by Part + Location
-  const consumptionByPartLoc = new Map();
-  const descByPart = new Map();
-  consumption.forEach(row => {
-    const pn = String(row.part_no || row.part_number || '').trim().toUpperCase(); 
-    const loc = mapLocation(row.division);
-    const key = pn + '_' + loc;
-    
-    if (row.part_desc) descByPart.set(pn, row.part_desc);
-    
-    const qty = parseInt(row.sold_qty) || 0;
-    if (consumptionByPartLoc.has(key)) {
-      consumptionByPartLoc.set(key, consumptionByPartLoc.get(key) + qty);
-    } else {
-      consumptionByPartLoc.set(key, qty);
-    }
-  });
-
-  // True rolling six-month consumption, per Part + Location.
-  // `consumption30d` above is the sum of every loaded row regardless of date,
-  // and the feed spans months, so it must not be divided by 30. Window each
-  // row to the trailing 180 days before accumulating, and keep the location
-  // in the key so a part is not summed across all depots.
-  const ROLLING_6M_DAYS = 180;
-  const rolling6mStart = new Date(Date.now() - ROLLING_6M_DAYS * 86400000);
-  const consumption6mByPartLoc = new Map();
-  consumption.forEach(row => {
-    const pn = String(row.part_no || row.part_number || '').trim().toUpperCase();
-    const loc = mapLocation(row.division);
-    const key = pn + '_' + loc;
-
-    const d = window.parseTataDate(row.date);
-    if (!d || isNaN(d.getTime()) || d < rolling6mStart) return;
-
-    const qty = parseInt(row.sold_qty) || 0;
-    consumption6mByPartLoc.set(key, (consumption6mByPartLoc.get(key) || 0) + qty);
-  });
-  
-  inventory.forEach(row => {
-    const pn = String(row.part_no || row.part_number || '').trim().toUpperCase();
-    const loc = row.division || row.location_1 || 'Narwal';
-    const standardLoc = mapLocation(loc);
-    const consKey = pn + '_' + standardLoc; const key = consKey;
-    
-    const consQty = consumptionByPartLoc.get(consKey) || 0;
-    const priceData = priceByPart.get(pn) || {};
-    const finalNdp = priceData.ndp || 0;
-    const finalDesc = priceData.description || row.description || descByPart.get(pn) || 'Unknown';
-    const finalCategory = (row.product_category || priceData.category || 'Uncategorized').trim().toUpperCase();
-
-    if (!grouped.has(key)) {
-      grouped.set(key, {
-        partId: pn,
-        model: finalDesc,
-        location: standardLoc,
-        productCategory: finalCategory,
-        currentStock: 0,
-        reserved: 0,
-        inTransit: 0,
-        stockValue: 0,
-        ndpPrice: finalNdp,
-        min: 5,
-        demand: Math.ceil(consQty / 4),
-        consumption30d: consQty,
-        consumption6mRolling: consumption6mByPartLoc.get(consKey) || 0,
-        last_receipt: row.last_receipt || '',
-        ageingDays: -1,
-        subStock: { workshop: 0, bodyshop: 0, wpacs: 0 }
-      });
-    }
-    const existing = grouped.get(key);
-    if (!existing.subStock) existing.subStock = { workshop: 0, bodyshop: 0, wpacs: 0 };
-    const avail = (row.availability || '').toLowerCase();
-    const ind = (row.inventory_indicator || '').toLowerCase();
-    
-    if (avail.includes('on hand')) {
-      existing.currentStock += row.qty;
-      if (ind.includes('bodyshop')) existing.subStock.bodyshop += row.qty;
-      else if (ind.includes('wpacs')) existing.subStock.wpacs += row.qty;
-      else existing.subStock.workshop += row.qty;
-    } else if (avail.includes('transit')) {
-      existing.inTransit += row.qty;
-    } else if (avail.includes('reserv')) {
-      existing.reserved += row.qty;
-    } else {
-      existing.currentStock += row.qty;
-      if (ind.includes('bodyshop')) existing.subStock.bodyshop += row.qty;
-      else if (ind.includes('wpacs')) existing.subStock.wpacs += row.qty;
-      else existing.subStock.workshop += row.qty;
-    }
-    
-    // Update last_receipt to the most recent one
-    const lr = row.last_receipt;
-    if (lr) {
-      if (!existing.last_receipt || window.parseTataDate(lr) > window.parseTataDate(existing.last_receipt)) {
-        existing.last_receipt = lr;
-      }
-    }
-  });
-
-  // Include consumption that has NO inventory record
-  consumptionByPartLoc.forEach((consQty, key) => {
-    if (!grouped.has(key)) {
-      const parts = key.split('_');
-      const loc = parts.pop();
-      const pn = parts.join('_');
-      const priceData = priceByPart.get(pn) || {};
-
-      grouped.set(key, {
-        partId: pn,
-        model: priceData.description || descByPart.get(pn) || 'Unknown',
-        location: loc,
-        productCategory: (priceData.category || 'Uncategorized').trim().toUpperCase(),
-        currentStock: 0,
-        reserved: 0,
-        inTransit: 0,
-        stockValue: 0,
-        ndpPrice: priceData.ndp || 0,
-        min: 5,
-        demand: Math.ceil(consQty / 4), 
-        consumption30d: consQty,
-        last_receipt: '',
-        ageingDays: -1
-      });
-    }
-  });
-
-  // Apply manual movement logs
-  movementLogs.forEach(log => {
-    const loc = mapLocation(log.location);
-    const pn = String(log.part_id || '').trim().toUpperCase();
-    const key = pn + '_' + loc;
-    const existing = grouped.get(key);
-    if (existing) {
-      if (log.movement_type === 'IN') {
-        existing.currentStock += Number(log.qty) || 0;
-      } else if (log.movement_type === 'OUT') {
-        existing.currentStock -= Number(log.qty) || 0;
-      }
-    } else {
-      // Create it if it doesn't exist
-      const priceData = priceByPart.get(pn) || {};
-      
-      grouped.set(key, {
-        partId: pn,
-        model: priceData.description || descByPart.get(pn) || 'Unknown',
-        location: loc,
-        productCategory: (priceData.category || 'Uncategorized').trim().toUpperCase(),
-        currentStock: log.movement_type === 'IN' ? (Number(log.qty) || 0) : -(Number(log.qty) || 0),
-        reserved: 0,
-        inTransit: 0,
-        stockValue: 0,
-        ndpPrice: priceData.ndp || 0,
-        min: 5,
-        demand: 0, 
-        consumption30d: 0,
-        consumption6mRolling: 0,
-        last_receipt: log.date || '',
-        ageingDays: -1
-      });
-    }
-  });
-
-  // Stock value = available (on hand) qty x price list NDP
-  const now = new Date();
-  for (const part of grouped.values()) {
-    part.stockValue = part.ndpPrice * part.currentStock;
-    if (part.currentStock > 0 && part.last_receipt) {
-      const lrDate = window.parseTataDate(part.last_receipt);
-      if (lrDate && !isNaN(lrDate)) {
-        part.ageingDays = Math.floor((now - lrDate) / (1000 * 60 * 60 * 24));
-      }
-    } else {
-      part.ageingDays = -1; // No stock = no ageing
-    }
-  }
-
-  return Array.from(grouped.values());
+function processRawData(data) {
+  return processInventoryData(data);
 }
 
 function calculateRequirements(parts) {
   let kpis = {
-    critical: 0, toOrder: 0, pending: 0, openPo: 1, transit: 0, available: 0, overstock: 0, demand: 0, backorders: 1, stockValue: 0
+    critical: 0, toOrder: 0, pending: null, openPo: null, transit: 0, available: 0, overstock: 0, demand: 0, backorders: null, stockValue: 0
   };
   
   let categoryTotals = {
@@ -2027,23 +1784,9 @@ function calculateRequirements(parts) {
     'SPARE PART': 0
   };
 
-  const ROLLING_6M_DAYS = 180;
-
   const processed = parts.map(part => {
-    // Override lead time and safety stock based on business rule: 14 days (7 days internal + 7 days supplier)
-    const leadTime = 14;
-    // Precomputed per Part + Location over a trailing 180-day window.
-    // Never fall back to consumption30d * 6: that field is an unfiltered sum of
-    // every loaded row, so scaling it would not be a real six-month average.
     const consumption6m = Number(part.consumption6mRolling) || 0;
-    const avgDailyConsumption = consumption6m / ROLLING_6M_DAYS;
-    const safetyStock = Math.ceil(avgDailyConsumption * leadTime);
-    
-    const available = part.currentStock - part.reserved;
-    // Net Requirement = Demand + Safety Stock - Available Stock - Confirmed In-Transit
-    const netRequirement = part.demand + safetyStock - available - part.inTransit;
-    const orderQty = Math.max(0, netRequirement);
-    
+    const { leadTime, safetyStock, available, netRequirement, orderQty, averageDaily: avgDailyConsumption } = reorderMetrics(part);
     kpis.available += available;
     kpis.stockValue += part.stockValue;
     kpis.demand += part.demand;
@@ -2054,24 +1797,26 @@ function calculateRequirements(parts) {
     categoryTotals[cat] += (part.stockValue || 0);
 
     let status = { text: '<i data-lucide="check-circle" style="width: 14px; height: 14px;"></i> OK', class: 'green' };
-    if (orderQty > 0) {
+    if (!part.unitKnown) {
+      status = { text: 'Review unit', class: 'orange' };
+    } else if (orderQty > 0) {
       status = { text: '<i data-lucide="shopping-cart" style="width: 12px; height: 12px;"></i> To Order', class: 'blue' };
       kpis.toOrder++;
     } else if (available < part.min && part.inTransit > 0) {
       status = { text: '<i data-lucide="truck" style="width: 12px; height: 12px;"></i> In Transit', class: 'purple' };
     }
     
-    if (available < part.min) kpis.critical++;
+    if (part.unitKnown && available < part.min) kpis.critical++;
 
     // AI Reason String
-    const aiReason = `<strong>Part ${escapeHtml(part.partId)} — Order ${orderQty} units</strong><br><br>
+    const aiReason = `<strong>Part ${escapeHtml(part.partId)} — Order ${orderQty ?? 'Review unit'} ${escapeHtml(part.uom || '')}</strong><br><br>
       Current available: ${available}<br>
       6-month consumption: ${consumption6m} (avg ~${Math.round(avgDailyConsumption*30)}/month)<br>
-      Open demand: ${escapeHtml(String(part.demand))}<br>
-      Safety stock (14 days): ${safetyStock}<br>
+      Estimated 7-day demand: ${escapeHtml(String(part.demand))}<br>
+      Safety stock (7 days): ${safetyStock}<br>
       In-transit: ${escapeHtml(String(part.inTransit))}<br>
       Supplier lead time: ${leadTime} days<br><br>
-      <strong>Reason:</strong> ${orderQty > 0 ? 'Available stock is insufficient to cover current demand and safety stock after considering confirmed incoming stock.' : 'Current inventory and incoming stock are sufficient to meet demand and maintain safety thresholds.'}`;
+      <strong>Reason:</strong> ${!part.unitKnown ? 'Confirm the price-list unit before ordering.' : orderQty > 0 ? 'Available stock is insufficient to cover current demand and safety stock after considering confirmed incoming stock.' : 'Current inventory and incoming stock are sufficient to meet demand and maintain safety thresholds.'}`;
 
     return { ...part, leadTime, safetyStock, consumption6m, available, netRequirement, orderQty, status, aiReason };
   });
@@ -2298,6 +2043,8 @@ async function loadDataAndRender() {
   // round-trip dominates here (40k+ consumption rows), so this stays up for far
   // longer than the brief render pass that renderDashboard() wraps.
   showLoadingOverlay('Fetching inventory, consumption and price list...');
+  const previousError = document.getElementById('data-load-error');
+  if (previousError) previousError.style.display = 'none';
 
   const tbody = document.getElementById('inventory-table-body');
   if(tbody) tbody.innerHTML = '<tr><td colspan="12" style="text-align:center; padding: 40px; color: var(--text-secondary);"><div class="spin-animation" style="display:inline-block; margin-right:12px; width:24px; height:24px; border:3px solid #e2e8f0; border-top-color:#3b82f6; border-radius:50%; vertical-align:middle;"></div><span style="font-size: 1.1rem; vertical-align:middle;">Loading live data from Supabase...</span></td></tr>';
@@ -2312,6 +2059,7 @@ async function loadDataAndRender() {
     window.originalProcessedParts = allProcessed;
 
     renderLastUpdated(rawInventoryData);
+    showCalculationQuality(allProcessed);
 
     renderDashboard();
     if (typeof renderDashboardAnalytics === 'function') renderDashboardAnalytics();
@@ -2335,6 +2083,25 @@ async function loadDataAndRender() {
 }
 
 // Full-screen loading spinner helpers. The overlay element lives in dashboard.html.
+function showCalculationQuality(parts) {
+  const quality = summarizeInventory(parts);
+  let banner = document.getElementById('calculation-quality');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'calculation-quality';
+    banner.style.cssText = 'margin:12px 0;padding:12px;border:1px solid #f59e0b;border-radius:6px;background:#fffbeb;color:#92400e;font-size:0.85rem;';
+    (document.querySelector('.main-content') || document.getElementById('dashboard-page'))?.prepend(banner);
+  }
+  const warnings = [];
+  if (quality.missingPrices) warnings.push(`${quality.missingPrices} stocked part/location groups have no NDP`);
+  if (quality.unknownUnits) warnings.push(`${quality.unknownUnits} stocked groups have no price-list unit`);
+  if (quality.descriptionMismatches) warnings.push(`${quality.descriptionMismatches} part/location descriptions differ from the price list`);
+  if (quality.unknownAge) warnings.push(`${quality.unknownAge} stocked groups have unknown receipt age`);
+  if (quality.unreconciledMovements) warnings.push(`${quality.unreconciledMovements} older/manual adjustments need reconciliation with the stock snapshot`);
+  banner.textContent = warnings.length ? `Data needs review: ${warnings.join('; ')}. Values include priced stock only. Refresh/re-import source exports after the numeric-import fix; earlier comma-separated quantities may have been truncated.` : '';
+  banner.style.display = warnings.length ? 'block' : 'none';
+}
+
 function showLoadingOverlay(detailText) {
   const overlay = document.getElementById('loading-overlay');
   if (overlay) overlay.style.display = 'flex';
@@ -2345,8 +2112,7 @@ function showLoadingOverlay(detailText) {
 function hideLoadingOverlay() {
   const overlay = document.getElementById('loading-overlay');
   if (overlay) overlay.style.display = 'none';
-  const banner = document.getElementById('data-load-error');
-  if (banner) banner.style.display = 'none';
+
 }
 window.showLoadingOverlay = showLoadingOverlay;
 window.hideLoadingOverlay = hideLoadingOverlay;
@@ -2405,16 +2171,16 @@ function _renderDashboard_internal() {
   // Update KPIs
   if(document.getElementById('kpi-critical')) document.getElementById('kpi-critical').textContent = kpis.critical;
   if(document.getElementById('kpi-to-order')) document.getElementById('kpi-to-order').textContent = kpis.toOrder;
-  if(document.getElementById('kpi-pending')) document.getElementById('kpi-pending').textContent = kpis.pending;
-  if(document.getElementById('kpi-open-po')) document.getElementById('kpi-open-po').textContent = kpis.openPo;
-  if(document.getElementById('kpi-in-transit')) document.getElementById('kpi-in-transit').textContent = kpis.transit;
-  if(document.getElementById('kpi-available')) document.getElementById('kpi-available').textContent = kpis.available;
+  if(document.getElementById('kpi-pending')) document.getElementById('kpi-pending').textContent = kpis.pending ?? '—';
+  if(document.getElementById('kpi-open-po')) document.getElementById('kpi-open-po').textContent = kpis.openPo ?? '—';
+  if(document.getElementById('kpi-in-transit')) document.getElementById('kpi-in-transit').textContent = quantityTotals(processed, 'inTransit');
+  if(document.getElementById('kpi-available')) document.getElementById('kpi-available').textContent = quantityTotals(processed, 'available');
   if(document.getElementById('kpi-stock-value')) {
     document.getElementById('kpi-stock-value').textContent = '₹' + kpis.stockValue.toLocaleString('en-IN', { maximumFractionDigits: 0 });
   }
   if(document.getElementById('kpi-overstock')) document.getElementById('kpi-overstock').textContent = kpis.overstock;
-  if(document.getElementById('kpi-demand')) document.getElementById('kpi-demand').textContent = kpis.demand;
-  if(document.getElementById('kpi-backorders')) document.getElementById('kpi-backorders').textContent = kpis.backorders;
+  if(document.getElementById('kpi-demand')) document.getElementById('kpi-demand').textContent = quantityTotals(processed, 'demand');
+  if(document.getElementById('kpi-backorders')) document.getElementById('kpi-backorders').textContent = kpis.backorders ?? '—';
   
   // Update Integration Status Calculations
   const devStatusTotal = document.getElementById('calc-total');
@@ -2426,7 +2192,7 @@ function _renderDashboard_internal() {
   if (devStatusCritical) devStatusCritical.textContent = kpis.critical.toLocaleString();
   if (devStatusToOrder) devStatusToOrder.textContent = kpis.toOrder.toLocaleString();
   if (devStatusBadge) {
-    devStatusBadge.textContent = "Synced Successfully";
+    devStatusBadge.textContent = "Calculated from stored data";
     devStatusBadge.className = "status-badge green";
   }
   
@@ -2711,8 +2477,8 @@ function _renderTablePage_internal() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${escapeHtml(part.partId)}</td>
-      <td title="${escapeHtml(part.model)}">${escapeHtml(part.model)}</td>
-      <td>${part.currentStock}</td>
+      <td title="${escapeHtml(part.model)}">${escapeHtml(part.model)}${part.descriptionMismatch ? `<small title="Source: ${escapeHtml(part.sourceDescription)}" style="display:block;color:var(--warning)">Description differs from source</small>` : ''}</td>
+      <td>${part.currentStock.toLocaleString('en-IN', {maximumFractionDigits: 3})} ${escapeHtml(part.uom)}</td>
       <td>${part.reserved}</td>
       <td>${part.available}</td>
       <td>${part.inTransit}</td>
@@ -3227,9 +2993,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.hCurrentFilter === 'critical') {
       displayParts = displayParts.filter(p => p.currentStock === 0);
     } else if (window.hCurrentFilter === 'low') {
-      displayParts = displayParts.filter(p => p.currentStock > 0 && p.currentStock < 5);
+      displayParts = displayParts.filter(p => p.currentStock > 0 && p.available < p.min);
     } else if (window.hCurrentFilter === 'healthy') {
-      displayParts = displayParts.filter(p => p.currentStock >= 5);
+      displayParts = displayParts.filter(p => p.available >= p.min);
     } else if (window.hCurrentFilter === 'sub-workshop') {
       displayParts = displayParts.filter(p => (p.subStock?.workshop || 0) > 0);
     } else if (window.hCurrentFilter === 'sub-bodyshop') {
@@ -3269,11 +3035,11 @@ document.addEventListener('DOMContentLoaded', () => {
        stats.resQty += p.reserved || 0;
        stats.resVal += (p.reserved || 0) * (p.ndpPrice || 0);
        if (p.currentStock === 0) stats.oos++;
-       else if (p.currentStock < p.min) stats.low++;
+       else if (p.available < p.min) stats.low++;
         if (window.isLubePart(p.productCategory, p.description || p.part_desc)) {
-          const lubeQtyLtr = (p.currentStock || 0) / 1000;
+          const lubeQtyLtr = p.uom === 'L' ? (p.currentStock || 0) : 0;
           stats.lubeQty += lubeQtyLtr;
-          stats.lubeVal += lubeQtyLtr * (p.ndpPrice || 0);
+          stats.lubeVal += p.stockValue || 0;
         }
         const wsQ = p.subStock?.workshop || 0;
         const bsQ = p.subStock?.bodyshop || 0;
@@ -3288,29 +3054,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (kpiTotal) kpiTotal.textContent = totalItems.toLocaleString('en-IN');
     if (kpiValue) kpiValue.textContent = '₹' + stats.onhandVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
-    if (kpiOnhand) kpiOnhand.textContent = stats.onhandQty.toLocaleString('en-IN');
+    if (kpiOnhand) kpiOnhand.textContent = quantityTotals(displayParts);
     if (kpiOnhandVal) kpiOnhandVal.textContent = '₹' + stats.onhandVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
     
-    if (kpiTransit) kpiTransit.textContent = stats.transitQty.toLocaleString('en-IN');
+    if (kpiTransit) kpiTransit.textContent = quantityTotals(displayParts, 'inTransit');
     if (kpiTransitVal) kpiTransitVal.textContent = '₹' + stats.transitVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
     
-    if (kpiReserved) kpiReserved.textContent = stats.resQty.toLocaleString('en-IN');
+    if (kpiReserved) kpiReserved.textContent = quantityTotals(displayParts, 'reserved');
     if (kpiReservedVal) kpiReservedVal.textContent = '₹' + stats.resVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
     
     if (kpiOos) kpiOos.textContent = stats.oos.toLocaleString('en-IN');
     if (kpiLow) kpiLow.textContent = stats.low.toLocaleString('en-IN');
     
-    if (kpiLube) kpiLube.textContent = stats.lubeQty.toLocaleString('en-IN', { maximumFractionDigits: 2 }) + ' L';
+    if (kpiLube) kpiLube.textContent = quantityTotals(displayParts.filter(p => isLubePart(p.productCategory, p.model)));
     if (kpiLubeVal) kpiLubeVal.textContent = '₹' + stats.lubeVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
 
     if (kpiWsVal) kpiWsVal.textContent = '₹' + stats.wsVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
-    if (kpiWsQty) kpiWsQty.textContent = stats.wsQty.toLocaleString('en-IN') + ' Qty';
+    if (kpiWsQty) kpiWsQty.textContent = quantityTotals(displayParts, p => p.subStock?.workshop) + ' Qty';
 
     if (kpiBsVal) kpiBsVal.textContent = '₹' + stats.bsVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
-    if (kpiBsQty) kpiBsQty.textContent = stats.bsQty.toLocaleString('en-IN') + ' Qty';
+    if (kpiBsQty) kpiBsQty.textContent = quantityTotals(displayParts, p => p.subStock?.bodyshop) + ' Qty';
 
     if (kpiWpVal) kpiWpVal.textContent = '₹' + stats.wpVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
-    if (kpiWpQty) kpiWpQty.textContent = stats.wpQty.toLocaleString('en-IN') + ' Qty';
+    if (kpiWpQty) kpiWpQty.textContent = quantityTotals(displayParts, p => p.subStock?.wpacs) + ' Qty';
 
     let age0_30 = { qty: 0, val: 0 };
     let age31_60 = { qty: 0, val: 0 };
@@ -3319,7 +3085,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let age180_plus = { qty: 0, val: 0 };
 
     displayParts.forEach(p => {
-      if (p.ageingDays >= 0) {
+      if (p.ageingDays != null && p.ageingDays >= 0) {
         if (p.ageingDays <= 30) {
            age0_30.qty++; age0_30.val += p.stockValue;
         } else if (p.ageingDays <= 60) {
@@ -3370,18 +3136,18 @@ document.addEventListener('DOMContentLoaded', () => {
           badgeText = 'Low Stock';
         }
         
-        let ageingText = part.ageingDays >= 0 ? `${part.ageingDays} Days` : 'N/A';
+        let ageingText = part.ageingDays != null && part.ageingDays >= 0 ? `${part.ageingDays} Days` : 'Unknown';
         
         const tr = document.createElement('tr');
         tr.style.borderBottom = '1px solid var(--border-color)';
         tr.innerHTML = `
           <td style="padding: 8px 12px; font-weight: 500;">${escapeHtml(part.partId)}</td>
-          <td style="padding: 8px 12px; color: var(--text-secondary);">${escapeHtml(part.model)}</td>
+          <td style="padding: 8px 12px; color: var(--text-secondary);">${escapeHtml(part.model)}${part.descriptionMismatch ? `<small title="Source: ${escapeHtml(part.sourceDescription)}" style="display:block;color:var(--warning)">Description differs from source</small>` : ''}</td>
           <td style="padding: 8px 12px;">${escapeHtml(part.location)}</td>
           <td style="padding: 8px 12px;">${escapeHtml(part.productCategory || 'TATA')}</td>
-          <td style="padding: 8px 12px; text-align: right; color: #10b981; font-weight: 500;">₹${(part.ndpPrice || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-          <td style="padding: 8px 12px; text-align: right; font-weight: 600;">${part.currentStock}</td>
-          <td style="padding: 8px 12px; text-align: right; font-weight: 600; color: #3b82f6;">₹${(part.stockValue || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+          <td style="padding: 8px 12px; text-align: right; color: #10b981; font-weight: 500;">${part.priceKnown ? '₹' + part.ndpPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '/' + escapeHtml(part.uom) : 'Missing price'}</td>
+          <td style="padding: 8px 12px; text-align: right; font-weight: 600;">${part.currentStock.toLocaleString('en-IN', {maximumFractionDigits: 3})} ${escapeHtml(part.uom)}</td>
+          <td style="padding: 8px 12px; text-align: right; font-weight: 600; color: #3b82f6;">${part.stockValue == null ? 'Unknown' : '₹' + part.stockValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
           <td style="padding: 8px 12px; text-align: right; color: var(--text-secondary);">${ageingText}</td>
           <td style="padding: 8px 12px; text-align: center;"><span class="h-badge ${badgeClass}">${badgeText}</span></td>
         `;
@@ -3440,9 +3206,7 @@ document.addEventListener('DOMContentLoaded', () => {
       window.hCurrentPage = 1;
       const dateRange = getDateRangeFilter();
       let parts = window.originalProcessedParts || [];
-      if (dateRange) {
-        parts = filterByDateRange(parts.map(p => ({ ...p, last_receipt: p.last_receipt || '' })), 'last_receipt', dateRange);
-      }
+      // Sales date filters do not alter the current stock snapshot.
       let filtered;
       if (!q) {
         filtered = parts;
@@ -3460,6 +3224,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ).map(e => e.p);
       }
       window.filteredProcessedParts = filtered;
+      showCalculationQuality(filtered);
       window._searchIndex = null;
       window._searchIndexParts = null;
       renderHealthTable();
@@ -3490,7 +3255,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (p.currentStock === 0) oos++;
         else if (p.currentStock < (p.min || 5)) low++;
         if (window.isLubePart(p.productCategory, p.description || p.part_desc)) {
-          lubeQty += p.currentStock || 0;
+          lubeQty += p.uom === 'L' ? p.currentStock || 0 : 0;
           lubeVal += p.stockValue || 0;
         }
         const wsQ = p.subStock?.workshop || 0;
@@ -3502,22 +3267,22 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       if (kpiTotal) kpiTotal.textContent = filtered.length.toLocaleString('en-IN');
       if (kpiValue) kpiValue.textContent = '₹' + onhandVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
-      if (kpiOnhand) kpiOnhand.textContent = onhandQty.toLocaleString('en-IN');
+      if (kpiOnhand) kpiOnhand.textContent = quantityTotals(window.filteredProcessedParts || []);
       if (kpiOnhandVal) kpiOnhandVal.textContent = '₹' + onhandVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
-      if (kpiTransit) kpiTransit.textContent = transitQty.toLocaleString('en-IN');
+      if (kpiTransit) kpiTransit.textContent = quantityTotals(window.filteredProcessedParts || [], 'inTransit');
       if (kpiTransitVal) kpiTransitVal.textContent = '₹' + transitVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
-      if (kpiReserved) kpiReserved.textContent = resQty.toLocaleString('en-IN');
+      if (kpiReserved) kpiReserved.textContent = quantityTotals(window.filteredProcessedParts || [], 'reserved');
       if (kpiReservedVal) kpiReservedVal.textContent = '₹' + resVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
       if (kpiOos) kpiOos.textContent = oos.toLocaleString('en-IN');
       if (kpiLow) kpiLow.textContent = low.toLocaleString('en-IN');
-      if (kpiLube) kpiLube.textContent = (lubeQty / 1000).toLocaleString('en-IN', { maximumFractionDigits: 2 }) + ' L';
+      if (kpiLube) kpiLube.textContent = quantityTotals((window.filteredProcessedParts || []).filter(p => isLubePart(p.productCategory, p.model)));
       if (kpiLubeVal) kpiLubeVal.textContent = '₹' + lubeVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
       if (kpiWsVal) kpiWsVal.textContent = '₹' + wsVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
-      if (kpiWsQty) kpiWsQty.textContent = wsQty.toLocaleString('en-IN') + ' Qty';
+      if (kpiWsQty) kpiWsQty.textContent = quantityTotals(window.filteredProcessedParts || [], p => p.subStock?.workshop) + ' Qty';
       if (kpiBsVal) kpiBsVal.textContent = '₹' + bsVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
-      if (kpiBsQty) kpiBsQty.textContent = bsQty.toLocaleString('en-IN') + ' Qty';
+      if (kpiBsQty) kpiBsQty.textContent = quantityTotals(window.filteredProcessedParts || [], p => p.subStock?.bodyshop) + ' Qty';
       if (kpiWpVal) kpiWpVal.textContent = '₹' + wpVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
-      if (kpiWpQty) kpiWpQty.textContent = wpQty.toLocaleString('en-IN') + ' Qty';
+      if (kpiWpQty) kpiWpQty.textContent = quantityTotals(window.filteredProcessedParts || [], p => p.subStock?.wpacs) + ' Qty';
     };
     globalSearchBtn.addEventListener('click', doGlobalSearch);
     globalSearchInput.addEventListener('keydown', (e) => {
@@ -3560,7 +3325,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (p.currentStock === 0) oos++;
           else if (p.currentStock < (p.min || 5)) low++;
           if (window.isLubePart(p.productCategory, p.description || p.part_desc)) {
-            lubeQty += p.currentStock || 0;
+            lubeQty += p.uom === 'L' ? p.currentStock || 0 : 0;
             lubeVal += p.stockValue || 0;
           }
           const wsQ = p.subStock?.workshop || 0;
@@ -3572,22 +3337,22 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (kpiTotal) kpiTotal.textContent = parts.length.toLocaleString('en-IN');
         if (kpiValue) kpiValue.textContent = '₹' + onhandVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
-        if (kpiOnhand) kpiOnhand.textContent = onhandQty.toLocaleString('en-IN');
+        if (kpiOnhand) kpiOnhand.textContent = quantityTotals(window.filteredProcessedParts || []);
         if (kpiOnhandVal) kpiOnhandVal.textContent = '₹' + onhandVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
-        if (kpiTransit) kpiTransit.textContent = transitQty.toLocaleString('en-IN');
+        if (kpiTransit) kpiTransit.textContent = quantityTotals(window.filteredProcessedParts || [], 'inTransit');
         if (kpiTransitVal) kpiTransitVal.textContent = '₹' + transitVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
-        if (kpiReserved) kpiReserved.textContent = resQty.toLocaleString('en-IN');
+        if (kpiReserved) kpiReserved.textContent = quantityTotals(window.filteredProcessedParts || [], 'reserved');
         if (kpiReservedVal) kpiReservedVal.textContent = '₹' + resVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
         if (kpiOos) kpiOos.textContent = oos.toLocaleString('en-IN');
         if (kpiLow) kpiLow.textContent = low.toLocaleString('en-IN');
-        if (kpiLube) kpiLube.textContent = (lubeQty / 1000).toLocaleString('en-IN', { maximumFractionDigits: 2 }) + ' L';
+        if (kpiLube) kpiLube.textContent = quantityTotals((window.filteredProcessedParts || []).filter(p => isLubePart(p.productCategory, p.model)));
         if (kpiLubeVal) kpiLubeVal.textContent = '₹' + lubeVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
         if (kpiWsVal) kpiWsVal.textContent = '₹' + wsVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
-        if (kpiWsQty) kpiWsQty.textContent = wsQty.toLocaleString('en-IN') + ' Qty';
+        if (kpiWsQty) kpiWsQty.textContent = quantityTotals(window.filteredProcessedParts || [], p => p.subStock?.workshop) + ' Qty';
         if (kpiBsVal) kpiBsVal.textContent = '₹' + bsVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
-        if (kpiBsQty) kpiBsQty.textContent = bsQty.toLocaleString('en-IN') + ' Qty';
+        if (kpiBsQty) kpiBsQty.textContent = quantityTotals(window.filteredProcessedParts || [], p => p.subStock?.bodyshop) + ' Qty';
         if (kpiWpVal) kpiWpVal.textContent = '₹' + wpVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
-        if (kpiWpQty) kpiWpQty.textContent = wpQty.toLocaleString('en-IN') + ' Qty';
+        if (kpiWpQty) kpiWpQty.textContent = quantityTotals(window.filteredProcessedParts || [], p => p.subStock?.wpacs) + ' Qty';
       });
     }
   }
@@ -3712,9 +3477,9 @@ document.addEventListener('DOMContentLoaded', () => {
         tr.style.borderBottom = '1px solid var(--border-color)';
         tr.innerHTML = `
           <td style="padding: 8px 12px; font-weight: 500;">${escapeHtml(part.partId)}</td>
-          <td style="padding: 8px 12px; color: var(--text-secondary);">${escapeHtml(part.model)}</td>
+          <td style="padding: 8px 12px; color: var(--text-secondary);">${escapeHtml(part.model)}${part.descriptionMismatch ? `<small title="Source: ${escapeHtml(part.sourceDescription)}" style="display:block;color:var(--warning)">Description differs from source</small>` : ''}</td>
           <td style="padding: 8px 12px;">${escapeHtml(part.location || 'Narwal')}</td>
-          <td style="padding: 8px 12px; text-align: center;">${part.currentStock || 0}</td>
+          <td style="padding: 8px 12px; text-align: center;">${part.currentStock.toLocaleString('en-IN', {maximumFractionDigits: 3})} ${escapeHtml(part.uom)}</td>
           <td style="padding: 8px 12px; text-align: center; color: var(--purple); font-weight: 500;">${part.inTransit || 0}</td>
           <td style="padding: 8px 12px; text-align: center;">${Math.round((part.consumption6m || 0) / 6)}/mo</td>
           <td style="padding: 8px 12px; text-align: center; color: var(--text-secondary);">${part.safetyStock || 0}</td>
@@ -3758,7 +3523,7 @@ document.addEventListener('DOMContentLoaded', () => {
       Chart.defaults.set('plugins.datalabels', { display: false });
     }
     
-    let cons = (window.rawInventoryData && window.rawInventoryData.consumption) || [];
+    let cons = filterByDateRange((window.rawInventoryData && window.rawInventoryData.consumption) || [], 'date', getDateRangeFilter());
     const locationSelect = document.getElementById('location-select');
     const selectedLoc = locationSelect ? locationSelect.value : 'ALL';
     
@@ -3806,7 +3571,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     cons.forEach(r => {
       const pn = r.part_no || r.part_number || 'Unknown';
-      const qty = Number(r.sold_qty) || 0;
+      const qty = consumptionQuantity(r);
       const val = Number(r.value) || 0;
       totalValue += val;
 
@@ -4067,6 +3832,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Sort transactions by value descending
+    consRecords = filterByDateRange(consRecords, 'date', getDateRangeFilter());
     consRecords.sort((a, b) => (Number(b.value) || 0) - (Number(a.value) || 0));
     
     const totalItems = consRecords.length;
@@ -4114,7 +3880,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td style="padding: 6px 8px; font-weight: 600;"><span style="background: rgba(139, 92, 246, 0.1); color: #8b5cf6; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="calendar" style="width: 12px; height: 12px;"></i>${escapeHtml(monthYear)}</span></td>
           <td style="padding: 6px 8px; font-weight: 500; white-space: nowrap; font-size: 0.7rem;">${escapeHtml(partNo)}</td>
           <td style="padding: 6px 8px; color: var(--text-secondary); max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.7rem;" title="${escapeHtml(part.part_desc || '')}">${escapeHtml(part.part_desc || '-')}</td>
-          <td style="padding: 6px 8px; text-align: center; font-weight: bold; color: var(--text-primary);"><span style="background: rgba(59, 130, 246, 0.1); color: #3b82f6; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">${part.sold_qty || 0}</span></td>
+          <td style="padding: 6px 8px; text-align: center; font-weight: bold; color: var(--text-primary);"><span style="background: rgba(59, 130, 246, 0.1); color: #3b82f6; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">${consumptionQuantity(part).toLocaleString('en-IN', {maximumFractionDigits:3})} ${escapeHtml(consumptionUnit(part))}</span></td>
           <td style="padding: 6px 8px; text-align: right; color: var(--text-primary); font-weight: 600; font-size: 0.7rem;">₹${(Number(part.value)||0).toLocaleString('en-IN')}</td>
           <td style="padding: 6px 8px; text-align: right; color: var(--text-secondary); font-size: 0.7rem;">₹${ndp.toLocaleString('en-IN')}</td>
           <td style="padding: 6px 8px; text-align: right; color: var(--text-secondary); font-size: 0.7rem;">₹${(Number(part.tax_amount)||0).toLocaleString('en-IN')}</td>
@@ -4143,7 +3909,7 @@ document.addEventListener('DOMContentLoaded', () => {
     consRecords.forEach(r => {
       const pn = r.part_no || 'Unknown';
       if (!partAgg[pn]) partAgg[pn] = 0;
-      partAgg[pn] += (Number(r.sold_qty) || 0);
+      partAgg[pn] += consumptionQuantity(r);
     });
     
     const uniquePartsArray = Object.values(partAgg);
@@ -4153,7 +3919,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const slowMoving = uniquePartsArray.filter(qty => qty > 0 && qty < 5).length;
     
     const tEl = document.getElementById('cons-kpi-total');
-    if (tEl) tEl.textContent = totalConsumed.toLocaleString('en-IN');
+    if (tEl) tEl.textContent = quantityTotals(consRecords.map(r => ({currentStock:consumptionQuantity(r),uom:consumptionUnit(r)})));
     
     const fEl = document.getElementById('cons-kpi-fast');
     if (fEl) fEl.textContent = fastMoving;
@@ -4318,10 +4084,10 @@ document.addEventListener('DOMContentLoaded', () => {
               description: String(getVal(['Description', 'Desc'])),
               uom: String(getVal(['UOM'])),
               pf_code: String(getVal(['PF Code', 'PF_Code'])),
-              ndp: parseFloat(getVal(['NDP'])) || 0,
-              lp: parseFloat(getVal(['LP'])) || 0,
-              dealer_discount: parseFloat(getVal(['Dealer discount', 'Dealer Discount'])) || 0,
-              mrp: parseFloat(getVal(['MRP'])) || 0,
+              ndp: parseNumber(getVal(['NDP'])) || 0,
+              lp: parseNumber(getVal(['LP'])) || 0,
+              dealer_discount: parseNumber(getVal(['Dealer discount', 'Dealer Discount'])) || 0,
+              mrp: parseNumber(getVal(['MRP'])) || 0,
               hsn_code: String(getVal(['HSN Code', 'HSN'])),
               gst_rates: String(getVal(['GST Rates', 'GST'])),
               category: String(getVal(['Category'])),
@@ -4429,8 +4195,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 division: locationInput,
                 part_no: String(getVal(['Part #', 'Part Number', 'Part'])),
                 description: String(getVal(['Description', 'Descriptic', 'Descriptio'])),
-                qty: parseFloat(getVal(['Qty', 'Quantity'])) || 0,
-                total_price: parseFloat(getVal(['Total Price'])) || 0,
+                qty: parseNumber(getVal(['Qty', 'Quantity'])) || 0,
+                total_price: parseNumber(getVal(['Total Price'])) || 0,
                 last_issue: String(getVal(['Last Issue']) || ''),
                 last_receipt: String(getVal(['Last Receipt', 'Last Recei']) || ''),
                 availability: String(getVal(['Availability', 'Availabilit']) || ''),
@@ -4441,8 +4207,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 location_3: String(getVal(['Location 3']) || ''),
                 location_2: String(getVal(['Location 2']) || ''),
                 location_1: String(getVal(['Location 1']) || ''),
-                min: parseFloat(getVal(['Min', 'Minimum'])) || 0,
-                max: parseFloat(getVal(['Max', 'Maximum'])) || 0,
+                min: parseNumber(getVal(['Min', 'Minimum'])) || 0,
+                max: parseNumber(getVal(['Max', 'Maximum'])) || 0,
                 inventory_indicator: String(getVal(['Inventory Indicator', 'Inventory I']) || ''),
                 xyz_class: String(getVal(['XYZ Class']) || ''),
                 abc_class: String(getVal(['ABC Class']) || ''),
@@ -4557,11 +4323,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 order_num: String(getVal(['Order Number', 'Order Num']) || ''),
                 order_type: String(getVal(['Order Type']) || ''),
                 order_sub: String(getVal(['Order Sub-Type', 'Order Sub']) || ''),
-                rate: parseFloat(getVal(['Rate'])) || 0,
+                rate: parseNumber(getVal(['Rate'])) || 0,
                 billing_type: String(getVal(['Billing Type']) || ''),
-                sold_qty: parseFloat(getVal(['Sold Qty', 'Qty'])) || 0,
-                value: parseFloat(getVal(['Value', 'Total'])) || 0,
-                tax_amount: parseFloat(getVal(['Tax Amount', 'Tax'])) || 0,
+                sold_qty: parseNumber(getVal(['Sold Qty', 'Qty'])) || 0,
+                value: parseNumber(getVal(['Value', 'Total'])) || 0,
+                tax_amount: parseNumber(getVal(['Tax Amount', 'Tax'])) || 0,
                 mode_of_payment: String(getVal(['Mode of Payment', 'Payment Mode']) || ''),
                 dealer: String(getVal(['Dealer', 'Dealer Name']) || ''),
                 // Consumption badge reads fetched_at; without it a manual upload
@@ -4663,7 +4429,7 @@ window._renderPPNI_internal = function() {
     ? baseParts.filter(p => (p.location || '').toUpperCase().replace(/\s+/g, '') === sLoc)
     : [...baseParts];
 
-  let ppniParts = allParts.filter(p => p.currentStock > 0 && p.ageingDays > 180);
+  let ppniParts = allParts.filter(p => p.currentStock > 0 && p.nonMovingDays != null && p.nonMovingDays > 180);
 
   // Apply column filters if any
   if (window.tableFilterData['ppni-table-body']) {
@@ -4703,7 +4469,8 @@ window._renderPPNI_internal = function() {
     if (p.currentStock > 0) {
       let val = p.stockValue || 0;
       let qty = p.currentStock || 0;
-      let age = p.ageingDays || 0;
+      if (p.nonMovingDays == null) return;
+      let age = p.nonMovingDays;
       if (age < 0) age = 0;
 
       if (age <= 30) {
@@ -4730,7 +4497,7 @@ window._renderPPNI_internal = function() {
 
   ppniParts.forEach(p => {
     totalValue += (p.stockValue || 0);
-    if (p.ageingDays > maxAge) maxAge = p.ageingDays;
+    if (p.nonMovingDays > maxAge) maxAge = p.nonMovingDays;
     
     let cat = p.productCategory || 'Uncategorized';
     catSums[cat] = (catSums[cat] || 0) + (p.stockValue || 0);
@@ -4788,20 +4555,20 @@ window._renderPPNI_internal = function() {
   } else {
     paginated.forEach(part => {
       let lrText = part.last_receipt ? (window.parseTataDate(part.last_receipt) ? window.parseTataDate(part.last_receipt).toLocaleDateString('en-IN') : 'N/A') : 'N/A';
-      let ageText = part.ageingDays >= 0 ? `${part.ageingDays} Days` : 'N/A';
-      let badgeClass = part.ageingDays > 180 ? 'critical' : (part.ageingDays > 90 ? 'low' : 'healthy');
+      let ageText = part.nonMovingDays != null && part.nonMovingDays >= 0 ? `${part.nonMovingDays} Days` : 'N/A';
+      let badgeClass = part.nonMovingDays > 180 ? 'critical' : (part.nonMovingDays > 90 ? 'low' : 'healthy');
       
       const tr = document.createElement('tr');
       tr.style.borderBottom = '1px solid var(--border-color)';
       tr.innerHTML = `
         <td style="padding: 4px 8px; font-size: 0.85rem; font-weight: 500;">${escapeHtml(part.partId)}</td>
-        <td style="padding: 4px 8px; font-size: 0.85rem; color: var(--text-secondary);">${escapeHtml(part.model)}</td>
+        <td style="padding: 4px 8px; font-size: 0.85rem; color: var(--text-secondary);">${escapeHtml(part.model)}${part.descriptionMismatch ? `<small title="Source: ${escapeHtml(part.sourceDescription)}" style="display:block;color:var(--warning)">Description differs from source</small>` : ''}</td>
         <td style="padding: 4px 8px; font-size: 0.85rem;">${escapeHtml(part.location || 'Narwal')}</td>
         <td style="padding: 4px 8px; font-size: 0.85rem;">${escapeHtml(part.productCategory || 'N/A')}</td>
         <td style="padding: 4px 8px; font-size: 0.85rem;"><span class="h-badge ${badgeClass}">${ageText}</span></td>
         <td style="padding: 4px 8px; font-size: 0.85rem;">${lrText}</td>
-        <td style="padding: 4px 8px; font-size: 0.85rem; text-align: center; font-weight: bold;">${part.currentStock}</td>
-        <td style="padding: 4px 8px; font-size: 0.85rem; text-align: right; color: var(--text-primary); font-weight: 500;">₹${(part.stockValue||0).toLocaleString('en-IN')}</td>
+        <td style="padding: 4px 8px; font-size: 0.85rem; text-align: center; font-weight: bold;">${part.currentStock.toLocaleString('en-IN', {maximumFractionDigits: 3})} ${escapeHtml(part.uom)}</td>
+        <td style="padding: 4px 8px; font-size: 0.85rem; text-align: right; color: var(--text-primary); font-weight: 500;">${part.stockValue == null ? 'Unknown' : '₹' + part.stockValue.toLocaleString('en-IN')}</td>
       `;
       tbody.appendChild(tr);
     });
@@ -5135,8 +4902,8 @@ function renderPriceList(page = 0) {
         saveBtn.onclick = async () => {
           const newNdpStr = input.value;
           if (newNdpStr !== null && newNdpStr.trim() !== '') {
-            const newNdp = parseFloat(newNdpStr);
-            if (isNaN(newNdp)) {
+            const newNdp = Number(newNdpStr.replace(/,/g, ""));
+            if (!Number.isFinite(newNdp) || newNdp < 0) {
                alert('Invalid number');
                return;
             }

@@ -1,3 +1,4 @@
+import { parseNumber } from './inventory-math.js';
 import { launchBrowser } from './puppeteer-runtime.js';
 import * as dotenv from 'dotenv';
 import fs from 'fs';
@@ -424,11 +425,11 @@ async function fetchConsumptionData(fromDate, toDate, onProgress = null, signal)
                             order_num: clean['Order Number'],
                             order_type: clean['Order Type'],
                             order_sub: clean['Order Sub-Type'],
-                            rate: parseFloat(clean['Rate']) || 0,
+                            rate: parseNumber(clean['Rate']) || 0,
                             billing_type: clean['Billing Type'],
-                            sold_qty: parseFloat(clean['Sold Qty']) || 0,
-                            value: parseFloat(clean['Value']) || 0,
-                            tax_amount: parseFloat(clean['Tax Amount After Discount']) || 0,
+                            sold_qty: parseNumber(clean['Sold Qty']) || 0,
+                            value: parseNumber(clean['Value']) || 0,
+                            tax_amount: parseNumber(clean['Tax Amount After Discount']) || 0,
                             dealer: clean['Dealer']
                         });
                     })

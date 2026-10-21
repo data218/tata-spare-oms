@@ -1,3 +1,4 @@
+import { reorderMetrics, quantityTotals } from './src/inventory-math.js';
 // reorder.js
 // Handles intelligent Reorder Control Tower Logic
 
@@ -37,73 +38,27 @@ function generateReorderData() {
     partGroups.get(p.partId).push(p);
   });
 
-  const timeFilterEl = document.getElementById('reorder-time-filter');
-  const timeDays = timeFilterEl ? timeFilterEl.value : '30';
-  
-  // Pre-calculate windowed consumption per Part + Location if raw consumption is available
-  const rawCons = (window.rawInventoryData && window.rawInventoryData.consumption) || [];
-  const windowedConsMap = new Map();
-  const daysNum = timeDays === 'all' ? 365 : (parseInt(timeDays) || 30);
-  const cutoffDate = timeDays === 'all' ? null : new Date(Date.now() - daysNum * 86400000);
-
-  if (rawCons.length > 0) {
-    rawCons.forEach(row => {
-      const pn = String(row.part_no || row.part_number || '').trim().toUpperCase();
-      const div = row.division || '';
-      let standardLoc = 'NARWAL';
-      const lowerD = div.toLowerCase().replace(/\s+/g, '');
-      if (lowerD.includes('channirama') || lowerD.includes('chhanirama')) standardLoc = 'CHANNIRAMA';
-      else if (lowerD.includes('supwal') || lowerD.includes('smamsamba')) standardLoc = 'SUPWAL';
-      else if (lowerD.includes('kathua') || lowerD.includes('smamkathua')) standardLoc = 'KATHUA';
-      else if (lowerD.includes('reasi')) standardLoc = 'REASI';
-      else if (lowerD.includes('jammu') || lowerD.includes('narwal') || lowerD.includes('narval')) standardLoc = 'NARWAL';
-      else if (lowerD.includes('lambheri')) standardLoc = 'LAMBHERI';
-      else if (lowerD.includes('poonch')) standardLoc = 'POONCH';
-      else if (div) standardLoc = div.toUpperCase();
-
-      if (cutoffDate) {
-        const d = window.parseTataDate(row.date);
-        if (!d || isNaN(d.getTime()) || d < cutoffDate) return;
-      }
-      const qty = parseInt(row.sold_qty) || 0;
-      const key = pn + '_' + standardLoc;
-      windowedConsMap.set(key, (windowedConsMap.get(key) || 0) + qty);
-    });
-  }
-
-  const now = new Date();
-  const leadTime = 14;
-  const reviewPeriod = 30;
+  // Use the same normalized 180-day consumption as every dashboard.
+  const transferBalances = new Map(partsList.map(p => [p.partId + '_' + p.location.toUpperCase(), Math.max(0, p.available - reorderMetrics(p).reorderPoint)]));
 
   partsList.forEach((p, index) => {
+    if (!p.unitKnown) return; // Unit must be known before suggesting an order.
     const loc = p.location.toUpperCase();
     const currentStock = Number(p.currentStock) || 0;
     const reserved = Number(p.reserved) || 0;
     const inTransit = Number(p.inTransit) || 0;
     const available = currentStock - reserved;
 
-    const consKey = p.partId + '_' + loc;
-    let windowedConsumption = 0;
-    let avgDailyCons = 0;
-
-    if (rawCons.length > 0) {
-      windowedConsumption = windowedConsMap.get(consKey) || 0;
-      avgDailyCons = windowedConsumption / daysNum;
-    } else {
-      // Fallback if raw consumption not on window
-      const consumption6m = Number(p.consumption6mRolling) || 0;
-      avgDailyCons = consumption6m / 180;
-      windowedConsumption = Math.round(avgDailyCons * daysNum);
-    }
-
+    const plan = reorderMetrics(p);
+    const windowedConsumption = p.consumption6mRolling;
+    const avgDailyCons = plan.averageDaily;
     const ndp = Number(p.ndpPrice) || 0;
     const cost = ndp;
 
-    const minStock = Math.max(1, Math.ceil(avgDailyCons * leadTime));
-    const maxStock = Math.max(minStock, Math.ceil(avgDailyCons * (leadTime + reviewPeriod)));
-    const safetyStock = Math.ceil(avgDailyCons * leadTime);
-    const reorderPoint = Math.ceil(avgDailyCons * leadTime) + safetyStock;
-
+    const minStock = plan.safetyStock;
+    const maxStock = plan.reorderPoint;
+    const safetyStock = plan.safetyStock;
+    const reorderPoint = plan.reorderPoint;
     let daysOfStock = 'NO CONSUMPTION';
     if (avgDailyCons > 0) {
       daysOfStock = (available / avgDailyCons).toFixed(1);
@@ -114,9 +69,9 @@ function generateReorderData() {
     }
 
     let recQty = 0;
-    const netRequirement = reorderPoint - available - inTransit;
+    const netRequirement = plan.netRequirement;
     if (netRequirement > 0) {
-      recQty = Math.ceil(netRequirement);
+      recQty = plan.orderQty;
     }
 
     let transferSource = null;
@@ -124,14 +79,11 @@ function generateReorderData() {
       const peers = partGroups.get(p.partId) || [];
       for (const peer of peers) {
         if (peer.location.toUpperCase() !== loc) {
-          const peerAvail = (Number(peer.currentStock) || 0) - (Number(peer.reserved) || 0);
-          const peerKey = peer.partId + '_' + peer.location.toUpperCase();
-          const peerCons = rawCons.length > 0 ? (windowedConsMap.get(peerKey) || 0) : Number(peer.consumption6mRolling) || 0;
-          const peerAvgDaily = rawCons.length > 0 ? (peerCons / daysNum) : (peerCons / 180);
-          const peerMin = Math.max(1, Math.ceil(peerAvgDaily * leadTime));
-          const excess = peerAvail - peerMin;
+          const peerId = peer.partId + '_' + peer.location.toUpperCase();
+          const excess = transferBalances.get(peerId) || 0;
           if (excess >= recQty) {
             transferSource = peer.location.toUpperCase();
+            transferBalances.set(peerId, excess - recQty);
             break;
           }
         }
@@ -174,6 +126,8 @@ function generateReorderData() {
       recommendations.push({
         id: `RO-${p.partId}-${index}`,
         partNo: p.partId,
+        uom: p.uom,
+        priceKnown: p.priceKnown,
         description: p.model,
         category: p.productCategory || '-',
         supplier: p.vendor || 'TATA MOTORS',
@@ -190,14 +144,14 @@ function generateReorderData() {
         avgDailyCons: avgDailyCons,
         daysOfStock: daysOfStock,
         recQty: recQty,
-        value: recQty * cost,
+        value: p.priceKnown ? recQty * cost : null,
         priority: priority,
         risk: risk,
         reason: reason,
         transferSource: transferSource,
         ndpPrice: ndp,
         lastReceipt: p.last_receipt || '',
-        ageingDays: p.ageingDays || -1
+        ageingDays: p.ageingDays ?? -1
       });
     }
   });
@@ -324,6 +278,7 @@ function attachReorderListeners() {
       'Avg Daily Consumption (6-mo)': r.avgDailyCons,
       'Days of Stock': r.daysOfStock,
       'Suggested Order Qty': r.recQty,
+      'Unit': r.uom,
       'NDP (₹)': r.ndpPrice,
       'Estimated Value (₹)': r.value,
       'Reason / Risk': r.reason
@@ -464,7 +419,7 @@ function updateReorderKPIs() {
   setT('ro-kpi-required', required.toLocaleString('en-IN'));
   setT('ro-kpi-critical', critical.toLocaleString('en-IN'));
   setT('ro-kpi-out', outOfStock.toLocaleString('en-IN'));
-  setT('ro-kpi-qty', totalQty.toLocaleString('en-IN'));
+  setT('ro-kpi-qty', quantityTotals(window.reorderFiltered, 'recQty'));
   setT('ro-kpi-val', '₹' + totalVal.toLocaleString('en-IN', { maximumFractionDigits: 0 }));
   setT('ro-kpi-transfer', transfers.toLocaleString('en-IN'));
 
@@ -580,8 +535,8 @@ function renderReorderTable() {
         <td style="padding: 4px 6px; text-align: right; font-size: 0.7rem;" title="Average daily consumption over a rolling 6-month window">${r.avgDailyCons.toFixed(2)}</td>
         <td style="padding: 4px 6px; text-align: right; font-size: 0.7rem; font-weight: 600;">${r.daysOfStock}</td>
         <td style="padding: 4px 6px; text-align: right;">
-          <div style="font-weight: 700; color: #3b82f6; font-size: 0.75rem;">${r.recQty.toLocaleString('en-IN')}</div>
-          <div style="font-size: 0.65rem; color: var(--text-secondary);">₹${r.value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
+          <div style="font-weight: 700; color: #3b82f6; font-size: 0.75rem;">${r.recQty.toLocaleString('en-IN', {maximumFractionDigits:3})} ${escapeHtml(r.uom)}</div>
+          <div style="font-size: 0.65rem; color: var(--text-secondary);">${r.value == null ? 'Missing price' : '₹' + r.value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
         </td>
         <td style="padding: 4px 6px; text-align: center;">
           <button class="btn btn-outline" onclick="window.viewReorderReason(this)" data-reason="${encodeURIComponent(r.reason)}" data-part="${escapeHtml(r.partNo)}" data-desc="${encodeURIComponent(r.description)}" data-loc="${escapeHtml(r.location)}" style="padding: 4px 8px; font-size: 0.7rem; color: #3b82f6; border-color: #3b82f6;">View</button>
@@ -728,11 +683,11 @@ window.viewReorderReason = function(btn) {
         </div>
         <div style="padding: 10px; background: #f8fafc; border-radius: 8px;">
           <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 600;">NDP</div>
-          <div style="font-size: 1.1rem; font-weight: 700; color: #0f172a;">₹${row.ndpPrice.toLocaleString('en-IN')}</div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: #0f172a;">${row.priceKnown ? '₹' + row.ndpPrice.toLocaleString('en-IN') + '/' + escapeHtml(row.uom) : 'Missing price'}</div>
         </div>
         <div style="padding: 10px; background: #f8fafc; border-radius: 8px;">
           <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 600;">Order Qty</div>
-          <div style="font-size: 1.1rem; font-weight: 700; color: #3b82f6;">${row.recQty.toLocaleString('en-IN')}</div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: #3b82f6;">${row.recQty.toLocaleString('en-IN', {maximumFractionDigits:3})} ${escapeHtml(row.uom)}</div>
         </div>
       </div>
       <div style="margin-bottom: 16px; padding: 12px; background: #f8fafc; border-radius: 8px;">
