@@ -1,3 +1,4 @@
+import { readDashboardTable } from './src/dashboard-data.js';
 import { parseNumber } from './src/inventory-math.js';
 import { processInventoryData, parseTataDate, isLubePart, quantityTotals, summarizeInventory, toBaseQuantity, normalizeLocation, reorderMetrics } from './src/inventory-math.js';
 import { watchFetchJob } from './src/fetch-progress.js';
@@ -1635,69 +1636,13 @@ let currentPage = 1;
 const itemsPerPage = 50;
 
 async function fetchTableData(tableName, locationFilter = null, columns = '*') {
-  // 1. Get exact row count first (fast, head-only)
-  let countQuery = supabase.from(tableName).select('id', { count: 'exact', head: true });
-  if (locationFilter) {
-    countQuery = countQuery.eq('division', locationFilter);
-  }
-  
-  const { count, error: countErr } = await countQuery;
-  if (countErr) {
-    console.error(`Error counting ${tableName}:`, countErr);
-    throw countErr;
-  }
-  if (!count) return [];
-
-  // 2. Fetch first chunk to detect Supabase's max-rows limit, but cap at 10,000 to avoid statement timeouts
-  let firstQuery = supabase.from(tableName).select(columns).order('id').range(0, 9999);
-  if (locationFilter) {
-    firstQuery = firstQuery.eq('division', locationFilter);
-  }
-  const { data: firstData, error: firstErr } = await firstQuery;
-  
-  if (firstErr) {
-    console.error(`Error fetching first chunk of ${tableName}:`, firstErr);
-    throw firstErr;
-  }
-  if (!firstData || firstData.length === 0) return [];
-  
-  const tableData = [...firstData];
-  const detectedLimit = firstData.length;
-  
-  // If we got everything, or if the count is within what we got, we are done! 100x faster!
-  if (tableData.length >= count) {
-    return tableData;
-  }
-
-  // If Supabase truncated our request to its max-rows limit (e.g., 1000), we must paginate the rest
-  const pageSize = detectedLimit;
-  const remainingPages = Math.ceil((count - pageSize) / pageSize);
-  
-  const queries = [];
-  for (let page = 1; page <= remainingPages; page++) {
-    let query = supabase.from(tableName).select(columns).order('id').range(page * pageSize, (page + 1) * pageSize - 1);
-    if (locationFilter) {
-      query = query.eq('division', locationFilter);
+  return readDashboardTable(supabase, tableName, {
+    columns, location: locationFilter,
+    onProgress: count => {
+      const detail = document.getElementById('loading-overlay-detail');
+      if (detail) detail.textContent = `Loading ${tableName.replace('tata_', '').replaceAll('_', ' ')}: ${count.toLocaleString('en-IN')} rows…`;
     }
-    queries.push(query);
-  }
-  
-  if (queries.length > 0) {
-    // Process in batches of 6 to avoid browser connection limit exhaustion
-    for (let i = 0; i < queries.length; i += 6) {
-      const batch = queries.slice(i, i + 6);
-      const results = await Promise.all(batch);
-      for (const { data, error } of results) {
-        if (error) {
-          console.error(`Error fetching ${tableName}:`, error);
-          throw error;
-        }
-        if (data && data.length) tableData.push(...data);
-      }
-    }
-  }
-  
-  return tableData;
+  });
 }
 
 function getDateRangeFilter() {

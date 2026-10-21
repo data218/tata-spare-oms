@@ -49,3 +49,11 @@ Update the permanent worker to the same commit as Vercel after its current job
 finishes. No database schema migration or destructive data correction is included.
 
 Validation: `npm test`, `npm run test:filters`, `npm run build`.
+
+## Dashboard refresh
+
+Dashboard reads use 1,000-row pages ordered by the indexed ID, continuing after
+the last ID instead of using counts or large offsets. Each table has one page
+request in flight. Statement timeouts retry the same cursor up to twice with
+smaller pages. A failed page fails the refresh; partial tables never replace the
+previously displayed data. The loading overlay reports the rows read so far.
