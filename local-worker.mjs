@@ -27,6 +27,7 @@ import { fileURLToPath } from 'url';
 import { fetchConsumptionData } from './src/consumption_scraper.js';
 import { fetchInventoryData }    from './src/inventory_scraper.js';
 import { supabase }              from './src/server-config.js';
+import { isCancelled, sameRun, mergeWorkerJob } from './src/fetch-job.js';
 
 // ── Single-instance guard ────────────────────────────────────────────────────
 // run-worker.cmd restarts this process in a loop. If the PC ever ends up with
@@ -76,7 +77,8 @@ const clock      = () => `[${new Date().toLocaleTimeString()}]`;
 async function readJob() {
   const { data, error } = await supabase
     .from('tata_bot_settings').select('value').eq('key', JOB_KEY).maybeSingle();
-  if (error || !data) return { job: null, raw: null };
+  if (error) throw error;
+  if (!data) return { job: null, raw: null };
   try { return { job: JSON.parse(data.value), raw: data.value }; }
   catch { return { job: null, raw: null }; }
 }
@@ -91,9 +93,18 @@ function trimLogs(job) {
 
 async function writeJob(job) {
   const logs = trimLogs(job);
-  await supabase
+  // Enforce cancellation/run identity in the write itself, including when Stop
+  // arrives after mergeAndWrite's read. Keep predicates short for long scrape logs.
+  const identity = job.id ? `"id":${JSON.stringify(job.id)}` : `"createdAt":${JSON.stringify(job.queue.createdAt)}`;
+  const { data, error } = await supabase
     .from('tata_bot_settings')
-    .upsert({ key: JOB_KEY, value: JSON.stringify({ ...job, logs }) }, { onConflict: 'key' });
+    .update({ value: JSON.stringify({ ...job, logs }) })
+    .eq('key', JOB_KEY)
+    .like('value', `%${identity}%`)
+    .not('value', 'like', '%"cancelledAt":%')
+    .select('value');
+  if (error) throw error;
+  return Boolean(data?.length);
 }
 
 // CAS write — only saves if Supabase still has the value we read (prevents races).
@@ -118,8 +129,7 @@ async function casWrite(job, raw) {
     if (error || !again) return false;
     if (again.value === raw) {
       console.error(clock(), '⚠ CAS predicate rejected (job value too large for the request URL); writing claim via merge.');
-      await mergeAndWrite(job);
-      return true;
+      return await mergeAndWrite(job);
     }
   } catch (e) {
     console.error(clock(), '⚠ CAS fallback failed:', e.message);
@@ -131,20 +141,9 @@ async function casWrite(job, raw) {
 // server queued in the meantime (a dashboard fetch issued during a long scrape),
 // so a merge never clobbers a freshly-queued unit.
 async function mergeAndWrite(job) {
-  try {
-    const { job: latest } = await readJob();
-    if (latest && latest.queue && Array.isArray(latest.queue.units)) {
-      for (const u of latest.queue.units) {
-        const known = job.queue.units.some(
-          (x) => x.kind === u.kind && (x.location || '') === (u.location || '')
-        );
-        if (!known) job.queue.units.push(u);
-      }
-    }
-  } catch (e) {
-    console.error('merge read failed:', e.message);
-  }
-  await writeJob(job);
+  const { job: latest } = await readJob();
+  if (!mergeWorkerJob(job, latest)) return false;
+  return await writeJob(job);
 }
 
 // Progress is written back to Supabase while a unit is still running, throttled
@@ -181,6 +180,7 @@ async function tick() {
 async function processQueue() {
   const { job, raw } = await readJob();
   if (!job || !job.queue || !Array.isArray(job.queue.units)) return;
+  if (isCancelled(job)) return;
 
   // A local runner (run-fetch.mjs, driven by Task Scheduler) owns the job while
   // its status is "running" — the mirror of run-fetch's own guard, which watches
@@ -279,7 +279,7 @@ async function processQueue() {
   job.logs    += `<div>${ts()} - ▶ Starting ${label(next)} (attempt ${next.attempts}).</div>`;
 
   if (needsReset) {
-    await mergeAndWrite(job); // merge-aware full write since we re-armed many units
+    if (!await mergeAndWrite(job)) return;
   } else {
     const claimed = await casWrite(job, raw);
     if (!claimed) return; // another worker got there first
@@ -293,7 +293,25 @@ async function processQueue() {
     scheduleLogFlush(job);
   };
 
+  const controller = new AbortController();
+  let checkingCancellation = false;
+  const checkCancellation = async () => {
+    if (checkingCancellation) return;
+    checkingCancellation = true;
+    try {
+      const { job: latest } = await readJob();
+      if (!sameRun(job, latest) || isCancelled(latest)) controller.abort(new Error('Fetch cancelled or replaced.'));
+    } catch (error) {
+      console.error(clock(), 'Cancellation check failed:', error.message);
+    } finally {
+      checkingCancellation = false;
+    }
+  };
+  const cancelTimer = setInterval(checkCancellation, 2000);
+
   try {
+    await checkCancellation();
+    controller.signal.throwIfAborted();
     let rows;
     if (next.kind === 'consumption') {
       const fallback = trailing(30);
@@ -301,10 +319,13 @@ async function processQueue() {
         next.fromDate || job.fromDate || fallback.from,
         next.toDate   || job.toDate   || fallback.to,
         broadcast,
+        controller.signal,
       );
     } else {
-      rows = await fetchInventoryData(broadcast, next.location);
+      rows = await fetchInventoryData(broadcast, next.location, controller.signal);
     }
+
+    controller.signal.throwIfAborted();
 
     next.status     = 'done';
     next.finishedAt = ts();
@@ -314,6 +335,7 @@ async function processQueue() {
     job.logs       += `<div>${ts()} - ✅ Completed ${label(next)}: ${rows} rows.</div>`;
     console.log(clock(), `✅ Done: ${label(next)} — ${rows} rows`);
   } catch (err) {
+    if (controller.signal.aborted) return;
     next.finishedAt = ts();
     next.error      = err.message || String(err);
     // Retry after a short backoff — errors are usually transient portal issues,
@@ -329,6 +351,10 @@ async function processQueue() {
       job.logs       += `<div>${ts()} - Giving up on ${label(next)} after ${MAX_UNIT_ATTEMPTS} attempts.</div>`;
       console.error(clock(), `🚫 Giving up on: ${label(next)}`);
     }
+  } finally {
+    clearInterval(cancelTimer);
+    if (logFlushTimer) clearTimeout(logFlushTimer);
+    logFlushTimer = null;
   }
 
   // Write final state back, merging any unit the server queued while we ran so a

@@ -7,6 +7,7 @@ import { Readable } from 'stream';
 import { supabase } from './server-config.js';
 import { profileDir, downloadDir, scratch } from './scratch-paths.js';
 import { loginToPortal } from './portal-login.js';
+import { replaceConsumptionPeriod } from './consumption-store.js';
 dotenv.config();
 
 // Hard cap for a single consumption run. A wedged portal page must never block
@@ -14,7 +15,8 @@ dotenv.config();
 // Puppeteer call rejects and the run unwinds instead of hanging the dashboard.
 const SCRAPE_TIMEOUT_MS = 15 * 60 * 1000;
 
-async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
+async function fetchConsumptionData(fromDate, toDate, onProgress = null, signal) {
+    signal?.throwIfAborted();
     let totalRowsInserted = 0;
     const notify = (msg) => {
         console.log(msg);
@@ -52,6 +54,7 @@ async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
 
     notify(`Starting automated bot for Consumption Data (Date Range: ${fromDate} to ${toDate})...`);
         const browser = await launchBrowser({
+            signal,
             userDataDir: profileDir,
             args: [
                 '--window-size=1920,1080',
@@ -438,35 +441,7 @@ async function fetchConsumptionData(fromDate, toDate, onProgress = null) {
 
                             notify(`Finished parsing CSV. Found ${results.length} rows. Replacing existing rows...`);
 
-                            // Insert-first with a unique marker: the table is never left
-                            // empty, and a retried run clears any partial rows it inserted
-                            // before (see the inventory scraper for the same pattern).
-                            const fetchMarker = new Date().toISOString();
-                            for (const row of results) row.fetched_at = fetchMarker;
-
-                            const BATCH_SIZE = 1000;
-                            console.log(`Starting upload to Supabase in batches of ${BATCH_SIZE}...`);
-
-                            for (let i = 0; i < results.length; i += BATCH_SIZE) {
-                                const batch = results.slice(i, i + BATCH_SIZE);
-                                const { error: insertError } = await supabase.from('tata_consumption_data').insert(batch);
-                                if (insertError) {
-                                    console.error(`Error inserting batch ${i / BATCH_SIZE + 1}:`, insertError.message);
-                                    await supabase.from('tata_consumption_data').delete().eq('fetched_at', fetchMarker);
-                                    throw insertError;
-                                } else {
-                                    console.log(`Successfully inserted batch ${i / BATCH_SIZE + 1} (${batch.length} rows)`);
-                                }
-                            }
-
-                            // Remove the superseded rows (everything not from this run).
-                            const { error: deleteError } = await supabase
-                                .from('tata_consumption_data')
-                                .delete()
-                                .neq('fetched_at', fetchMarker);
-                            if (deleteError) {
-                                throw new Error('Failed to clear old consumption rows: ' + deleteError.message);
-                            }
+                            await replaceConsumptionPeriod(supabase, results, fromDate, toDate, signal);
                             notify('Upload complete! File processed and deleted.');
 
                             // Clean up the downloaded file

@@ -53,7 +53,10 @@ if (process.env.SCRAPER_IGNORE_CERT_ERRORS === 'true') {
 }
 
 export async function launchBrowser(overrides = {}) {
-  const { args: extraArgs = [], ...rest } = overrides;
+  // puppeteer-extra deep-merges launch options and strips AbortSignal methods.
+  // Keep the signal outside those options and close the browser ourselves.
+  const { args: extraArgs = [], signal, ...rest } = overrides;
+  signal?.throwIfAborted();
   const options = {
     headless: process.env.SCRAPER_HEADLESS === 'false' ? false : true,
     protocolTimeout: Number(process.env.SCRAPER_PROTOCOL_TIMEOUT || 180000),
@@ -77,7 +80,17 @@ export async function launchBrowser(overrides = {}) {
     options.channel = process.env.SCRAPER_CHANNEL;
   }
 
-  return extra.launch(options);
+  const browser = await extra.launch(options);
+  if (signal) {
+    const abort = () => { void browser.close().catch(() => {}); };
+    signal.addEventListener('abort', abort, { once: true });
+    browser.once('disconnected', () => signal.removeEventListener('abort', abort));
+    if (signal.aborted) {
+      await browser.close();
+      signal.throwIfAborted();
+    }
+  }
+  return browser;
 }
 
 export default extra;

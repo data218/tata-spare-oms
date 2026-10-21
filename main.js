@@ -1,3 +1,4 @@
+import { watchFetchJob } from './src/fetch-progress.js';
 import './movement_entry.js';
 import './management_dashboard.js';
 import { supabase } from './supabase.js';
@@ -1481,10 +1482,10 @@ if (fetchForm) {
     const rawToDate = document.getElementById('to-date').value;
     const targetLocation = document.getElementById('fetch-target-location').value;
 
-    if (type === 'consumption' && (!rawFromDate || !rawToDate)) {
+    if (type === 'consumption' && (!rawFromDate || !rawToDate || rawFromDate > rawToDate)) {
       statusDiv.style.display = 'block';
       statusDiv.style.color = '#ef4444';
-      statusDiv.textContent = 'Please select both dates for consumption data.';
+      statusDiv.textContent = 'Select a valid consumption date range, with From on or before To.';
       return;
     }
 
@@ -1539,12 +1540,22 @@ if (fetchForm) {
         throw new Error('Could not start the scraper: ' + detail);
       }
 
-      // Progress is read from the job row below while it runs in the background.
-      let pollInterval = setInterval(async () => {
-          try {
-              const { data } = await supabase.from('tata_bot_settings').select('value').eq('key', 'fetch_job');
-              if (data && data.length > 0) {
-                  const updatedJob = JSON.parse(data[0].value);
+      const submitted = await response.json();
+      const stopPolling = watchFetchJob({
+          jobId: submitted.jobId,
+          readJob: async () => {
+              const { data, error } = await supabase.from('tata_bot_settings')
+                  .select('value').eq('key', 'fetch_job').maybeSingle()
+                  .abortSignal(AbortSignal.timeout(15000));
+              if (error) throw new Error('Could not read fetch progress: ' + error.message);
+              return data ? JSON.parse(data.value) : null;
+          },
+          onError: (error) => {
+              statusDiv.style.color = '#ef4444';
+              statusDiv.textContent = error.message;
+              resetBtn();
+          },
+          onUpdate: async (updatedJob) => {
                   statusDiv.innerHTML = updatedJob.logs || 'Processing...';
 
                   // Step-by-step progress bar driven by job.progress
@@ -1598,8 +1609,7 @@ if (fetchForm) {
                     }
                   }
 
-                  if (updatedJob.status === 'completed' || updatedJob.status === 'failed') {
-                      clearInterval(pollInterval);
+                  if (['completed', 'failed', 'cancelled'].includes(updatedJob.status)) {
                       const doneBar = document.getElementById('fetch-progress-bar');
                       const donePct = document.getElementById('fetch-progress-pct');
                       const doneLabel = document.getElementById('fetch-progress-label');
@@ -1609,7 +1619,7 @@ if (fetchForm) {
                           if (doneLabel) doneLabel.textContent = 'Completed';
                           setTimeout(() => location.reload(), 8000);
                       } else if (doneLabel) {
-                          doneLabel.textContent = `Stopped at step ${(updatedJob.progress && updatedJob.progress.step) || 0}`;
+                          doneLabel.textContent = updatedJob.status === 'cancelled' ? 'Cancelled' : `Stopped at step ${(updatedJob.progress && updatedJob.progress.step) || 0}`;
                       }
                       if (updatedJob.status === 'completed') {
                           statusDiv.style.color = '#059669';
@@ -1631,10 +1641,10 @@ if (fetchForm) {
                       
                       setTimeout(() => resetBtn(), 5000);
                   }
-              }
-          } catch(e) { console.error('Polling error', e); }
-      }, 3000);
-          
+          }
+      });
+      window.addEventListener('pagehide', stopPolling, { once: true });
+
     } catch (err) {
       console.error('Error fetching data:', err);
       btn.innerHTML = '<i data-lucide="alert-triangle"></i> Error';
@@ -1653,9 +1663,13 @@ if (fetchForm) {
       const originalHtml = stopBtn.innerHTML;
       stopBtn.innerHTML = '<i data-lucide="loader" class="lucide-spin" style="width: 16px; height: 16px;"></i> Cancelling...';
       try {
-        await fetch('/api/cancel', { method: 'POST' });
+        const response = await fetch('/api/cancel', { method: 'POST' });
+        if (!response.ok) throw new Error('Stop failed (HTTP ' + response.status + ').');
       } catch (e) {
         console.error('Cancel failed', e);
+        const status = document.getElementById('fetch-status');
+        status.style.color = '#ef4444';
+        status.textContent = e.message;
       } finally {
         setTimeout(() => { stopBtn.innerHTML = originalHtml; lucide.createIcons(); }, 2000);
       }

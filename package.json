@@ -28,6 +28,7 @@
     "server": "node server.mjs",
     "dev:full": "node start-dev.mjs",
     "build": "vite build",
+    "test:fetch": "node --test tests/fetch-flow.test.mjs",
     "preview": "vite preview",
     "work": "node local-worker.mjs",
     "worker:install": "powershell -ExecutionPolicy Bypass -File worker-service.ps1 -Register",

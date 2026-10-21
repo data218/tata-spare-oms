@@ -1,4 +1,7 @@
 import { supabase } from '../src/server-config.js';
+import { randomUUID } from 'node:crypto';
+import { unitKey, isCancelled } from '../src/fetch-job.js';
+import { toISODate } from '../src/consumption-store.js';
 
 const JOB_KEY = 'fetch_job';
 const MAX_LOG_CHARS = 40000;
@@ -15,7 +18,6 @@ const trailingDays = (days) => {
 };
 
 const describeUnit = (u) => (u.kind === 'consumption' ? 'consumption report' : `inventory for ${u.location}`);
-const unitKey = (u) => `${u.kind}:${u.location || ''}`;
 const countDone = (queue) => queue.units.filter((u) => u.status === 'done').length;
 
 async function readJobRaw() {
@@ -38,10 +40,12 @@ async function readJob() {
 }
 
 async function writeJob(job) {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('tata_bot_settings')
-    .upsert({ key: JOB_KEY, value: JSON.stringify(job) }, { onConflict: 'key' });
+    .upsert({ key: JOB_KEY, value: JSON.stringify(job) }, { onConflict: 'key', ignoreDuplicates: true })
+    .select('value');
   if (error) throw error;
+  return Boolean(data?.length);
 }
 
 // Compare-and-swap. Overlapping invocations (cron + a manual fetch, or a retry)
@@ -49,8 +53,7 @@ async function writeJob(job) {
 // condition, so the previous value is used as the token.
 async function casWriteJob(job, expectedRaw) {
   if (expectedRaw === null || expectedRaw === undefined) {
-    await writeJob(job);
-    return true;
+    return await writeJob(job);
   }
   const { data, error } = await supabase
     .from('tata_bot_settings')
@@ -78,6 +81,7 @@ function pushLog(job, msg, progress) {
 let writeQueue = Promise.resolve();
 function updateJob(mutator) {
   writeQueue = writeQueue
+    .catch(() => {}) // a failed request must not poison later queue updates
     .then(async () => {
       for (let attempt = 0; attempt < 4; attempt++) {
         const { job, raw } = await readJobRaw();
@@ -85,10 +89,11 @@ function updateJob(mutator) {
         mutator(job);
         if (await casWriteJob(job, raw)) return;
       }
-      console.error('Job update gave up after 4 CAS attempts (heavy contention).');
+      throw new Error('Job update gave up after 4 CAS attempts. Please retry.');
     })
     .catch((e) => {
       console.error('Job update error:', e.message);
+      throw e;
     });
   return writeQueue;
 }
@@ -123,9 +128,7 @@ async function unitsForSpec(spec) {
     // but one of them is empty.
     const fromDate = spec?.fromDate || trailingDays(30).from;
     const toDate = spec?.toDate || trailingDays(30).to;
-    if (!fromDate || !toDate) {
-      throw new Error('fromDate and toDate are required for a consumption fetch.');
-    }
+    if (toISODate(fromDate) > toISODate(toDate)) throw new Error('From date must not be after to date.');
     units.push({ kind: 'consumption', fromDate, toDate });
   }
   if (type === 'inventory' || type === 'all') {
@@ -138,7 +141,7 @@ async function unitsForSpec(spec) {
     }
   }
   if (!units.length) throw new Error(`Unknown job type: ${type}`);
-  return units.map((u) => ({ ...u, status: 'pending', attempts: 0 }));
+  return units.map((u) => ({ ...u, status: 'pending', attempts: 0, requestedAt: randomUUID() }));
 }
 
 // Starts a fresh run, or folds the request into a run that is already in flight
@@ -150,50 +153,55 @@ async function unitsForSpec(spec) {
 // running are left untouched so we never double-run a live scrape.
 export async function startOrMergeJob(spec) {
   const units = await unitsForSpec(spec);
-  const { job, raw } = await readJobRaw();
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const { job, raw } = await readJobRaw();
 
-  if (job && job.status === 'processing' && job.queue && Array.isArray(job.queue.units)) {
-    const messages = [];
-    for (const u of units) {
-      const existing = job.queue.units.find((x) => unitKey(x) === unitKey(u));
-      if (!existing) {
-        job.queue.units.push(u);
-        messages.push(describeUnit(u));
-      } else if (existing.status === 'done' || existing.status === 'failed') {
-        existing.status = 'pending';
-        existing.attempts = 0;
-        existing.error = undefined;
-        existing.startedAt = undefined;
-        existing.finishedAt = undefined;
-        existing.retryAfter = undefined;
-        messages.push(describeUnit(existing));
+    if (job && !isCancelled(job) && ['pending', 'processing', 'running'].includes(job.status) && job.queue && Array.isArray(job.queue.units)) {
+      if (job.status === 'running') throw new Error('The scheduled local runner is active. Please retry after it finishes.');
+      const messages = [];
+      for (const u of units) {
+        const existing = job.queue.units.find((x) => unitKey(x) === unitKey(u));
+        if (!existing) {
+          job.queue.units.push(u);
+          messages.push(describeUnit(u));
+        } else if (existing.status === 'done' || existing.status === 'failed') {
+          Object.assign(existing, u);
+          existing.status = 'pending';
+          existing.attempts = 0;
+          existing.error = undefined;
+          existing.startedAt = undefined;
+          existing.finishedAt = undefined;
+          existing.retryAfter = undefined;
+          messages.push(describeUnit(existing));
+        }
       }
+
+      if (messages.length) {
+        job.finishedAt = undefined;
+        job.progress = { step: countDone(job.queue), total: job.queue.units.length };
+        pushLog(job, `Queued from the dashboard: ${[...new Set(messages)].join(', ')}.`);
+        if (!await casWriteJob(job, raw)) continue;
+      } else {
+        console.log('Requested units are already queued or running; nothing to add.');
+      }
+      return job;
     }
 
-    if (messages.length) {
-      job.status = 'processing';
-      job.finishedAt = undefined;
-      job.progress = { step: countDone(job.queue), total: job.queue.units.length };
-      pushLog(job, `Queued from the dashboard: ${[...new Set(messages)].join(', ')}.`);
-      await casWriteJob(job, raw);
-    } else {
-      console.log('Requested units are already queued or running; nothing to add.');
-    }
-    return job;
+    const fresh = {
+      id: randomUUID(),
+      status: 'pending',
+      type: (spec && spec.type) || 'all',
+      fromDate: spec && spec.fromDate,
+      toDate: spec && spec.toDate,
+      targetLocation: (spec && spec.targetLocation) || 'ALL',
+      logs: '',
+      progress: { step: 0, total: units.length },
+      queue: { units, createdAt: new Date().toISOString() },
+    };
+    if (!await casWriteJob(fresh, raw)) continue;
+    return fresh;
   }
-
-  const fresh = {
-    status: 'pending',
-    type: (spec && spec.type) || 'all',
-    fromDate: spec && spec.fromDate,
-    toDate: spec && spec.toDate,
-    targetLocation: (spec && spec.targetLocation) || 'ALL',
-    logs: '',
-    progress: { step: 0, total: units.length },
-    queue: { units, createdAt: new Date().toISOString() },
-  };
-  await writeJob(fresh);
-  return fresh;
+  throw new Error('The fetch queue changed while submitting. Please retry.');
 }
 
 // A worker can be killed between finishing its last unit and marking the run
@@ -307,11 +315,11 @@ export default async function handler(req, res) {
       // then fail on every retry. Reject it before anything is written.
       try {
         await healFinishedJob();
-        await startOrMergeJob(await readSpec(req));
+        const job = await startOrMergeJob(await readSpec(req));
+        return send(res, 202, { success: true, jobId: job.id, message: 'Sync queued. The background worker will start shortly.' });
       } catch (err) {
         return send(res, 400, { success: false, message: err.message });
       }
-      return send(res, 202, { success: true, message: 'Sync queued. The background worker will start shortly.' });
     }
 
     // Legacy hand-over endpoint. Execution moved to the local worker, so this is
@@ -335,7 +343,9 @@ export default async function handler(req, res) {
       }
       await updateJob((cur) => {
         if (cur && (cur.status === 'pending' || cur.status === 'processing')) {
-          cur.status = 'failed';
+          cur.status = 'cancelled';
+          cur.cancelledAt = new Date().toISOString();
+          cur.finishedAt = cur.cancelledAt;
           pushLog(cur, '<strong>Stopped by user</strong>');
         }
       });

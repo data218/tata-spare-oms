@@ -41,7 +41,8 @@ async function persistInventoryAlert(alert) {
     }
 }
 
-async function fetchInventoryData(onProgress = null, targetLocation = 'ALL') {
+async function fetchInventoryData(onProgress = null, targetLocation = 'ALL', signal) {
+    signal?.throwIfAborted();
     let summaryMessages = [];
     let anyRowsParsed = false;
     let lastLocationError = null;
@@ -89,10 +90,12 @@ async function fetchInventoryData(onProgress = null, targetLocation = 'ALL') {
     notify(`Starting inventory refresh for ${targetLocation} (existing rows are kept until new data is parsed).`);
 
     for (const location of locations) {
+        signal?.throwIfAborted();
         notify(`Starting automated bot for Inventory Data (Location: ${location.location_name})...`);
         let reachedInventoryView = false;
         let optionUnavailable = false;
         const browser = await launchBrowser({
+            signal,
             // Isolate each location in its own profile so one location's session
             // cookies cannot bleed into the next location's login.
             userDataDir: path.join(profileDir, location.location_name),
@@ -865,6 +868,7 @@ let botUser = location.username;
                             console.log(`Starting upload to Supabase in batches of ${BATCH_SIZE}...`);
 
                             for (let i = 0; i < results.length; i += BATCH_SIZE) {
+                                signal?.throwIfAborted();
                                 const batch = results.slice(i, i + BATCH_SIZE);
                                 const { error: insertError } = await supabase.from('tata_spare_inventory').insert(batch);
                                 if (insertError) {
@@ -884,6 +888,7 @@ let botUser = location.username;
                             // Delete the superseded rows (everything for this location that
                             // does not carry this run's marker). If this fails, the next
                             // retry's marker-based delete removes the leftovers automatically.
+                            signal?.throwIfAborted();
                             const { error: deleteError } = await supabase
                                 .from('tata_spare_inventory')
                                 .delete()
