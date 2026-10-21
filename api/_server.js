@@ -315,9 +315,10 @@ export default async function handler(req, res) {
       // A bad request must not create a job row: the unit would be queued and
       // then fail on every retry. Reject it before anything is written.
       try {
+        const monitorFrom = new Date().toISOString();
         await healFinishedJob();
         const job = await startOrMergeJob(await readSpec(req));
-        return send(res, 202, { success: true, jobId: job.id, message: 'Sync queued. The background worker will start shortly.' });
+        return send(res, 202, { success: true, jobId: job.id, monitorFrom, message: 'Sync queued. The background worker will start shortly.' });
       } catch (err) {
         return send(res, 400, { success: false, message: err.message });
       }

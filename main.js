@@ -1,4 +1,5 @@
 import { watchFetchJob } from './src/fetch-progress.js';
+import { renderFetchStatus, fetchRequestUnits } from './src/fetch-display.js';
 import './movement_entry.js';
 import './management_dashboard.js';
 import { supabase } from './supabase.js';
@@ -1541,6 +1542,7 @@ if (fetchForm) {
       }
 
       const submitted = await response.json();
+      const request = { type, fromDate, toDate, targetLocation };
       const stopPolling = watchFetchJob({
           jobId: submitted.jobId,
           readJob: async () => {
@@ -1556,59 +1558,30 @@ if (fetchForm) {
               resetBtn();
           },
           onUpdate: async (updatedJob) => {
-                  statusDiv.innerHTML = updatedJob.logs || 'Processing...';
+                  renderFetchStatus(statusDiv, updatedJob, request, submitted.monitorFrom);
 
-                  // Step-by-step progress bar driven by job.progress
+                  // Progress for the requested tasks, excluding older work in the shared job.
                   const wrap = document.getElementById('fetch-progress-wrap');
                   const bar = document.getElementById('fetch-progress-bar');
                   const pctEl = document.getElementById('fetch-progress-pct');
                   const labelEl = document.getElementById('fetch-progress-label');
-                  const prog = updatedJob.progress;
+                  const requestedUnits = fetchRequestUnits(updatedJob, request);
+                  const prog = { step: requestedUnits.filter((unit) => unit.status === 'done').length, total: requestedUnits.length };
                   if (wrap && bar && prog && prog.total > 0) {
                       wrap.style.display = 'block';
                       const pct = Math.max(0, Math.min(100, Math.round((prog.step / prog.total) * 100)));
                       bar.style.width = pct + '%';
                       if (pctEl) pctEl.textContent = pct + '%';
                       if (labelEl) {
-                          const running = updatedJob.status === 'processing';
+                          const running = ['processing', 'running'].includes(updatedJob.status);
                           labelEl.textContent = running
-                              ? `Step ${prog.step} of ${prog.total}`
-                              : (updatedJob.status === 'completed' ? 'Completed' : 'Stopped');
+                              ? `Completed ${prog.step} of ${prog.total} requested tasks`
+                              : (updatedJob.status === 'pending' ? 'Queued — waiting for worker' : updatedJob.status === 'completed' ? 'Completed' : 'Stopped');
                       }
                   } else if (wrap) {
                       wrap.style.display = 'none';
                   }
                   
-                  // Better log parsing for alerts
-                  if (!window.__tataLocationAlerts) window.__tataLocationAlerts = new Set();
-                  
-                  // Extract raw text lines from div tags
-                  const tempDiv = document.createElement('div');
-                  tempDiv.innerHTML = updatedJob.logs || '';
-                  const lines = Array.from(tempDiv.querySelectorAll('div')).map(d => d.textContent.trim());
-                  
-                  for (const plain of lines) {
-                    if (!plain) continue;
-                    const sig = plain.slice(0, 90);
-                    if (!window.__tataLocationAlerts.has(sig)) {
-                      window.__tataLocationAlerts.add(sig);
-                      if (plain.includes('ERROR:') || plain.includes('FATAL ERROR:')) {
-                        let errMsg = plain.replace(/^.*FATAL ERROR:\s*/, '').replace(/^.*ERROR:\s*/, '');
-                        // If it's a huge Cloudflare block, shorten it
-                        if (errMsg.includes('url=') || errMsg.length > 100) {
-                          const simple = errMsg.split('url=')[0].trim();
-                          errMsg = simple || errMsg.substring(0, 100) + '...';
-                        }
-                        showLocationAlert('error', errMsg);
-                      } else if (/UPLOADED \d+ ROWS/i.test(plain)) {
-                        const loc = (plain.match(/^.*-\s+(.+?)\s+(?:CONSUMPTION|INVENTORY)?\s*DATA/i) || [])[1] || plain.split(' ')[0];
-                        showLocationAlert('success', `${loc.trim().replace(/\s+$/, '')} data fetched successfully`);
-                      } else if (plain.includes('successfully')) {
-                        showLocationAlert('success', 'All requested scrapers finished successfully');
-                      }
-                    }
-                  }
-
                   if (['completed', 'failed', 'cancelled'].includes(updatedJob.status)) {
                       const doneBar = document.getElementById('fetch-progress-bar');
                       const donePct = document.getElementById('fetch-progress-pct');

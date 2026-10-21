@@ -1,4 +1,5 @@
 import { launchBrowser } from './puppeteer-runtime.js';
+import { clickSessionWarningAction } from './siebel-session.js';
 import * as dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
@@ -168,16 +169,9 @@ let botUser = location.username;
         // so the login form appears.
         async function dismissSessionWarning(page) {
             try {
-                const clicked = await page.evaluate(() => {
-                    const candidates = Array.from(document.querySelectorAll('a, button, input[type="button"], input[type="submit"], input[type="radio"], td, div, span'));
-                    const target = candidates.find(el => {
-                        const t = (el.textContent || '').trim();
-                        return /continue|log ?out|log ?in|proceed|^ok$|^yes$|accept/i.test(t) && el.offsetParent !== null;
-                    });
-                    if (target) { target.click(); return (target.textContent || '').trim(); }
-                    return null;
-                });
-                if (clicked) notify(`Dismissed session warning via "${clicked}".`);
+                const clicked = await page.evaluate(clickSessionWarningAction);
+                if (clicked) notify(`Clicked session-warning action "${clicked}". Waiting for the login form...`);
+                else notify('No visible session-warning action found.');
                 await new Promise(r => setTimeout(r, 3000));
             } catch (e) {
                 notify('Could not dismiss session warning: ' + e.message);

@@ -226,3 +226,41 @@ test('compact comparison preserves exact queue state and revisions and escapes r
   assert.equal(re.test(JSON.stringify({...job,revision:'version-2'})),false);
   assert.equal(re.test(JSON.stringify({...job,queue:{units:[],createdAt:job.queue.createdAt}})),false);
 });
+
+test('fetch display shows this request and collapses bounded logs without executing markup', async () => {
+  const {JSDOM}=await import('jsdom');
+  const {renderFetchStatus}=await import('../src/fetch-display.js');
+  const dom=new JSDOM('<div id="status"></div>');const doc=dom.window.document;const status=doc.getElementById('status');
+  const job=run([{...inventory,status:'pending'},{kind:'inventory',location:'KATHUA',status:'running'},consumption],'processing');
+  job.logs='<div>2026-10-21T04:30:00.000Z - Old failure</div>'+Array.from({length:130},(_,i)=>`<div>2026-10-21T06:20:00.000Z - new activity ${i} ${'x'.repeat(600)}</div>`).join('')+'<div>2026-10-21T06:20:01.000Z - &lt;img src=x onerror="window.pwned=true"&gt;</div>';
+  const request={type:'inventory',targetLocation:'NARWAL'};
+  renderFetchStatus(status,job,request,'2026-10-21T06:19:00.000Z');
+  assert.match(status.querySelector('.fetch-status-summary').textContent,/0 of 1/);
+  assert.match(status.querySelector('ul').textContent,/NARWAL: Queued/);
+  assert.doesNotMatch(status.querySelector('ul').textContent,/Consumption|KATHUA/);
+  assert.match(status.textContent,/KATHUA; your request is queued/);
+  const details=status.querySelector('details');assert.equal(details.open,false);
+  const output=status.querySelector('pre');assert.equal(output.textContent.split('\n').length,100);
+  assert.doesNotMatch(output.textContent,/Old failure/);assert.ok(output.textContent.length<51000);
+  assert.equal(status.querySelector('img'),null);assert.equal(status.querySelector('script'),null);
+  assert.equal(output.style.maxHeight,'240px');
+  details.open=true;renderFetchStatus(status,job,request,'2026-10-21T06:19:00.000Z');assert.equal(status.querySelector('details').open,true);
+  dom.window.close();
+});
+test('plain-text runner logs are also filtered to the new request', async () => {
+  const {JSDOM}=await import('jsdom');const {fetchLogLines}=await import('../src/fetch-display.js');
+  const dom=new JSDOM('');
+  const lines=fetchLogLines('2026-10-21T04:30:00.000Z - Old\n2026-10-21T06:20:00.000Z - New',dom.window.document,'2026-10-21T06:19:00.000Z');
+  assert.deepEqual(lines,['2026-10-21T06:20:00.000Z - New']);dom.window.close();
+});
+test('session warning selects a real action rather than explanatory containers', async () => {
+  const {JSDOM}=await import('jsdom');const {clickSessionWarningAction}=await import('../src/siebel-session.js');
+  const dom=new JSDOM('<div id="explanation">You have another session. Continue or Log In to proceed.</div><button id="login">Log In</button>',{runScripts:'outside-only'});
+  dom.window.HTMLElement.prototype.getClientRects=()=>[{}];
+  let clicked=false;dom.window.document.getElementById('login').onclick=()=>{clicked=true;};
+  const label=dom.window.eval(`(${clickSessionWarningAction.toString()})()`);
+  assert.equal(label,'Log In');assert.equal(clicked,true);
+  dom.window.document.getElementById('login').remove();
+  assert.equal(dom.window.eval(`(${clickSessionWarningAction.toString()})()`),null);
+  dom.window.close();
+});
