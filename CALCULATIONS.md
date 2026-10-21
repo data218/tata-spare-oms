@@ -62,3 +62,34 @@ the last ID instead of using counts or large offsets. Each table has one page
 request in flight. Statement timeouts retry the same cursor up to twice with
 smaller pages. A failed page fails the refresh; partial tables never replace the
 previously displayed data. The loading overlay reports the rows read so far.
+
+## Recorded IN / OUT
+
+Movement history consists of imported consumption and saved manual entries.
+Positive consumption is OUT; negative consumption is an IN return. Manual
+quantities already use the displayed unit. Source consumption converts ml/g to
+L/KG once using the exact catalogue UOM. Locations use the same aliases as stock.
+
+The user-confirmed sources are `tata_consumption_data` for consumption/returns
+and `tata_movement_logs` for manual IN/OUT. The ledger does not reconstruct
+receipts from current stock. Net movement is recorded IN minus OUT for the
+selected period, rather than a closing stock balance.
+
+Quantities are summarized per unit. Unknown-unit records remain in the ledger
+and are flagged in Data notes, but are excluded from quantity summaries. Movement
+values consistently use current NDP, excluding missing units/prices; invoice
+sales amounts are not substituted. Location net values retain their sign.
+Most Active Parts ranks transaction count, avoiding comparisons of litres with
+pieces. Card definitions and full unit breakdowns open on click.
+
+Undated records stay undated and appear only in All Time. Future records are
+flagged and excluded. Refresh reads database data; Export uses filtered records.
+Manual saves reload the authoritative ledger and recalculate views without
+synthetic consumption rows or optimistic stock edits. OUT cannot consume reserved
+stock. Bulk validation tracks sequential available balances. Entries older than
+a location/part snapshot are history only; a new receipt for a part absent from a
+known location's stock export can apply after that location's snapshot.
+
+Validation includes movement math regressions and a browser check of all recorded
+rows, card definitions, IN/OUT/date filters, filtered exports, single and bulk
+saves, and rejected-save recovery. Browser writes use an in-memory database stub.

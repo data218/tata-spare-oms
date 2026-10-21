@@ -70,6 +70,7 @@ const latestDate = (a, b) => { const first = parseTataDate(a), second = parseTat
 export function processInventoryData({inventory = [], consumption = [], priceList = [], movementLogs = []}, now = new Date()) {
   const prices = new Map(priceList.map(row => [String(row.part_number || '').trim().toUpperCase(), row]));
   const grouped = new Map();
+  const locationSnapshots = new Map();
   const make = (number, location, description = '', category = '') => {
     const key = partKey(number, location);
     if (!grouped.has(key)) {
@@ -102,6 +103,7 @@ export function processInventoryData({inventory = [], consumption = [], priceLis
     part.last_receipt = latestDate(part.last_receipt, row.last_receipt);
     part.last_issue = latestDate(part.last_issue, row.last_issue);
     const fetched = parseTataDate(row.fetched_at); if (fetched && (!part.snapshotAt || fetched > part.snapshotAt)) part.snapshotAt = fetched;
+    if (fetched && (!locationSnapshots.has(part.location) || fetched > locationSnapshots.get(part.location))) locationSnapshots.set(part.location, fetched);
   }
   const day = 86400000, cutoff30 = now.getTime() - 30 * day, cutoff180 = now.getTime() - 180 * day;
   for (const row of consumption) {
@@ -113,8 +115,12 @@ export function processInventoryData({inventory = [], consumption = [], priceLis
     if (date.getTime() >= cutoff180) part.consumption6mRolling += qty;
     part.lastConsumption = latestDate(part.lastConsumption, row.date);
   }
+  // A part absent from a known location's stock export has zero snapshot stock.
+  // Its newly recorded receipt can still be applied after that location's snapshot.
+  for (const part of grouped.values()) if (!part.snapshotAt) part.snapshotAt = locationSnapshots.get(part.location) || null;
   for (const row of movementLogs) {
     const part = make(row.part_id, row.location), date = parseTataDate(row.date);
+    if (!part.snapshotAt) part.snapshotAt = locationSnapshots.get(part.location) || null;
     if (!date || !part.snapshotAt || date <= part.snapshotAt) {part.unreconciledMovements++;continue;}
     // Manual entry forms store the entered amount in the same canonical unit as the displayed stock.
     const qty = parseNumber(row.qty) * (row.movement_type === 'IN' ? 1 : -1);

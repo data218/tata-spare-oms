@@ -1,0 +1,14 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {buildMovementTransactions,summarizeMovements,groupMovements} from '../src/movement-math.js';
+const now=new Date('2026-10-21T12:00:00Z');
+const priceList=[{part_number:'OIL',uom:'L',ndp:500,description:'Oil'},{part_number:'BOLT',uom:'EA',ndp:10,description:'Bolt'},{part_number:'GREASE',uom:'KG',ndp:1000}];
+const sale=(part,qty,extra={})=>({part_no:part,sold_qty:qty,division:'NARWAL',date:'2026-10-20',...extra});
+const build=(consumption=[],movementLogs=[])=>buildMovementTransactions({priceList,consumption,movementLogs},now);
+test('oil and grease quantities convert once; manual amounts already use displayed units',()=>{const {transactions}=build([sale('OIL','2,000'),sale('GREASE',500)],[{part_id:'OIL',location:'NARWAL',movement_type:'IN',qty:2,date:'2026-10-20'}]);const oil=transactions.filter(t=>t.partNo==='OIL');assert.deepEqual(oil.map(t=>t.qty),[2,2]);assert.deepEqual(oil.map(t=>t.value),[1000,1000]);assert.equal(transactions.find(t=>t.partNo==='GREASE').qty,.5);});
+test('negative consumption is a recorded return and is included in IN',()=>{const {transactions}=build([sale('BOLT',5),sale('BOLT',-2)]);const s=summarizeMovements(transactions);assert.equal(s.units[0].outQty,5);assert.equal(s.units[0].inQty,2);assert.equal(s.units[0].netQty,-3);assert.equal(s.netValue,-30);assert.equal(transactions[1].type,'RETURN');});
+test('location aliases preserve Poonch and Lambheri rather than assigning Narwal',()=>{const {transactions}=build([sale('BOLT',1,{division:'3008420-Sv&Pa-Smampoonch-SwaPvt'}),sale('BOLT',1,{division:'LAMBHERI'}),sale('BOLT',1,{division:''})]);assert.deepEqual(transactions.map(t=>t.location),['POONCH','LAMBHERI','UNKNOWN']);});
+test('unknown prices and units are never valued using invoice sales totals',()=>{const {transactions,issues}=build([sale('UNKNOWN',10,{value:9000})]);assert.equal(transactions[0].value,null);assert.equal(issues.unknownUnits,1);assert.equal(summarizeMovements(transactions).outValue,0);assert.equal(summarizeMovements(transactions).units.length,0);});
+test('invalid dates stay blank; future rows are flagged and excluded',()=>{const {transactions,issues}=build([sale('BOLT',1,{date:'garbage'}),sale('BOLT',1,{date:'2026-12-01'})]);assert.equal(transactions.length,1);assert.equal(transactions[0].date,null);assert.equal(issues.undated,1);assert.equal(issues.future,1);});
+test('unit groups and location summaries do not sum pieces with litres',()=>{const {transactions}=build([sale('BOLT',3),sale('OIL',2000)]);const groups=groupMovements(transactions);assert.equal(groups.length,2);assert.equal(groups.find(g=>g.uom==='EA').outQty,3);assert.equal(groups.find(g=>g.uom==='L').outQty,2);assert.equal(summarizeMovements(transactions).netValue,-1030);});
+test('stock snapshots do not generate fabricated IN history',()=>{assert.equal(build().transactions.length,0);});

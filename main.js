@@ -271,7 +271,7 @@ const tableFilterConfigs = {
         ? r.date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
         : '-',
       qty: (r) => Number(r.qty || 0).toLocaleString('en-IN'),
-      value: (r) => '₹' + Number(r.value || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })
+      value: (r) => r.value == null ? '' : '₹' + Number(r.value).toLocaleString('en-IN', { maximumFractionDigits: 0 })
     },
     render: (rows) => { 
       if (!window.tableFilterData) window.tableFilterData = {};
@@ -2033,6 +2033,23 @@ async function loadDataAndRender() {
     hideLoadingOverlay();
   }
 }
+
+// Movement entries reload the authoritative ledger, then recalculate all views.
+window.reloadDashboardData = loadDataAndRender;
+window.refreshMovementLogs = async function() {
+  rawInventoryData.movementLogs = await fetchTableData('tata_movement_logs');
+  window.rawInventoryData = rawInventoryData;
+  aggregatedParts = processRawData(rawInventoryData);
+  window.aggregatedParts = aggregatedParts;
+  const {processed} = calculateRequirements(aggregatedParts);
+  window.allProcessedParts = processed;
+  window.originalProcessedParts = processed;
+  showCalculationQuality(processed);
+  renderDashboard();
+  if (window.renderDashboardAnalytics) window.renderDashboardAnalytics();
+  if (window.generateMovementData) await window.generateMovementData();
+  if (window.filterMovementData) window.filterMovementData();
+};
 
 // Full-screen loading spinner helpers. The overlay element lives in dashboard.html.
 function showCalculationQuality(parts) {

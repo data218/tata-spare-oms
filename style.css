@@ -1375,3 +1375,12 @@ body[data-theme="midnight"] .theme-icon-only-btn {
   stroke: #ea580c;
 }
 
+
+#view-movement .widget-card { padding: 16px; }
+#view-movement .widget-info { gap: 6px; }
+#view-movement .widget-value { font-size: 1.4rem; font-variant-numeric: tabular-nums; }
+#location-movement-body td, #top-parts-body td { padding: 7px 6px; font-size: 0.75rem; text-align: right; font-variant-numeric: tabular-nums; border-bottom: 1px solid var(--border-color); }
+#location-movement-body td:first-child, #top-parts-body td:first-child { text-align: left; }
+.movement-negative { color: #dc2626; }
+.movement-positive { color: #059669; }
+.movement-part-description { max-width: 180px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--text-secondary); font-size: 0.65rem; }

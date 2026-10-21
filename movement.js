@@ -1,4 +1,9 @@
-import { toBaseQuantity, quantityTotals } from './src/inventory-math.js';
+import { buildMovementTransactions, summarizeMovements, groupMovements } from './src/movement-math.js';
+import { openMetricDetails } from './src/dashboard-display.js';
+const qty = value => Number(value).toLocaleString('en-IN', {maximumFractionDigits:3});
+const money = value => value == null ? '' : value.toLocaleString('en-IN', {style:'currency',currency:'INR',maximumFractionDigits:2});
+const unitLabel = unit => unit === 'EA' ? 'pcs' : unit;
+let movementIssues = {};
 // movement.js
 // Handles IN / OUT Movement Logic
 
@@ -43,117 +48,10 @@ window.initMovementModule = async function(force = false) {
 };
 
 async function generateMovementData() {
-  const transactions = [];
-  const outSumByPartLoc = {};
-
-  const cleanLocs = ['NARWAL', 'CHANNIRAMA', 'SUPWAL', 'KATHUA', 'REASI'];
-
-  const mapLocation = (rawStr) => {
-    if (!rawStr) return 'NARWAL';
-    const str = String(rawStr).toUpperCase();
-    
-    // Fast path: direct includes
-    for (const loc of cleanLocs) {
-      if (str.includes(loc)) return loc;
-    }
-    
-    // Specific hardcoded fallbacks
-    if (str.includes('SMAMSAMBA')) return 'SUPWAL';
-    if (str.includes('SMAMKATHUA')) return 'KATHUA';
-    if (str.includes('REASI')) return 'REASI';
-    if (str.includes('JAMMU') || str.includes('NARVAL')) return 'NARWAL';
-    return 'NARWAL';
-  };
-
-  // Pre-compute invPartMap for O(1) lookups using full dataset across all locations
-  const invPartMap = new Map();
-  const sourceParts = (window.allProcessedParts && window.allProcessedParts.length > 0)
-    ? window.allProcessedParts
-    : (window.originalProcessedParts && window.originalProcessedParts.length > 0
-        ? window.originalProcessedParts
-        : (window.aggregatedParts || []));
-  if (sourceParts.length > 0) {
-    sourceParts.forEach(p => {
-      const pLoc = mapLocation(p.location);
-      invPartMap.set(`${p.partId}_${pLoc}`, p);
-    });
-  }
-
-  // 1. Process all OUT transactions (Consumption Data)
-  const consumptionData = window.rawInventoryData?.consumption || window.consumptionData;
-  if (consumptionData && consumptionData.length > 0) {
-    consumptionData.forEach((c, index) => {
-      const loc = mapLocation(c.division || c.dealer);
-      const qtyRaw = parseFloat(c.sold_qty) || 0;
-      if (qtyRaw <= 0) return;
-
-      const partKey = `${c.part_no}_${loc}`;
-      outSumByPartLoc[partKey] = (outSumByPartLoc[partKey] || 0) + qtyRaw;
-
-      const invPart = invPartMap.get(partKey);
-      const isLube = invPart?.productCategory?.toUpperCase().includes('LUB') || false;
-      const ndpPrice = invPart?.ndpPrice || 0;
-
-      let finalQty = qtyRaw;
-      finalQty = toBaseQuantity(qtyRaw, invPart?.uom);
-
-      const value = ndpPrice > 0 ? (finalQty * ndpPrice) : (parseFloat(c.value) || 0);
-
-      transactions.push({
-        id: `OUT-${c.id || index}`,
-        date: c.date ? (window.parseTataDate ? window.parseTataDate(c.date) : new Date(c.date)) : new Date(),
-        direction: 'OUT',
-        type: c.order_type || 'ISSUE',
-        partNo: c.part_no,
-        description: c.part_desc,
-        location: loc,
-        qty: finalQty,
-        uom: invPart?.uom || 'UNKNOWN',
-        value: value,
-        reference: c.invoice_no || c.order_num || '-',
-        isLube: isLube
-      });
-    });
-  }
-
-  // 1.5. Apply Manual Movement Logs (IN/OUT)
-  const manualLogs = window.rawInventoryData?.movementLogs || [];
-  if (manualLogs.length > 0) {
-    manualLogs.forEach((log, index) => {
-      let qtyRaw = parseFloat(log.qty) || 0;
-      const isLube = false; // We can't know for sure without looking up, let's look it up
-      const partKey = `${log.part_id}_${mapLocation(log.location)}`;
-      const invPart = invPartMap.get(partKey);
-      const isLubeFinal = invPart?.productCategory?.toUpperCase().includes('LUB') || false;
-      const ndpPrice = invPart?.ndpPrice || 0;
-      
-      let finalQty = qtyRaw;
-      // Manual entries already use the displayed canonical unit.
-      
-      const value = ndpPrice > 0 ? (finalQty * ndpPrice) : 0;
-      
-      transactions.push({
-        id: `MANUAL-${log.id || index}`,
-        date: log.date ? (window.parseTataDate ? window.parseTataDate(log.date) : new Date(log.date)) : new Date(),
-        direction: log.movement_type === 'IN' ? 'IN' : 'OUT',
-        type: 'MANUAL',
-        partNo: log.part_id,
-        description: invPart ? invPart.model : 'Manual Entry',
-        location: mapLocation(log.location),
-        qty: finalQty,
-        uom: invPart?.uom || 'UNKNOWN',
-        value: value,
-        reference: log.reference || '-',
-        isLube: isLubeFinal
-      });
-    });
-  }
-
-  // Actual receipt history is unavailable. Do not fabricate IN transactions
-  // from a stock snapshot plus consumption; only recorded movements are shown.
-  // Sort by date desc
-  transactions.sort((a, b) => b.date - a.date);
-  window.movementData = transactions;
+  const result = buildMovementTransactions(window.rawInventoryData || {});
+  window.movementData = result.transactions;
+  movementIssues = result.issues;
+  if (window.tableFilterData) delete window.tableFilterData['movement-table-body'];
 }
 
 function attachMovementListeners() {
@@ -199,6 +97,19 @@ function attachMovementListeners() {
     });
   }
 
+  const exportBtn = document.getElementById('movement-export-btn');
+  if (exportBtn && !exportBtn.dataset.bound) {
+    exportBtn.dataset.bound = 'true';
+    exportBtn.addEventListener('click', () => {
+      if (!window.movementFiltered.length) {alert('No movement records to export.');return;}
+      if (typeof XLSX === 'undefined') {alert('Export library is still loading. Try again.');return;}
+      const rows = window.movementFiltered.map(t=>({Date:t.date?.toISOString() || '',Direction:t.direction,Type:t.type,'Part No':t.partNo,Description:t.description,Location:t.location,Qty:t.qty,Unit:t.unitKnown?unitLabel(t.uom):'', 'Value (NDP)':t.value??'',Reference:t.reference}));
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook,XLSX.utils.json_to_sheet(rows),'Movements');
+      XLSX.writeFile(workbook,'Inventory_Movements.xlsx');
+    });
+  }
+
   const prevBtn = document.getElementById('mov-prev-btn');
   if (prevBtn && !prevBtn.dataset.bound) {
     prevBtn.dataset.bound = 'true';
@@ -229,8 +140,8 @@ function attachMovementListeners() {
       const icon = refreshBtn.querySelector('svg') || refreshBtn.querySelector('i');
       if (icon) icon.classList.add('lucide-spin');
       try {
-        await generateMovementData();
-        filterMovementData();
+        if (window.reloadDashboardData) await window.reloadDashboardData();
+        else { await generateMovementData(); filterMovementData(); }
       } finally {
         setTimeout(() => {
           if (icon) icon.classList.remove('lucide-spin');
@@ -310,30 +221,22 @@ function applyMovementFilters(rows) {
 // Rows currently in scope for the header column filters: page-level filters
 // plus any column filters already active on OTHER columns. The column being
 // edited is excluded so its own selection doesn't hide the remaining options.
-window.getScopedMovementRows = function(excludeKey) {
-  let rows = applyMovementFilters(window.movementData || []);
-
-  const active = (window.activeFilters && window.activeFilters.get('movement-table-body')) || {};
-  Object.keys(active).forEach(k => {
-    const set = active[k];
-    if (k === excludeKey || !set || set.size === 0) return;
-    rows = rows.filter(r => {
-      const val = (typeof window.getFilterFieldValue === 'function')
-        ? window.getFilterFieldValue(r, k, 'movement-table-body')
-        : r[k];
-      return set.has(String(val === null || val === undefined ? '' : val));
+function applyMovementColumnFilters(rows, excludeKey) {
+  const active = window.activeFilters?.get('movement-table-body') || {};
+  for (const [key, values] of Object.entries(active)) {
+    if (key === excludeKey || !values?.size) continue;
+    rows = rows.filter(row => {
+      const value = window.getFilterFieldValue ? window.getFilterFieldValue(row,key,'movement-table-body') : row[key];
+      return values.has(String(value ?? ''));
     });
-  });
-
+  }
   return rows;
-};
+}
+window.getScopedMovementRows = excludeKey => applyMovementColumnFilters(applyMovementFilters(window.movementData || []),excludeKey);
 
 function _filterMovementData_internal() {
   window.movCurrentPage = 1;
-  const base = (window.tableFilterData && window.tableFilterData['movement-table-body']) 
-    ? window.tableFilterData['movement-table-body'] 
-    : window.movementData;
-  const filtered = applyMovementFilters(base);
+  const filtered = applyMovementColumnFilters(applyMovementFilters(window.movementData || []));
 
   window.movementFiltered = filtered;
   updateMovementKPIs();
@@ -343,34 +246,32 @@ function _filterMovementData_internal() {
 }
 
 function updateMovementKPIs() {
-  let totalIn = 0, totalOut = 0, inVal = 0, outVal = 0;
-  window.movementFiltered.forEach(t => {
-    if (t.direction === 'IN') {
-      totalIn += t.qty;
-      inVal += t.value;
-    } else {
-      totalOut += t.qty;
-      outVal += t.value;
-    }
-  });
-
-  const setKPI = (id, val, prefix='', color='') => {
-    const el = document.getElementById(id);
-    if(el) {
-      el.textContent = prefix + val;
-      if(color) el.style.color = color;
-    }
-  };
-
-  setKPI('mov-kpi-in', quantityTotals(window.movementFiltered.filter(t => t.direction === 'IN'), 'qty'));
-  setKPI('mov-kpi-out', quantityTotals(window.movementFiltered.filter(t => t.direction === 'OUT'), 'qty'));
-  
-  const net = totalIn - totalOut;
-  setKPI('mov-kpi-net', quantityTotals(window.movementFiltered, t => t.direction === 'IN' ? t.qty : -t.qty));
-  
-  setKPI('mov-kpi-in-val', inVal.toLocaleString('en-IN', {maximumFractionDigits:0}), '₹');
-  setKPI('mov-kpi-out-val', outVal.toLocaleString('en-IN', {maximumFractionDigits:0}), '₹');
+  const stats = summarizeMovements(window.movementFiltered);
+  const primary = stats.units.find(u => u.uom === 'EA') || stats.units[0];
+  const set = (id,value) => {const el=document.getElementById(id);if(el)el.textContent=value;};
+  for (const [key,field,label] of [['in','inQty','Total IN'],['out','outQty','Total OUT'],['net','netQty','Net Movement']]) {
+    set('mov-kpi-'+key,primary ? qty(primary[field]) : window.movementFiltered.length ? '—' : '0');
+    set('mov-label-'+key,label+(primary ? ' · '+unitLabel(primary.uom) : ''));
+  }
+  set('mov-kpi-in-val',money(stats.pricedIn || !window.movementFiltered.some(t=>t.direction==='IN') ? stats.inValue : null));
+  set('mov-kpi-out-val',money(stats.pricedOut || !window.movementFiltered.some(t=>t.direction==='OUT') ? stats.outValue : null));
+  const notes = document.getElementById('movement-data-notes');
+  if (notes) notes.querySelector('p').textContent = `IN includes recorded manual receipts and consumption returns. Values use current NDP, excluding unpriced or unclassified items. ${window.movementFiltered.filter(t=>!t.unitKnown).length.toLocaleString('en-IN')} filtered transactions have no catalogue unit; ${stats.unpriced.toLocaleString('en-IN')} cannot be valued. Unclassified quantities are excluded from quantity summaries. ${movementIssues.undated || 0} undated records are kept in All Time only; ${movementIssues.future || 0} future-dated and ${movementIssues.invalid || 0} invalid records are excluded. Net movement is recorded IN minus OUT, not closing stock.`;
 }
+
+window.showMovementKpi = key => {
+  const stats = summarizeMovements(window.movementFiltered);
+  const definitions = {
+    in:['Total IN','Recorded manual IN entries plus consumption returns. Quantities are grouped by catalogue unit.','inQty'],
+    out:['Total OUT','Positive consumption quantities plus recorded manual OUT entries. Quantities are grouped by catalogue unit.','outQty'],
+    net:['Net Movement','Recorded IN minus recorded OUT, separately for each unit. This shows movement during the selected filters; it is not the current stock balance.','netQty'],
+    'in-val':['IN Value','Recorded IN quantity × current NDP. Missing prices or units are excluded. This is a current NDP estimate.'],
+    'out-val':['OUT Value','Recorded OUT quantity × current NDP. Missing prices or units are excluded. Sales invoice totals are kept separate from inventory valuation.']
+  };
+  const info = definitions[key]; if (!info) return;
+  const breakdown = info[2] ? stats.units.map(u=>`${qty(u[info[2]])} ${unitLabel(u.uom)}`) : [money(key==='in-val'?stats.inValue:stats.outValue)];
+  openMetricDetails('movement-kpi-details',info[0],info[1],[...breakdown,`${window.movementFiltered.length.toLocaleString('en-IN')} recorded transactions in the current filters.`,`${stats.unpriced.toLocaleString('en-IN')} transactions lack a usable price or unit.`]);
+};
 
 function renderMovementTable() {
   const tbody = document.getElementById('movement-table-body');
@@ -402,8 +303,8 @@ function renderMovementTable() {
       const tr = document.createElement('tr');
       tr.style.borderBottom = '1px solid #f1f5f9';
       
-      const qtyStr = `${isOut ? '-' : '+'}${t.qty.toLocaleString('en-IN')}`;
-      const qtyLabel = t.isLube ? `<span style="font-size:0.55rem;color:var(--text-secondary);margin-left:2px;">Ltr</span>` : '';
+      const qtyStr = `${isOut ? '-' : '+'}${qty(t.qty)}`;
+      const qtyLabel = ''; // Units are available on hover and in card details.
       
       tr.innerHTML = `
         <td style="padding: 2px 4px; font-size: 0.65rem; font-size: 0.65rem; color: var(--text-secondary);">${dateStr}</td>
@@ -412,8 +313,8 @@ function renderMovementTable() {
         <td style="padding: 2px 4px; font-size: 0.65rem; font-size: 0.65rem; font-weight: 600;">${escapeHtml(t.partNo)}</td>
         <td style="padding: 2px 4px; font-size: 0.65rem; font-size: 0.65rem; color: var(--text-secondary); max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(t.description)}">${escapeHtml(t.description)}</td>
         <td style="padding: 2px 4px; font-size: 0.65rem; font-size: 0.65rem;">${escapeHtml(t.location)}</td>
-        <td style="padding: 2px 4px; font-size: 0.65rem; text-align: right; font-weight: 700; color: ${dirColor};">${qtyStr}${qtyLabel}</td>
-        <td style="padding: 2px 4px; font-size: 0.65rem; text-align: right; font-weight: 500; font-size: 0.65rem;">₹${t.value.toLocaleString('en-IN', {maximumFractionDigits:0})}</td>
+        <td style="padding: 2px 4px; font-size: 0.65rem; text-align: right; font-weight: 700; color: ${dirColor};" title="${escapeHtml(t.unitKnown ? unitLabel(t.uom) : 'Unit unavailable')}">${qtyStr}${qtyLabel}</td>
+        <td style="padding: 2px 4px; font-size: 0.65rem; text-align: right; font-weight: 500; font-size: 0.65rem;">${money(t.value)}</td>
         <td style="padding: 2px 4px; font-size: 0.65rem; font-size: 0.65rem; color: var(--text-secondary);">${escapeHtml(t.reference)}</td>
       `;
       tbody.appendChild(tr);
@@ -422,7 +323,7 @@ function renderMovementTable() {
 
   const pInfo = document.getElementById('mov-page-info');
   if (pInfo) {
-    pInfo.textContent = `${start + 1} to ${Math.min(end, totalRecords)} of ${totalRecords}`;
+    pInfo.textContent = `${totalRecords ? start + 1 : 0} to ${Math.min(end, totalRecords)} of ${totalRecords}`;
   }
   
   const prevBtn = document.getElementById('mov-prev-btn');
@@ -434,81 +335,22 @@ function renderMovementTable() {
 function renderLocationMovement() {
   const container = document.getElementById('location-movement-body');
   if (!container) return;
-
-  const locStats = {};
-  window.movementFiltered.forEach(t => {
-    if(!locStats[t.location]) locStats[t.location] = { inQty: 0, outQty: 0, inVal: 0, outVal: 0 };
-    if(t.direction === 'IN') {
-      locStats[t.location].inQty += t.qty;
-      locStats[t.location].inVal += t.value;
-    } else {
-      locStats[t.location].outQty += t.qty;
-      locStats[t.location].outVal += t.value;
-    }
-  });
-
-  container.innerHTML = '';
-  Object.keys(locStats).sort().forEach(loc => {
-    const s = locStats[loc];
-    const netQty = s.inQty - s.outQty;
-    const netVal = s.inVal - s.outVal;
-    
-    const tr = document.createElement('tr');
-    tr.style.borderBottom = '1px solid #f1f5f9';
-    tr.innerHTML = `
-      <td style="padding: 2px 4px; font-size: 0.65rem; font-weight: 600;">${escapeHtml(loc)}</td>
-      <td style="padding: 2px 4px; font-size: 0.65rem; text-align: right; color: #10b981;">+${s.inQty.toLocaleString('en-IN')}</td>
-      <td style="padding: 2px 4px; font-size: 0.65rem; text-align: right; color: #ef4444;">-${s.outQty.toLocaleString('en-IN')}</td>
-      <td style="padding: 2px 4px; font-size: 0.65rem; text-align: right; font-weight: 700; color: ${netQty >= 0 ? '#10b981' : '#ef4444'};">${netQty > 0 ? '+' : ''}${netQty.toLocaleString('en-IN')}</td>
-      <td style="padding: 2px 4px; font-size: 0.65rem; text-align: right; color: var(--text-secondary);">₹${s.inVal.toLocaleString('en-IN', {maximumFractionDigits:0})}</td>
-      <td style="padding: 2px 4px; font-size: 0.65rem; text-align: right; color: var(--text-secondary);">₹${s.outVal.toLocaleString('en-IN', {maximumFractionDigits:0})}</td>
-      <td style="padding: 2px 4px; font-size: 0.65rem; text-align: right; font-weight: 700; color: ${netVal >= 0 ? '#10b981' : '#ef4444'};">₹${Math.abs(netVal).toLocaleString('en-IN', {maximumFractionDigits:0})}</td>
-    `;
-    container.appendChild(tr);
-  });
+  const groups = groupMovements(window.movementFiltered).sort((a,b)=>a.name.localeCompare(b.name)||a.uom.localeCompare(b.uom));
+  container.innerHTML = groups.map(s=>`<tr>
+    <td>${escapeHtml(s.name)}</td><td>${escapeHtml(unitLabel(s.uom))}</td>
+    <td>${qty(s.inQty)}</td><td>${qty(s.outQty)}</td><td class="${s.netQty<0?'movement-negative':'movement-positive'}">${qty(s.netQty)}</td>
+    <td>${money(s.inQty && !s.pricedIn ? null : s.inValue)}</td><td>${money(s.outQty && !s.pricedOut ? null : s.outValue)}</td><td class="${s.netValue<0?'movement-negative':'movement-positive'}">${money(s.netValue)}</td>
+  </tr>`).join('') || '<tr><td colspan="8">No classified movements</td></tr>';
 }
 
 function renderTopParts() {
   const container = document.getElementById('top-parts-body');
   if (!container) return;
-
-  const partStats = {};
-  window.movementFiltered.forEach(t => {
-    const key = t.partNo;
-    if(!partStats[key]) partStats[key] = { desc: t.description, inQty: 0, outQty: 0, totalMovement: 0 };
-    if(t.direction === 'IN') {
-      partStats[key].inQty += t.qty;
-    } else {
-      partStats[key].outQty += t.qty;
-    }
-    partStats[key].totalMovement += Math.abs(t.qty);
-  });
-
-  const sorted = Object.entries(partStats)
-    .sort((a,b) => b[1].totalMovement - a[1].totalMovement)
-    .slice(0, 10);
-
-  container.innerHTML = '';
-  if (sorted.length === 0) {
-    container.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px;">No data</td></tr>';
-  } else {
-    sorted.forEach(([partNo, s]) => {
-      const net = s.inQty - s.outQty;
-      const tr = document.createElement('tr');
-      tr.style.borderBottom = '1px solid #f1f5f9';
-      tr.innerHTML = `
-        <td style="padding: 2px 4px; font-size: 0.7rem;">
-          <div style="font-weight: 600; line-height: 1.1;">${escapeHtml(partNo)}</div>
-          <div style="font-size: 0.65rem; line-height: 1.1; color: var(--text-secondary); max-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(s.desc)}">${escapeHtml(s.desc)}</div>
-        </td>
-        <td style="padding: 2px 4px; font-size: 0.7rem; text-align: right; color: #10b981;">+${s.inQty.toLocaleString('en-IN')}</td>
-        <td style="padding: 2px 4px; font-size: 0.7rem; text-align: right; color: #ef4444;">-${s.outQty.toLocaleString('en-IN')}</td>
-        <td style="padding: 2px 4px; font-size: 0.7rem; text-align: right; font-weight: 600;">${s.totalMovement.toLocaleString('en-IN')}</td>
-        <td style="padding: 2px 4px; font-size: 0.7rem; text-align: right; font-weight: 700; color: ${net >= 0 ? '#10b981' : '#ef4444'};">${net > 0 ? '+' : ''}${net.toLocaleString('en-IN')}</td>
-      `;
-      container.appendChild(tr);
-    });
-  }
+  const groups = groupMovements(window.movementFiltered,'part').sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name)).slice(0,10);
+  container.innerHTML = groups.map(s=>`<tr>
+    <td><strong>${escapeHtml(s.name)}</strong><div class="movement-part-description" title="${escapeHtml(s.description)}">${escapeHtml(s.description)}</div></td>
+    <td>${escapeHtml(unitLabel(s.uom))}</td><td>${qty(s.inQty)}</td><td>${qty(s.outQty)}</td><td>${s.count.toLocaleString('en-IN')}</td><td class="${s.netQty<0?'movement-negative':'movement-positive'}">${qty(s.netQty)}</td>
+  </tr>`).join('') || '<tr><td colspan="6">No classified movements</td></tr>';
 }
 
 window.filterMovementData = filterMovementData;

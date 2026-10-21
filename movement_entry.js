@@ -1,4 +1,4 @@
-import { parseNumber } from './src/inventory-math.js';
+import { parseNumber, parseTataDate } from './src/inventory-math.js';
 import { supabase } from './supabase.js';
 import { escapeHtml } from './escape.js';
 document.addEventListener('DOMContentLoaded', () => {
@@ -160,8 +160,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const item = window.originalProcessedParts.find(p => String(p.location || '').toUpperCase() === String(loc || '').toUpperCase() && String(p.partId || '').toUpperCase() === String(part || '').toUpperCase());
     if (item) {
-      availQtySpan.textContent = item.currentStock + ' ' + (item.uom || '');
+      availQtySpan.textContent = item.available + ' ' + (item.uom === 'EA' ? 'pcs' : item.uom || '');
       qtyInput.step = item.uom === 'EA' ? '1' : '0.001';
+      qtyInput.min = item.uom === 'EA' ? '1' : '0.001';
       if (partNameInput) partNameInput.value = item.model || 'N/A';
     } else {
       availQtySpan.textContent = '0';
@@ -191,18 +192,20 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    if (type === 'OUT' && qty > item.currentStock) {
-      errorMsg.textContent = `Insufficient stock! Available qty is ${item.currentStock}.`;
+    if (type === 'OUT' && qty > item.available) {
+      errorMsg.textContent = `Insufficient stock! Available qty is ${item.available}.`;
       errorMsg.style.display = 'block';
       return;
     }
 
-    // Execute logic
-    const oldStock = item.currentStock;
-    if (type === 'IN') {
-      item.currentStock += qty;
-    } else {
-      item.currentStock -= qty;
+    if (!item.unitKnown || (item.uom === 'EA' && !Number.isInteger(qty))) {
+      errorMsg.textContent = 'Confirm the catalogue unit and use whole quantities for pieces.';
+      errorMsg.style.display = 'block'; return;
+    }
+    const selectedDate = parseTataDate(date);
+    if (!selectedDate || selectedDate > new Date()) {
+      errorMsg.textContent = 'Choose a valid date that is not in the future.';
+      errorMsg.style.display = 'block'; return;
     }
 
     btnSubmit.disabled = true;
@@ -220,36 +223,21 @@ document.addEventListener('DOMContentLoaded', () => {
           movement_type: type,
           qty: qty,
           reference: "Manual Entry",
-          date: date && date !== new Date().toLocaleDateString('en-CA') ? date : new Date().toISOString()
+          date: selectedDate.toDateString() === new Date().toDateString() ? new Date().toISOString() : selectedDate.toISOString()
         });
       if (movErr) throw movErr;
     } catch (e) {
       console.error(e);
       errorMsg.textContent = 'Failed to save to database: ' + e.message;
       errorMsg.style.display = 'block';
-      item.currentStock = oldStock; // Revert local
       btnSubmit.disabled = false;
       btnSubmit.textContent = 'Submit Movement';
       return;
     }
     
+    await refreshAllDashboards();
     btnSubmit.disabled = false;
     btnSubmit.textContent = 'Submit Movement';
-
-    // Create synthetic movement record for the UI temporarily so it shows up instantly
-    if (!window.consumptionData) window.consumptionData = [];
-    const newRecord = {
-      Date: date,
-      MovementType: type,
-      "Part ID": part,
-      Location: loc,
-      Qty: qty,
-      Reference: "Manual Entry"
-    };
-    window.consumptionData.unshift(newRecord);
-
-    // Refresh UI
-    refreshAllDashboards();
 
     // Close and reset
     modal.style.display = 'none';
@@ -264,21 +252,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 50);
   }
 
-  function refreshAllDashboards() {
-    // Re-render inventory view
-    if (typeof window.renderInventoryTable === 'function') {
-      try { window.renderInventoryTable(); } catch(e) { console.warn(e); }
-    }
-    // Re-render movement view
-    if (typeof window.renderMovementTable === 'function') {
-      try { window.renderMovementTable(); } catch(e) { console.warn(e); }
-    }
-    // Re-render management dashboard
-    if (typeof window.oldRenderDashboardAnalytics === 'function') {
-      try { window.oldRenderDashboardAnalytics(); } catch(e) { console.warn(e); }
-    }
-    if (typeof window.renderDashboardAnalytics === 'function') {
-      try { window.renderDashboardAnalytics(); } catch(e) { console.warn(e); }
+  async function refreshAllDashboards() {
+    try {
+      if (window.refreshMovementLogs) await window.refreshMovementLogs();
+    } catch (error) {
+      alert('Movement saved. Refresh the dashboard to reload it: ' + error.message);
     }
   }
 
@@ -328,6 +306,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     bulkError.style.display = 'none';
     bulkSuccess.style.display = 'none';
+    btnSubmitBulk.disabled = true;
 
     const reader = new FileReader();
     reader.onload = async function(e) {
@@ -342,13 +321,13 @@ document.addEventListener('DOMContentLoaded', () => {
         let errorCount = 0;
         const errors = [];
         const logsToInsert = [];
-        // Stock is adjusted optimistically while the rows are validated. If the
-        // insert then fails we must undo every adjustment, otherwise the on-screen
-        // stock stays wrong until the next full refresh.
-        const appliedStock = [];
+        // Validate sequential rows against a temporary balance; only saved logs update stock.
+        const balances = new Map();
 
         rows.forEach((row, index) => {
-          const date = row['Date'] || new Date().toISOString().split('T')[0];
+          const enteredDate = parseTataDate(row['Date'] || new Date());
+          if (!enteredDate || enteredDate > new Date()) { errorCount++; errors.push(`Row ${index + 2}: Invalid or future date.`); return; }
+          const date = enteredDate.toDateString() === new Date().toDateString() ? new Date().toISOString() : enteredDate.toISOString();
           const type = row['Movement'] ? row['Movement'].toString().toUpperCase() : null;
           const part = row['Part ID'] ? row['Part ID'].toString().trim().toUpperCase() : null;
           const loc = row['Location'] ? row['Location'].toString().trim().toUpperCase() : null;
@@ -374,32 +353,16 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
           }
 
-          if (type === 'OUT' && qty > item.currentStock) {
-            errorCount++;
-            errors.push(`Row ${index + 2}: Insufficient stock for ${part} in ${loc}. Required: ${qty}, Available: ${item.currentStock}.`);
-            return;
+          if (!item.unitKnown || (item.uom === 'EA' && !Number.isInteger(qty))) {
+            errorCount++; errors.push(`Row ${index + 2}: Confirm unit and enter whole quantities for pieces.`); return;
           }
-
-          // Process success
-          if (type === 'IN') {
-            item.currentStock += qty;
-          } else {
-            item.currentStock -= qty;
+          const key = loc + '_' + part;
+          const available = balances.has(key) ? balances.get(key) : item.available;
+          if (type === 'OUT' && qty > available) {
+            errorCount++; errors.push(`Row ${index + 2}: Insufficient available stock for ${part}.`); return;
           }
-          appliedStock.push({ item, qty, type });
+          if (item.snapshotAt && new Date(date) > item.snapshotAt) balances.set(key,available + (type === 'IN' ? qty : -qty));
 
-          if (!window.consumptionData) window.consumptionData = [];
-          window.consumptionData.unshift({
-            Date: date,
-            MovementType: type,
-            "Part ID": part,
-            Location: loc,
-            Qty: qty,
-            Reference: ref,
-            // Marks this row as uncommitted so a failed insert can remove it
-            __bulkPending: true
-          });
-          
           logsToInsert.push({
             part_id: part,
             location: loc,
@@ -415,21 +378,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (logsToInsert.length > 0) {
           const { error } = await supabase.from('tata_movement_logs').insert(logsToInsert);
           if (error) {
-            // Roll back the optimistic stock edits and drop the synthetic rows so
-            // the UI does not keep showing movements that were never saved.
-            appliedStock.forEach(({ item, qty, type }) => {
-              item.currentStock += (type === 'IN' ? -qty : qty);
-            });
-            if (window.consumptionData) {
-              window.consumptionData = window.consumptionData.filter(r => r.__bulkPending !== true);
-            }
             bulkError.textContent = "Error saving to database: " + error.message;
             bulkError.style.display = 'block';
             return;
           }
         }
 
-        refreshAllDashboards();
+        await refreshAllDashboards();
 
         if (errorCount === 0) {
            bulkSuccess.textContent = `Successfully processed ${successCount} movements!`;
@@ -443,10 +398,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
       } catch (err) {
-        bulkError.textContent = "Error parsing file: " + err.message;
+        bulkError.textContent = "Error processing file: " + err.message;
         bulkError.style.display = 'block';
+      } finally {
+        btnSubmitBulk.disabled = false;
       }
     };
+    reader.onerror = () => {bulkError.textContent = 'Could not read the file.';bulkError.style.display='block';btnSubmitBulk.disabled=false;};
     reader.readAsArrayBuffer(file);
   }
 });

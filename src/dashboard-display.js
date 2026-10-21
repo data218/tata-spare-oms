@@ -38,3 +38,28 @@ export function renderQuantityKpi(element, parts, field = 'currentStock', prefer
     element.append(secondary);
   }
 }
+
+export function openMetricDetails(id, titleText, definition, details = []) {
+  document.getElementById(id)?.close();
+  const dialog = document.createElement('dialog');
+  dialog.id = id;
+  dialog.className = 'reorder-kpi-dialog';
+  const title = document.createElement('h3');
+  title.id = id + '-title';
+  title.textContent = titleText;
+  dialog.setAttribute('aria-labelledby',title.id);
+  dialog.append(title);
+  for (const text of [definition,...details]) {
+    const paragraph = document.createElement('p');
+    paragraph.textContent = text;
+    dialog.append(paragraph);
+  }
+  const close = document.createElement('button');
+  close.type = 'button'; close.className = 'btn btn-outline'; close.textContent = 'Close';
+  close.onclick = () => dialog.close();
+  dialog.append(close);
+  dialog.addEventListener('close',()=>dialog.remove());
+  dialog.addEventListener('click',e=>{const r=dialog.getBoundingClientRect();if(e.target===dialog&&(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom))dialog.close();});
+  document.body.append(dialog);
+  dialog.showModal();
+}

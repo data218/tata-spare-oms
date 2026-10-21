@@ -1271,7 +1271,7 @@
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px;">
               <div>
                 <h2 class="welcome-text">Inventory IN / OUT</h2>
-                <p style="color: var(--text-secondary); margin-bottom: 0;">Track every stock receipt, issue, transfer, return and adjustment.</p>
+                <details id="movement-data-notes" class="quality-note"><summary>Data notes</summary><p></p></details>
               </div>
               <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                 
@@ -1292,36 +1292,36 @@
 
             <!-- KPIs -->
             <div class="widget-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom: 24px;">
-              <div class="widget-card" style="border-left: 4px solid #10b981;">
+              <button type="button" class="widget-card reorder-kpi" onclick="window.showMovementKpi('in')" style="border-left: 4px solid #10b981;">
                 <div class="widget-info">
                   <span class="widget-value" id="mov-kpi-in">0</span>
-                  <span class="widget-label">Total IN</span>
+                  <span class="widget-label" id="mov-label-in">Total IN</span>
                 </div>
-              </div>
-              <div class="widget-card" style="border-left: 4px solid #ef4444;">
+              </button>
+              <button type="button" class="widget-card reorder-kpi" onclick="window.showMovementKpi('out')" style="border-left: 4px solid #ef4444;">
                 <div class="widget-info">
                   <span class="widget-value" id="mov-kpi-out">0</span>
-                  <span class="widget-label">Total OUT</span>
+                  <span class="widget-label" id="mov-label-out">Total OUT</span>
                 </div>
-              </div>
-              <div class="widget-card" style="border-left: 4px solid #3b82f6;">
+              </button>
+              <button type="button" class="widget-card reorder-kpi" onclick="window.showMovementKpi('net')" style="border-left: 4px solid #3b82f6;">
                 <div class="widget-info">
                   <span class="widget-value" id="mov-kpi-net">0</span>
-                  <span class="widget-label">Net Movement</span>
+                  <span class="widget-label" id="mov-label-net">Net Movement</span>
                 </div>
-              </div>
-              <div class="widget-card" style="border-left: 4px solid #10b981;">
+              </button>
+              <button type="button" class="widget-card reorder-kpi" onclick="window.showMovementKpi('in-val')" style="border-left: 4px solid #10b981;">
                 <div class="widget-info">
                   <span class="widget-value" id="mov-kpi-in-val">₹0</span>
                   <span class="widget-label">IN Value</span>
                 </div>
-              </div>
-              <div class="widget-card" style="border-left: 4px solid #ef4444;">
+              </button>
+              <button type="button" class="widget-card reorder-kpi" onclick="window.showMovementKpi('out-val')" style="border-left: 4px solid #ef4444;">
                 <div class="widget-info">
                   <span class="widget-value" id="mov-kpi-out-val">₹0</span>
                   <span class="widget-label">OUT Value</span>
                 </div>
-              </div>
+              </button>
             </div>
 
             <div style="display: flex; gap: 20px; align-items: center; margin-bottom: 20px; background: white; padding: 12px 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
@@ -1346,7 +1346,7 @@
                   <table class="control-tower-table" style="width: 100%; border-collapse: collapse;">
                     <thead style="background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);">
                       <tr>
-                        <th style="padding: 2px 4px; text-align: left; font-size: 0.65rem; color: #64748b;">Location</th>
+                        <th style="padding: 2px 4px; text-align: left; font-size: 0.65rem; color: #64748b;">Location</th><th>Unit</th>
                         <th style="padding: 2px 4px; text-align: right; font-size: 0.65rem; color: #64748b;">IN Qty</th>
                         <th style="padding: 2px 4px; text-align: right; font-size: 0.65rem; color: #64748b;">OUT Qty</th>
                         <th style="padding: 2px 4px; text-align: right; font-size: 0.65rem; color: #64748b;">Net Qty</th>
@@ -1364,16 +1364,16 @@
               <!-- Top Parts Movement -->
               <div class="widget-card" style="padding: 0; display: block;">
                 <div style="padding: 4px 6px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
-                  <h3 style="margin: 0; font-size: 1rem; color: var(--text-primary);">Top Parts by Movement</h3>
+                  <h3 style="margin: 0; font-size: 1rem; color: var(--text-primary);">Most Active Parts</h3>
                 </div>
                 <div style="overflow-x: auto;">
                   <table class="control-tower-table" style="width: 100%; border-collapse: collapse;">
                     <thead style="background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);">
                       <tr>
-                        <th style="padding: 2px 4px; text-align: left; font-size: 0.65rem; color: #64748b;">Part Details</th>
+                        <th style="padding: 2px 4px; text-align: left; font-size: 0.65rem; color: #64748b;">Part Details</th><th>Unit</th>
                         <th style="padding: 2px 4px; text-align: right; font-size: 0.65rem; color: #64748b;">IN Qty</th>
                         <th style="padding: 2px 4px; text-align: right; font-size: 0.65rem; color: #64748b;">OUT Qty</th>
-                        <th style="padding: 2px 4px; text-align: right; font-size: 0.65rem; color: #64748b;">Total Movement</th>
+                        <th style="padding: 2px 4px; text-align: right; font-size: 0.65rem; color: #64748b;">Transactions</th>
                         <th style="padding: 2px 4px; text-align: right; font-size: 0.65rem; color: #64748b;">Net Movement</th>
                       </tr>
                     </thead>
@@ -1399,7 +1399,7 @@
                     <th style="padding: 4px 4px; font-size: 0.75rem; text-align: left; font-weight: 600; color: #475569; position: sticky; top: 0;">Description</th>
                     <th style="padding: 4px 4px; font-size: 0.75rem; text-align: left; font-weight: 600; color: #475569; position: sticky; top: 0;">Location</th>
                     <th style="padding: 4px 4px; font-size: 0.75rem; text-align: right; font-weight: 600; color: #475569; position: sticky; top: 0;">Qty</th>
-                    <th style="padding: 4px 4px; font-size: 0.75rem; text-align: right; font-weight: 600; color: #475569; position: sticky; top: 0;">Value</th>
+                    <th style="padding: 4px 4px; font-size: 0.75rem; text-align: right; font-weight: 600; color: #475569; position: sticky; top: 0;">Value (NDP)</th>
                     <th style="padding: 4px 4px; font-size: 0.75rem; text-align: left; font-weight: 600; color: #475569; position: sticky; top: 0;">Reference</th>
                   </tr>
                 </thead>
@@ -1818,6 +1818,7 @@
         <div>
           <label style="display: block; font-weight: 500; margin-bottom: 6px;">Date</label>
           <input type="date" id="inout-date" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+          <small style="color:var(--text-secondary)">Use today for new stock changes. Entries before the stock snapshot record history only.</small>
         </div>
         
         <div>
