@@ -297,9 +297,9 @@ const tableFilterConfigs = {
       'Ageing (Days)': 'ageingText', 'Status': 'statusText'
     },
     formatters: {
-      ndpPrice: (r) => '₹' + Number(r.ndpPrice || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-      stockValue: (r) => '₹' + Number(r.stockValue || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-      ageingText: (r) => (r.ageingDays != null && r.ageingDays >= 0 ? `${r.ageingDays} Days` : 'N/A')
+      ndpPrice: (r) => r.ndpPrice == null ? '' : '₹' + Number(r.ndpPrice).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      stockValue: (r) => r.stockValue == null ? '' : '₹' + Number(r.stockValue).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      ageingText: (r) => (r.ageingDays != null && r.ageingDays >= 0 ? String(r.ageingDays) : '')
     },
     // Money/quantity columns have far too many distinct values for a checkbox
     // list (Total Amount is effectively unique per row), so they get a
@@ -3092,7 +3092,7 @@ document.addEventListener('DOMContentLoaded', () => {
           badgeText = 'Low Stock';
         }
         
-        let ageingText = part.ageingDays != null && part.ageingDays >= 0 ? `${part.ageingDays} Days` : 'Unknown';
+        let ageingText = part.ageingDays != null && part.ageingDays >= 0 ? String(part.ageingDays) : '';
         
         const tr = document.createElement('tr');
         tr.style.borderBottom = '1px solid var(--border-color)';
@@ -3101,9 +3101,9 @@ document.addEventListener('DOMContentLoaded', () => {
           <td style="padding: 8px 12px; color: var(--text-secondary);">${escapeHtml(part.model)}${part.descriptionMismatch ? `<span class="description-note" title="Description differs from source: ${escapeHtml(part.sourceDescription)}" aria-label="Description needs review">ⓘ</span>` : ''}</td>
           <td style="padding: 8px 12px;">${escapeHtml(part.location)}</td>
           <td style="padding: 8px 12px;">${escapeHtml(part.productCategory || 'TATA')}</td>
-          <td style="padding: 8px 12px; text-align: right; color: #10b981; font-weight: 500;">${part.priceKnown ? '₹' + part.ndpPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + '/' + escapeHtml(part.uom) : 'Missing price'}</td>
-          <td style="padding: 8px 12px; text-align: right; font-weight: 600;">${part.currentStock.toLocaleString('en-IN', {maximumFractionDigits: 3})} ${escapeHtml(part.uom)}</td>
-          <td style="padding: 8px 12px; text-align: right; font-weight: 600; color: #3b82f6;">${part.stockValue == null ? 'Unknown' : '₹' + part.stockValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+          <td title="${part.priceKnown ? 'Price per ' + escapeHtml(part.uom) : 'Price unavailable'}" style="padding: 8px 12px; text-align: right; color: #10b981; font-weight: 500;">${part.priceKnown ? '₹' + part.ndpPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}</td>
+          <td title="${escapeHtml(part.uom)}" style="padding: 8px 12px; text-align: right; font-weight: 600;">${part.currentStock.toLocaleString('en-IN', {maximumFractionDigits: 3})}</td>
+          <td style="padding: 8px 12px; text-align: right; font-weight: 600; color: #3b82f6;">${part.stockValue == null ? '' : '₹' + part.stockValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
           <td style="padding: 8px 12px; text-align: right; color: var(--text-secondary);">${ageingText}</td>
           <td style="padding: 8px 12px; text-align: center;"><span class="h-badge ${badgeClass}">${badgeText}</span></td>
         `;
