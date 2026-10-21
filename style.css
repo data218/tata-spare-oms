@@ -769,6 +769,14 @@ h2.welcome-text {
 .description-note { margin-left: 5px; color: #b7791f; cursor: help; }
 #data-load-error summary { cursor: pointer; }
 #data-load-error details > div { margin-top: 8px; font-size: 0.75rem; font-weight: 400; }
+.reorder-kpi { font: inherit; text-align: left; cursor: pointer; min-width: 0; min-height: 86px; }
+.reorder-kpi:focus-visible { outline: 2px solid #3b82f6; outline-offset: 3px; }
+.reorder-kpi-dialog { width: min(520px, calc(100% - 48px)); box-sizing: border-box; border: 1px solid var(--border-color); border-radius: 12px; padding: 24px; background: var(--card-bg); color: var(--text-primary); }
+.reorder-kpi-dialog::backdrop { background: rgb(15 23 42 / 45%); }
+.reorder-kpi-dialog h3 { margin-top: 0; }
+.reorder-kpi-dialog p { font-size: 0.9rem; line-height: 1.6; }
+.reorder-kpi-dialog button { margin-right: 8px; }
+.reorder-quantity-breakdown { font-weight: 700; }
 
 .light-green { background-color: var(--widget-green-bg); }
 .light-green .widget-icon { background-color: rgba(56, 161, 105, 0.1); color: var(--widget-green-icon); }

@@ -565,7 +565,7 @@
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
               <div>
                 <h2 class="welcome-text">Reorder Control Tower</h2>
-                <p style="color: var(--text-secondary); margin-bottom: 0;">Intelligent inventory replenishment, transfer opportunities, and stock risk analysis.</p>
+
               </div>
               <div style="display: flex; gap: 10px; align-items: center;">
                 <select id="reorder-time-filter" class="form-select" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color);">
@@ -580,49 +580,43 @@
             </div>
 
             <!-- KPI Cards with sub-text -->
-            <div class="widget-grid" style="grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 20px;">
-              <div class="widget-card" style="border-left: 4px solid #f59e0b; cursor: pointer; padding: 16px;" onclick="window.filterReorderKPI('REQUIRED')">
+            <div class="widget-grid" style="grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 12px; margin-bottom: 20px;">
+              <button type="button" class="widget-card reorder-kpi" style="border-left: 4px solid #f59e0b; cursor: pointer; padding: 16px;" onclick="window.showReorderKpi('REQUIRED')">
                 <div class="widget-info">
                   <span class="widget-value" id="ro-kpi-required" style="font-size: 1.4rem; font-weight: 700;">0</span>
                   <span class="widget-label" style="font-size: 0.75rem; color: var(--text-secondary);">Reorder Required</span>
-                  <span id="ro-kpi-required-sub" style="font-size: 0.7rem; color: #f59e0b; display: block; margin-top: 4px;">0% of total parts</span>
                 </div>
-              </div>
-              <div class="widget-card" style="border-left: 4px solid #ef4444; cursor: pointer; padding: 16px;" onclick="window.filterReorderKPI('CRITICAL')">
+              </button>
+              <button type="button" class="widget-card reorder-kpi" style="border-left: 4px solid #ef4444; cursor: pointer; padding: 16px;" onclick="window.showReorderKpi('CRITICAL')">
                 <div class="widget-info">
                   <span class="widget-value" id="ro-kpi-critical" style="font-size: 1.4rem; font-weight: 700;">0</span>
                   <span class="widget-label" style="font-size: 0.75rem; color: var(--text-secondary);">Critical Reorder</span>
-                  <span id="ro-kpi-critical-sub" style="font-size: 0.7rem; color: #ef4444; display: block; margin-top: 4px;">Needs immediate action</span>
                 </div>
-              </div>
-              <div class="widget-card" style="border-left: 4px solid #94a3b8; cursor: pointer; padding: 16px;" onclick="window.filterReorderKPI('OUT_OF_STOCK')">
+              </button>
+              <button type="button" class="widget-card reorder-kpi" style="border-left: 4px solid #94a3b8; cursor: pointer; padding: 16px;" onclick="window.showReorderKpi('OUT_OF_STOCK')">
                 <div class="widget-info">
                   <span class="widget-value" id="ro-kpi-out" style="font-size: 1.4rem; font-weight: 700;">0</span>
                   <span class="widget-label" style="font-size: 0.75rem; color: var(--text-secondary);">Out of Stock</span>
-                  <span id="ro-kpi-out-sub" style="font-size: 0.7rem; color: #94a3b8; display: block; margin-top: 4px;">0% of total parts</span>
                 </div>
-              </div>
-              <div class="widget-card" style="border-left: 4px solid #3b82f6; padding: 16px;">
+              </button>
+              <button type="button" class="widget-card reorder-kpi" style="border-left: 4px solid #3b82f6; padding: 16px;" onclick="window.showReorderKpi('QTY')">
                 <div class="widget-info">
                   <span class="widget-value" id="ro-kpi-qty" style="font-size: 1.4rem; font-weight: 700;">0</span>
-                  <span class="widget-label" style="font-size: 0.75rem; color: var(--text-secondary);">Suggested Order Qty</span>
-                  <span id="ro-kpi-qty-sub" style="font-size: 0.7rem; color: #3b82f6; display: block; margin-top: 4px;">Across 0 parts</span>
+                  <span class="widget-label" style="font-size: 0.75rem; color: var(--text-secondary);" id="ro-kpi-qty-label">Suggested Qty · pcs</span>
                 </div>
-              </div>
-              <div class="widget-card" style="border-left: 4px solid #10b981; padding: 16px;">
+              </button>
+              <button type="button" class="widget-card reorder-kpi" style="border-left: 4px solid #10b981; padding: 16px;" onclick="window.showReorderKpi('VALUE')">
                 <div class="widget-info">
                   <span class="widget-value" id="ro-kpi-val" style="font-size: 1.4rem; font-weight: 700;">₹0</span>
                   <span class="widget-label" style="font-size: 0.75rem; color: var(--text-secondary);">Estimated Value</span>
-                  <span id="ro-kpi-val-sub" style="font-size: 0.7rem; color: #10b981; display: block; margin-top: 4px;">Pending supplier pricing</span>
                 </div>
-              </div>
-              <div class="widget-card" style="border-left: 4px solid #6366f1; padding: 16px;">
+              </button>
+              <button type="button" class="widget-card reorder-kpi" style="border-left: 4px solid #6366f1; padding: 16px;" onclick="window.showReorderKpi('TRANSFER')">
                 <div class="widget-info">
                   <span class="widget-value" id="ro-kpi-transfer" style="font-size: 1.4rem; font-weight: 700;">0</span>
                   <span class="widget-label" style="font-size: 0.75rem; color: var(--text-secondary);">Transfer Opportunities</span>
-                  <span id="ro-kpi-transfer-sub" style="font-size: 0.7rem; color: #6366f1; display: block; margin-top: 4px;">0 eligible transfers</span>
                 </div>
-              </div>
+              </button>
             </div>
 
             <!-- Risk Overview + Stock Health -->
@@ -636,8 +630,8 @@
                 </div>
                 <div style="display: flex; gap: 16px; flex-wrap: wrap;">
                   <span style="font-size: 0.75rem; color: #ef4444; display: flex; align-items: center; gap: 4px;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #ef4444; display: inline-block;"></span> Critical: <span id="ro-risk-critical-pct">0%</span></span>
-                  <span style="font-size: 0.75rem; color: #f59e0b; display: flex; align-items: center; gap: 4px;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; display: inline-block;"></span> Reorder Required: <span id="ro-risk-required-pct">0%</span></span>
-                  <span style="font-size: 0.75rem; color: #10b981; display: flex; align-items: center; gap: 4px;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981; display: inline-block;"></span> Low Risk: <span id="ro-risk-low-pct">0%</span></span>
+                  <span style="font-size: 0.75rem; color: #f59e0b; display: flex; align-items: center; gap: 4px;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; display: inline-block;"></span> High Risk: <span id="ro-risk-required-pct">0%</span></span>
+                  <span style="font-size: 0.75rem; color: #10b981; display: flex; align-items: center; gap: 4px;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981; display: inline-block;"></span> Other: <span id="ro-risk-low-pct">0%</span></span>
                 </div>
               </div>
               <div style="background: white; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid var(--border-color);">

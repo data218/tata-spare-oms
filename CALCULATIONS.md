@@ -16,6 +16,11 @@ and location:
 
 Example: six-month consumption 1,800 pieces means 10/day. The target is 140.
 With 50 on hand, 10 reserved and 20 in transit, order 80 pieces.
+Min/Max and safety-stock displays (including CSV) round up to whole pieces or
+0.001 L/KG. Calculations retain the unrounded demand; rounding the displayed
+levels does not change recommended orders. The Suggested Qty card shows one
+labelled unit, with the full unit breakdown and definition available on click.
+
 Transfer suggestions preserve the supplying location's own 14-day requirement
 and deduct stock allocated to earlier suggestions.
 

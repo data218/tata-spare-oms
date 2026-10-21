@@ -1,8 +1,11 @@
-import { reorderMetrics, quantityTotals } from './src/inventory-math.js';
+import { reorderMetrics, quantityTotals, roundOrderQuantity } from './src/inventory-math.js';
 // reorder.js
 // Handles intelligent Reorder Control Tower Logic
 
 import { escapeHtml, escapeJsAttr } from './escape.js';
+
+const formatQty = value => Number(value).toLocaleString('en-IN', {maximumFractionDigits:3});
+const formatLevel = (value, unit) => formatQty(roundOrderQuantity(value, unit));
 
 window.reorderData = [];
 window.reorderFiltered = [];
@@ -270,9 +273,9 @@ function attachReorderListeners() {
       'Reserved': r.reserved,
       'Available': r.available,
       'In Transit Qty': r.inTransit,
-      'Min Stock': r.minStock,
-      'Max Stock': r.maxStock,
-      'Safety Stock': r.safetyStock,
+      'Min Stock': roundOrderQuantity(r.minStock, r.uom),
+      'Max Stock': roundOrderQuantity(r.maxStock, r.uom),
+      'Safety Stock': roundOrderQuantity(r.safetyStock, r.uom),
       'Reorder Point': r.reorderPoint,
       '6-Mth Consumption': r.consumption6m,
       'Avg Daily Consumption (6-mo)': r.avgDailyCons,
@@ -331,6 +334,58 @@ function attachReorderListeners() {
 window.filterReorderKPI = function(kpi) {
   window.roKpiFilter = kpi;
   filterReorderData();
+};
+
+window.showReorderKpi = function(key) {
+  document.getElementById('reorder-kpi-details')?.close();
+  const definitions = {
+    REQUIRED: ['Reorder Required', 'Part and location combinations needing an order to reach 14 days of cover, based on the last 180 days of consumption.'],
+    CRITICAL: ['Critical Reorder', 'Recommendations with active consumption and no available or incoming stock, after checking transfer opportunities.'],
+    OUT_OF_STOCK: ['Out of Stock', 'Reorder recommendations with zero on-hand stock.'],
+    QTY: ['Suggested Order Quantity', 'Daily average = last 180 days of consumption ÷ 180. Target = 7 delivery days + 7 safety days. Order = target − (on hand − reserved) − in transit, minimum zero. Round the final order up to pieces or 0.001 L/KG.'],
+    VALUE: ['Estimated Value', 'Suggested order quantities multiplied by NDP. Items without NDP are excluded from this priced subtotal.'],
+    TRANSFER: ['Transfer Opportunities', 'Recommendations that can be covered by another location while preserving that location’s own 14-day stock requirement.'],
+  };
+  if (!definitions[key]) return;
+  const dialog = document.createElement('dialog');
+  dialog.id = 'reorder-kpi-details';
+  dialog.className = 'reorder-kpi-dialog';
+  dialog.setAttribute('aria-labelledby', 'reorder-kpi-title');
+  const title = document.createElement('h3');
+  title.id = 'reorder-kpi-title';
+  title.textContent = definitions[key][0];
+  const description = document.createElement('p');
+  description.textContent = definitions[key][1];
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'btn btn-outline';
+  close.textContent = 'Close';
+  close.onclick = () => dialog.close();
+  dialog.append(title, description);
+  if (key === 'QTY') {
+    const breakdown = document.createElement('p');
+    breakdown.className = 'reorder-quantity-breakdown';
+    breakdown.textContent = quantityTotals(window.reorderFiltered, 'recQty');
+    const scope = document.createElement('p');
+    scope.textContent = `${window.reorderFiltered.length.toLocaleString('en-IN')} part/location recommendations in the current filters.`;
+    dialog.append(breakdown, scope);
+  }
+  if (['REQUIRED', 'CRITICAL', 'OUT_OF_STOCK'].includes(key)) {
+    const filter = document.createElement('button');
+    filter.type = 'button';
+    filter.className = 'btn btn-primary';
+    filter.textContent = 'Show matching parts';
+    filter.onclick = () => { window.filterReorderKPI(key); dialog.close(); };
+    dialog.append(filter);
+  }
+  dialog.append(close);
+  dialog.addEventListener('close', () => dialog.remove());
+  dialog.addEventListener('click', event => { if (event.target === dialog) {
+    const rect = dialog.getBoundingClientRect();
+    if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close();
+  } });
+  document.body.append(dialog);
+  dialog.showModal();
 };
 
 function filterReorderData() {
@@ -419,20 +474,17 @@ function updateReorderKPIs() {
   setT('ro-kpi-required', required.toLocaleString('en-IN'));
   setT('ro-kpi-critical', critical.toLocaleString('en-IN'));
   setT('ro-kpi-out', outOfStock.toLocaleString('en-IN'));
-  setT('ro-kpi-qty', quantityTotals(window.reorderFiltered, 'recQty'));
+  const quantities = new Map();
+  window.reorderFiltered.forEach(row => quantities.set(row.uom, (quantities.get(row.uom) || 0) + row.recQty));
+  const primaryUnit = quantities.has('EA') ? 'EA' : quantities.keys().next().value || 'EA';
+  setT('ro-kpi-qty', formatQty(quantities.get(primaryUnit) || 0));
+  setT('ro-kpi-qty-label', 'Suggested Qty · ' + (primaryUnit === 'EA' ? 'pcs' : primaryUnit));
   setT('ro-kpi-val', '₹' + totalVal.toLocaleString('en-IN', { maximumFractionDigits: 0 }));
   setT('ro-kpi-transfer', transfers.toLocaleString('en-IN'));
 
-  setT('ro-kpi-required-sub', ((required / total) * 100).toFixed(0) + '% of total parts');
-  setT('ro-kpi-critical-sub', critical > 0 ? 'Needs immediate action' : 'No critical items');
-  setT('ro-kpi-out-sub', ((outOfStock / total) * 100).toFixed(0) + '% of total parts');
-  setT('ro-kpi-qty-sub', 'Across ' + required + ' parts');
-  setT('ro-kpi-val-sub', 'Pending supplier pricing');
-  setT('ro-kpi-transfer-sub', transfers + ' eligible transfers');
-
   const riskTotal = critical + high + medium + planned + transfers;
   const critPct = riskTotal > 0 ? (critical / riskTotal) * 100 : 0;
-  const reqPct = riskTotal > 0 ? ((critical + high) / riskTotal) * 100 : 0;
+  const reqPct = riskTotal > 0 ? (high / riskTotal) * 100 : 0;
   const lowPct = riskTotal > 0 ? ((medium + planned + transfers) / riskTotal) * 100 : 0;
 
   const rcBar = document.getElementById('ro-risk-critical');
@@ -531,11 +583,11 @@ function renderReorderTable() {
         <td style="padding: 4px 6px; text-align: right;">
           <div style="font-weight: ${r.currentStock === 0 ? '700' : '500'}; color: ${r.currentStock === 0 ? '#ef4444' : 'inherit'}; font-size: 0.75rem;">${r.currentStock.toLocaleString('en-IN')}</div>
         </td>
-        <td style="padding: 4px 6px; text-align: right; font-size: 0.7rem; color: var(--text-secondary);">${r.minStock} / ${r.maxStock}</td>
-        <td style="padding: 4px 6px; text-align: right; font-size: 0.7rem;" title="Average daily consumption over a rolling 6-month window">${r.avgDailyCons.toFixed(2)}</td>
+        <td title="Min: 7 days; Max: 14 days. Unit: ${escapeHtml(r.uom)}. Display rounded up; orders use unrounded demand." style="padding: 4px 6px; text-align: right; font-size: 0.7rem; color: var(--text-secondary);">${formatLevel(r.minStock, r.uom)} / ${formatLevel(r.maxStock, r.uom)}</td>
+        <td style="padding: 4px 6px; text-align: right; font-size: 0.7rem;" title="Average daily consumption over a rolling 6-month window">${formatQty(r.avgDailyCons)}</td>
         <td style="padding: 4px 6px; text-align: right; font-size: 0.7rem; font-weight: 600;">${r.daysOfStock}</td>
         <td style="padding: 4px 6px; text-align: right;">
-          <div style="font-weight: 700; color: #3b82f6; font-size: 0.75rem;">${r.recQty.toLocaleString('en-IN', {maximumFractionDigits:3})} ${escapeHtml(r.uom)}</div>
+          <div style="font-weight: 700; color: #3b82f6; font-size: 0.75rem;">${formatQty(r.recQty)}</div>
           <div style="font-size: 0.65rem; color: var(--text-secondary);">${r.value == null ? 'Missing price' : '₹' + r.value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
         </td>
         <td style="padding: 4px 6px; text-align: center;">
@@ -641,33 +693,33 @@ window.viewReorderReason = function(btn) {
         <div style="font-size: 0.75rem; color: #9d174d; margin-top: 4px; display: inline-block; background: #fdf2f8; border: 1px solid #fbcfe8; border-radius: 2px; padding: 2px 6px; font-weight: 600;">${escapeHtml(row.category)}</div>
         <div style="font-size: 0.85rem; color: #64748b; margin-top: 6px; display: flex; align-items: center; gap: 4px;">
           <i data-lucide="map-pin" style="width: 14px; height: 14px;"></i>
-          ${escapeHtml(row.location)} | ${escapeHtml(row.supplier)}
+          ${escapeHtml(row.location)} | ${escapeHtml(row.supplier)} | Unit: ${row.uom === 'EA' ? 'pcs' : escapeHtml(row.uom)}
         </div>
       </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
         <div style="padding: 10px; background: #f8fafc; border-radius: 8px;">
           <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 600;">Current Stock</div>
-          <div style="font-size: 1.1rem; font-weight: 700; color: ${row.currentStock === 0 ? '#ef4444' : '#0f172a'};">${row.currentStock}</div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: ${row.currentStock === 0 ? '#ef4444' : '#0f172a'};">${formatQty(row.currentStock)}</div>
         </div>
         <div style="padding: 10px; background: #f8fafc; border-radius: 8px;">
           <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 600;">Available</div>
-          <div style="font-size: 1.1rem; font-weight: 700; color: #0f172a;">${row.available}</div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: #0f172a;">${formatQty(row.available)}</div>
         </div>
         <div style="padding: 10px; background: #f8fafc; border-radius: 8px;">
           <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 600;">In Transit</div>
-          <div style="font-size: 1.1rem; font-weight: 700; color: #8b5cf6;">${row.inTransit}</div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: #8b5cf6;">${formatQty(row.inTransit)}</div>
         </div>
         <div style="padding: 10px; background: #f8fafc; border-radius: 8px;">
           <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 600;">Reserved</div>
-          <div style="font-size: 1.1rem; font-weight: 700; color: #f59e0b;">${row.reserved}</div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: #f59e0b;">${formatQty(row.reserved)}</div>
         </div>
         <div style="padding: 10px; background: #f8fafc; border-radius: 8px;">
           <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 600;">Min / Max</div>
-          <div style="font-size: 1.1rem; font-weight: 700; color: #0f172a;">${row.minStock} / ${row.maxStock}</div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: #0f172a;">${formatLevel(row.minStock, row.uom)} / ${formatLevel(row.maxStock, row.uom)}</div>
         </div>
         <div style="padding: 10px; background: #f8fafc; border-radius: 8px;">
           <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 600;">Safety Stock</div>
-          <div style="font-size: 1.1rem; font-weight: 700; color: #0f172a;">${row.safetyStock}</div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: #0f172a;">${formatLevel(row.safetyStock, row.uom)}</div>
         </div>
         <div style="padding: 10px; background: #f8fafc; border-radius: 8px;">
           <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 600;">Period Consumption</div>
@@ -675,7 +727,7 @@ window.viewReorderReason = function(btn) {
         </div>
         <div style="padding: 10px; background: #f8fafc; border-radius: 8px;">
           <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 600;">Avg Cons/Day</div>
-          <div style="font-size: 1.1rem; font-weight: 700; color: #0f172a;">${row.avgDailyCons.toFixed(2)}</div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: #0f172a;">${formatQty(row.avgDailyCons)}</div>
         </div>
         <div style="padding: 10px; background: #f8fafc; border-radius: 8px;">
           <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 600;">Days of Stock</div>
@@ -683,11 +735,11 @@ window.viewReorderReason = function(btn) {
         </div>
         <div style="padding: 10px; background: #f8fafc; border-radius: 8px;">
           <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 600;">NDP</div>
-          <div style="font-size: 1.1rem; font-weight: 700; color: #0f172a;">${row.priceKnown ? '₹' + row.ndpPrice.toLocaleString('en-IN') + '/' + escapeHtml(row.uom) : 'Missing price'}</div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: #0f172a;">${row.priceKnown ? '₹' + row.ndpPrice.toLocaleString('en-IN', {maximumFractionDigits:2}) : 'Missing price'}</div>
         </div>
         <div style="padding: 10px; background: #f8fafc; border-radius: 8px;">
           <div style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; font-weight: 600;">Order Qty</div>
-          <div style="font-size: 1.1rem; font-weight: 700; color: #3b82f6;">${row.recQty.toLocaleString('en-IN', {maximumFractionDigits:3})} ${escapeHtml(row.uom)}</div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: #3b82f6;">${formatQty(row.recQty)}</div>
         </div>
       </div>
       <div style="margin-bottom: 16px; padding: 12px; background: #f8fafc; border-radius: 8px;">
@@ -696,7 +748,7 @@ window.viewReorderReason = function(btn) {
       </div>
       <div>
         <div style="font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Reasoning</div>
-        <p style="font-size:0.95rem;color:#334155;line-height:1.6;margin:0;">${escapeHtml(row.reason)}</p>
+        <p style="font-size:0.95rem;color:#334155;line-height:1.6;margin:0;">${escapeHtml(row.reason)}</p><p style="font-size:0.85rem;color:#64748b;line-height:1.6;">Min covers 7 safety days; Max covers 14 days (7 delivery + 7 safety). Displayed levels are rounded up to pieces or 0.001 L/KG. Orders use unrounded 180-day average demand, less available stock and in transit.</p>
       </div>
     </div>
   `;
