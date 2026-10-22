@@ -303,7 +303,7 @@ function renderMovementTable() {
       const tr = document.createElement('tr');
       tr.style.borderBottom = '1px solid #f1f5f9';
       
-      const qtyStr = `${isOut ? '-' : '+'}${qty(t.qty)}`;
+      const qtyStr = qty(t.qty);
       const qtyLabel = ''; // Units are available on hover and in card details.
       
       tr.innerHTML = `
