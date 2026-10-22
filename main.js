@@ -1,4 +1,5 @@
-import { renderQuantityKpi } from './src/dashboard-display.js';
+import { readInventoryDepartment } from './src/inventory-fields.js';
+import { renderQuantityKpi, renderDepartmentValue } from './src/dashboard-display.js';
 import { readDashboardTable } from './src/dashboard-data.js';
 import { parseNumber } from './src/inventory-math.js';
 import { processInventoryData, parseTataDate, isLubePart, quantityTotals, summarizeInventory, toBaseQuantity, normalizeLocation, reorderMetrics } from './src/inventory-math.js';
@@ -2069,6 +2070,7 @@ function showCalculationQuality(parts) {
   if (quality.missingPrices) warnings.push(`${quality.missingPrices} stocked part/location groups have no NDP`);
   if (quality.unknownUnits) warnings.push(`${quality.unknownUnits} stocked groups have no price-list unit`);
   if (quality.descriptionMismatches) warnings.push(`${quality.descriptionMismatches} part/location descriptions differ from the price list`);
+  if (quality.missingDepartments) warnings.push(`${quality.missingDepartments} stocked groups have incomplete department data; Workshop, Bodyshop and WPACS amounts are withheld until the department column is restored`);
   if (quality.unknownAge) warnings.push(`${quality.unknownAge} stocked groups have unknown receipt age`);
   if (quality.unreconciledMovements) warnings.push(`${quality.unreconciledMovements} older/manual adjustments need reconciliation with the stock snapshot`);
   banner.querySelector('div').textContent = warnings.length ? `Data needs review: ${warnings.join('; ')}. Values include priced stock only. Refresh/re-import source exports after the numeric-import fix; earlier comma-separated quantities may have been truncated.` : '';
@@ -3042,13 +3044,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (kpiLube) renderQuantityKpi(kpiLube, displayParts.filter(p => isLubePart(p.productCategory, p.model)), 'currentStock', 'L');
     if (kpiLubeVal) kpiLubeVal.textContent = '₹' + stats.lubeVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
 
-    if (kpiWsVal) kpiWsVal.textContent = '₹' + stats.wsVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+    if (kpiWsVal) renderDepartmentValue(kpiWsVal, stats.wsVal, displayParts);
     if (kpiWsQty) kpiWsQty.textContent = quantityTotals(displayParts, p => p.subStock?.workshop) + ' Qty';
 
-    if (kpiBsVal) kpiBsVal.textContent = '₹' + stats.bsVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+    if (kpiBsVal) renderDepartmentValue(kpiBsVal, stats.bsVal, displayParts);
     if (kpiBsQty) kpiBsQty.textContent = quantityTotals(displayParts, p => p.subStock?.bodyshop) + ' Qty';
 
-    if (kpiWpVal) kpiWpVal.textContent = '₹' + stats.wpVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+    if (kpiWpVal) renderDepartmentValue(kpiWpVal, stats.wpVal, displayParts);
     if (kpiWpQty) kpiWpQty.textContent = quantityTotals(displayParts, p => p.subStock?.wpacs) + ' Qty';
 
     let age0_30 = { qty: 0, val: 0 };
@@ -3250,11 +3252,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (kpiLow) kpiLow.textContent = low.toLocaleString('en-IN');
       if (kpiLube) renderQuantityKpi(kpiLube, (window.filteredProcessedParts || []).filter(p => isLubePart(p.productCategory, p.model)), 'currentStock', 'L');
       if (kpiLubeVal) kpiLubeVal.textContent = '₹' + lubeVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
-      if (kpiWsVal) kpiWsVal.textContent = '₹' + wsVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+      if (kpiWsVal) renderDepartmentValue(kpiWsVal, wsVal, window.filteredProcessedParts || []);
       if (kpiWsQty) kpiWsQty.textContent = quantityTotals(window.filteredProcessedParts || [], p => p.subStock?.workshop) + ' Qty';
-      if (kpiBsVal) kpiBsVal.textContent = '₹' + bsVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+      if (kpiBsVal) renderDepartmentValue(kpiBsVal, bsVal, window.filteredProcessedParts || []);
       if (kpiBsQty) kpiBsQty.textContent = quantityTotals(window.filteredProcessedParts || [], p => p.subStock?.bodyshop) + ' Qty';
-      if (kpiWpVal) kpiWpVal.textContent = '₹' + wpVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+      if (kpiWpVal) renderDepartmentValue(kpiWpVal, wpVal, window.filteredProcessedParts || []);
       if (kpiWpQty) kpiWpQty.textContent = quantityTotals(window.filteredProcessedParts || [], p => p.subStock?.wpacs) + ' Qty';
     };
     globalSearchBtn.addEventListener('click', doGlobalSearch);
@@ -3320,11 +3322,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (kpiLow) kpiLow.textContent = low.toLocaleString('en-IN');
         if (kpiLube) renderQuantityKpi(kpiLube, (window.filteredProcessedParts || []).filter(p => isLubePart(p.productCategory, p.model)), 'currentStock', 'L');
         if (kpiLubeVal) kpiLubeVal.textContent = '₹' + lubeVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
-        if (kpiWsVal) kpiWsVal.textContent = '₹' + wsVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+        if (kpiWsVal) renderDepartmentValue(kpiWsVal, wsVal, window.filteredProcessedParts || []);
         if (kpiWsQty) kpiWsQty.textContent = quantityTotals(window.filteredProcessedParts || [], p => p.subStock?.workshop) + ' Qty';
-        if (kpiBsVal) kpiBsVal.textContent = '₹' + bsVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+        if (kpiBsVal) renderDepartmentValue(kpiBsVal, bsVal, window.filteredProcessedParts || []);
         if (kpiBsQty) kpiBsQty.textContent = quantityTotals(window.filteredProcessedParts || [], p => p.subStock?.bodyshop) + ' Qty';
-        if (kpiWpVal) kpiWpVal.textContent = '₹' + wpVal.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+        if (kpiWpVal) renderDepartmentValue(kpiWpVal, wpVal, window.filteredProcessedParts || []);
         if (kpiWpQty) kpiWpQty.textContent = quantityTotals(window.filteredProcessedParts || [], p => p.subStock?.wpacs) + ' Qty';
       });
     }
@@ -4182,7 +4184,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 location_1: String(getVal(['Location 1']) || ''),
                 min: parseNumber(getVal(['Min', 'Minimum'])) || 0,
                 max: parseNumber(getVal(['Max', 'Maximum'])) || 0,
-                inventory_indicator: String(getVal(['Inventory Indicator', 'Inventory I']) || ''),
+                inventory_indicator: readInventoryDepartment(row),
                 xyz_class: String(getVal(['XYZ Class']) || ''),
                 abc_class: String(getVal(['ABC Class']) || ''),
                 vendor: String(getVal(['Vendor']) || ''),

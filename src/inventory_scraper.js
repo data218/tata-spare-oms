@@ -1,3 +1,4 @@
+import { readInventoryDepartment } from './inventory-fields.js';
 import { parseNumber } from './inventory-math.js';
 import { launchBrowser } from './puppeteer-runtime.js';
 import { clickSessionWarningAction } from './siebel-session.js';
@@ -832,7 +833,7 @@ let botUser = location.username;
                             location_1: val('Location 1'),
                             min: parseNumber(val('Min', 'Minimum')) || 0,
                             max: parseNumber(val('Max', 'Maximum')) || 0,
-                            inventory_indicator: val('Inventory Location', 'Inventory Indicator', 'Inventory I'),
+                            inventory_indicator: readInventoryDepartment(data),
                             xyz_class: val('XYZ Class'),
                             abc_class: val('ABC Class'),
                             vendor: val('Vendor'),

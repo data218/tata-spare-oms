@@ -63,3 +63,10 @@ export function openMetricDetails(id, titleText, definition, details = []) {
   document.body.append(dialog);
   dialog.showModal();
 }
+
+export function renderDepartmentValue(element, value, parts) {
+  if (!element) return;
+  const complete = parts.every(p => Math.abs(p.subStock?.unassigned || 0) < 1e-9);
+  element.textContent = complete ? '₹' + value.toLocaleString('en-IN', {maximumFractionDigits:0}) : '';
+  element.title = complete ? '' : 'Department data is incomplete. Re-import inventory with Inventory Location or Inventory Indicator.';
+}

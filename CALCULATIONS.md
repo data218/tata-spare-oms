@@ -93,3 +93,17 @@ known location's stock export can apply after that location's snapshot.
 Validation includes movement math regressions and a browser check of all recorded
 rows, card definitions, IN/OUT/date filters, filtered exports, single and bulk
 saves, and rejected-save recovery. Browser writes use an in-memory database stub.
+
+## Department stock values
+
+Workshop, Bodyshop and WPACS use the source Inventory Indicator / Inventory
+Location store label. Blank or unrecognized labels remain unassigned; manual
+adjustments without a department are also unassigned. They are never silently
+allocated to Workshop. Overall stock valuation is unaffected by classification.
+
+Department amounts are blank while the selected stock contains unassigned
+quantities/adjustments. Data notes explains missing classification; verified zero
+department balances still display zero. Re-import a complete source export with
+its department/store column to restore the breakdown. Manual and scraper imports
+share a header reader that accepts both Tata labels, spacing/case differences,
+and truncated department headers.

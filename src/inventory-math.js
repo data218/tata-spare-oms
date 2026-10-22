@@ -60,6 +60,15 @@ export function isLubePart(category, description = '') {
   if (/\b(?:filter|seal|pump|sensor|cap|pipe|hose|cooler|dipstick|pan|sump|gasket|switch|labour)\b/i.test(description)) return false;
   return /\b(?:oil|grease|coolant|atf|def)\b|15w\s*40|mobil/i.test(description);
 }
+export function stockDepartment(indicator) {
+  const text = String(indicator || '').trim().toUpperCase();
+  const compact = text.replace(/[^A-Z0-9]/g,'');
+  if (compact.includes('BODYSHOP') || compact === 'BS') return 'bodyshop';
+  if (compact.includes('WPACS')) return 'wpacs';
+  if (compact.includes('WORKSHOP') || compact === 'WS') return 'workshop';
+  if (compact.startsWith('TMPCPARTS') && /JAMMU|CHANNIRAMA|SMAMSAMBA|KATHUA|SUPWAL|NARWAL|NARVAL|LAMBHERI|POONCH|REASI/.test(compact)) return 'workshop';
+  return 'unassigned';
+}
 export function quantityTotals(parts, field = 'currentStock') {
   const totals = new Map();
   for (const part of parts) totals.set(part.uom || 'UNKNOWN', (totals.get(part.uom || 'UNKNOWN') || 0) + parseNumber(typeof field === 'function' ? field(part) : part[field]));
@@ -84,7 +93,7 @@ export function processInventoryData({inventory = [], consumption = [], priceLis
         productCategory:((['L','KG'].includes(uom) && isLubePart(price.category || category, model)) || /lubes|lubricant/i.test(price.category || category)) ? 'LUBRICANT' : (category || price.category || 'Uncategorized').toUpperCase(),
         ndpPrice:ndp > 0 ? ndp : null,priceKnown:ndp > 0,unitKnown:uom !== 'UNKNOWN',currentStock:0,reserved:0,inTransit:0,
         stockValue:null,min:0,consumption30d:0,consumption6mRolling:0,last_receipt:'',last_issue:'',lastConsumption:'',snapshotAt:null,
-        subStock:{workshop:0,bodyshop:0,wpacs:0},unreconciledMovements:0});
+        subStock:{workshop:0,bodyshop:0,wpacs:0,unassigned:0},unreconciledMovements:0});
     }
     return grouped.get(key);
   };
@@ -96,8 +105,7 @@ export function processInventoryData({inventory = [], consumption = [], priceLis
     else if (availability.includes('reserv')) part.reserved += qty;
     else {
       part.currentStock += qty;
-      const indicator = String(row.inventory_indicator || '').toLowerCase();
-      part.subStock[indicator.includes('bodyshop') ? 'bodyshop' : indicator.includes('wpacs') ? 'wpacs' : 'workshop'] += qty;
+      part.subStock[stockDepartment(row.inventory_indicator)] += qty;
     }
     part.min = Math.max(part.min, toBaseQuantity(row.min, part.uom));
     part.last_receipt = latestDate(part.last_receipt, row.last_receipt);
@@ -124,7 +132,7 @@ export function processInventoryData({inventory = [], consumption = [], priceLis
     if (!date || !part.snapshotAt || date <= part.snapshotAt) {part.unreconciledMovements++;continue;}
     // Manual entry forms store the entered amount in the same canonical unit as the displayed stock.
     const qty = parseNumber(row.qty) * (row.movement_type === 'IN' ? 1 : -1);
-    part.currentStock += qty; part.subStock.workshop += qty;
+    part.currentStock += qty; part.subStock.unassigned += qty;
     part.last_issue = latestDate(part.last_issue, row.date);
   }
   for (const part of grouped.values()) {
@@ -142,5 +150,5 @@ export function processInventoryData({inventory = [], consumption = [], priceLis
   return [...grouped.values()];
 }
 export function summarizeInventory(parts) {
-  return parts.reduce((s,p)=>{s.stockValue+=p.stockValue||0;s.reservedValue+=(p.priceKnown&&p.unitKnown?p.reserved*p.ndpPrice:0);s.availableValue+=(p.priceKnown&&p.unitKnown?p.available*p.ndpPrice:0);s.missingPrices+=p.currentStock>0&&!p.priceKnown?1:0;s.unknownUnits+=p.currentStock>0&&!p.unitKnown?1:0;s.unknownAge+=p.currentStock>0&&p.ageingDays==null?1:0;s.descriptionMismatches+=p.descriptionMismatch?1:0;s.unreconciledMovements+=p.unreconciledMovements||0;return s;},{stockValue:0,reservedValue:0,availableValue:0,missingPrices:0,unknownUnits:0,unknownAge:0,descriptionMismatches:0,unreconciledMovements:0});
+  return parts.reduce((s,p)=>{s.stockValue+=p.stockValue||0;s.reservedValue+=(p.priceKnown&&p.unitKnown?p.reserved*p.ndpPrice:0);s.availableValue+=(p.priceKnown&&p.unitKnown?p.available*p.ndpPrice:0);s.missingPrices+=p.currentStock>0&&!p.priceKnown?1:0;s.unknownUnits+=p.currentStock>0&&!p.unitKnown?1:0;s.unknownAge+=p.currentStock>0&&p.ageingDays==null?1:0;s.missingDepartments+=Math.abs(p.subStock?.unassigned||0)>1e-9?1:0;s.descriptionMismatches+=p.descriptionMismatch?1:0;s.unreconciledMovements+=p.unreconciledMovements||0;return s;},{stockValue:0,reservedValue:0,availableValue:0,missingPrices:0,unknownUnits:0,unknownAge:0,missingDepartments:0,descriptionMismatches:0,unreconciledMovements:0});
 }
