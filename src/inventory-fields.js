@@ -11,3 +11,10 @@ export function readInventoryDepartment(row) {
   }
   return '';
 }
+
+export function validateInventoryDepartments(rows) {
+  const stocked = rows.filter(row => Number(String(row.qty ?? 0).replace(/,/g,'')) > 0 && !/reserv|transit/i.test(row.availability || ''));
+  if (stocked.length && stocked.every(row => !String(row.inventory_indicator || '').trim())) {
+    throw new Error('Inventory Location / Inventory Indicator is missing for all stocked rows. Include the store column and upload the complete location report. Existing data has been kept.');
+  }
+}

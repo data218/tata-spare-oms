@@ -107,3 +107,10 @@ department balances still display zero. Re-import a complete source export with
 its department/store column to restore the breakdown. Manual and scraper imports
 share a header reader that accepts both Tata labels, spacing/case differences,
 and truncated department headers.
+
+A report with positive on-hand stock and an entirely missing store column is
+rejected before any inventory write. Manual uploads stage the complete location
+snapshot before removing superseded rows; failed uploads roll back staged rows.
+Manual movement history is preserved through inventory re-imports. After a
+successful upload, dashboard figures reload from the database. Partial examples
+are used to verify mapping, never to replace a complete location's live stock.

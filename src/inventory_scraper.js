@@ -1,4 +1,4 @@
-import { readInventoryDepartment } from './inventory-fields.js';
+import { readInventoryDepartment, validateInventoryDepartments } from './inventory-fields.js';
 import { parseNumber } from './inventory-math.js';
 import { launchBrowser } from './puppeteer-runtime.js';
 import { clickSessionWarningAction } from './siebel-session.js';
@@ -850,6 +850,7 @@ let botUser = location.username;
                                 return resolve(0);
                             }
 
+                            validateInventoryDepartments(results);
                             notify(`Finished parsing CSV for ${location.location_name}. Found ${results.length} rows. Replacing existing rows for this location...`);
 
                             // Insert-first upload with a unique fetch marker so the table is

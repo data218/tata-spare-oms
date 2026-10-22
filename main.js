@@ -1,4 +1,5 @@
-import { readInventoryDepartment } from './src/inventory-fields.js';
+import { replaceInventorySnapshot } from './src/inventory-store.js';
+import { readInventoryDepartment, validateInventoryDepartments } from './src/inventory-fields.js';
 import { renderQuantityKpi, renderDepartmentValue } from './src/dashboard-display.js';
 import { readDashboardTable } from './src/dashboard-data.js';
 import { parseNumber } from './src/inventory-math.js';
@@ -4200,19 +4201,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
           if (formattedData.length === 0) throw new Error("Could not map rows. Ensure 'Part #' column exists.");
 
-          const { error: deleteError } = await supabase.from('tata_spare_inventory').delete().eq('division', locationInput);
-          await supabase.from('tata_movement_logs').delete().eq('location', locationInput);
+          validateInventoryDepartments(formattedData);
+          await replaceInventorySnapshot(supabase, formattedData, locationInput, count => {
+            statusDiv.textContent = `Uploaded ${count} of ${formattedData.length} rows...`;
+          });
 
-          if (deleteError) throw new Error("Failed to clear old inventory: " + deleteError.message);
-          
-          const BATCH_SIZE = 1000;
-          for (let i = 0; i < formattedData.length; i += BATCH_SIZE) {
-             const batch = formattedData.slice(i, i + BATCH_SIZE);
-             const { error } = await supabase.from('tata_spare_inventory').insert(batch);
-             if (error) throw error;
-             statusDiv.textContent = `Uploaded ${Math.min(i + BATCH_SIZE, formattedData.length)} of ${formattedData.length} rows...`;
-          }
-          
           statusDiv.style.color = '#10b981';
           statusDiv.innerHTML = '<i data-lucide="check"></i> Inventory uploaded successfully!';
           btn.innerHTML = '<i data-lucide="check"></i> Done';
@@ -4221,7 +4214,9 @@ document.addEventListener('DOMContentLoaded', () => {
           
           // Track the successful upload for the daily alert
           localStorage.setItem('lastInventoryUploadDate', new Date().toDateString());
-          document.getElementById('missing-data-alert').style.display = 'none';
+          const alert = document.getElementById('missing-data-alert');
+          if (alert) alert.style.display = 'none';
+          await loadDataAndRender();
           
         } catch (err) {
           console.error(err);
