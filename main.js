@@ -2678,6 +2678,45 @@ document.addEventListener('DOMContentLoaded', () => {
   const usersTableBody = document.getElementById('users-table-body');
   const addUserForm = document.getElementById('add-user-form');
   const changePwdForm = document.getElementById('change-password-form');
+
+  function canViewUserPasswords() {
+    try {
+      return ['Admin', 'Super Admin'].includes(JSON.parse(sessionStorage.getItem('currentUser'))?.role);
+    } catch { return false; }
+  }
+
+  function updatePasswordEye(button, visible) {
+    button.setAttribute('aria-pressed', String(visible));
+    button.setAttribute('aria-label', visible ? 'Hide password' : 'Show password');
+    button.title = visible ? 'Hide password' : 'Show password';
+    button.innerHTML = `<i data-lucide="${visible ? 'eye-off' : 'eye'}" style="width:18px;height:18px;"></i>`;
+    lucide.createIcons();
+  }
+
+  // Add/change forms start masked each time they are opened or reset.
+  for (const id of ['new-password', 'change-pwd-input']) {
+    const input = document.getElementById(id);
+    if (!input) continue;
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = `display:flex;align-items:center;gap:8px;${id === 'change-pwd-input' ? 'max-width:340px;' : ''}`;
+    input.before(wrapper);
+    wrapper.appendChild(input);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.style.cssText = 'background:none;border:none;cursor:pointer;color:#475569;padding:6px;display:flex;';
+    button.setAttribute('aria-controls', id);
+    wrapper.appendChild(button);
+    updatePasswordEye(button, false);
+    const hide = () => { input.type = 'password'; updatePasswordEye(button, false); };
+    button.addEventListener('click', () => {
+      if (!canViewUserPasswords()) return;
+      input.type = input.type === 'password' ? 'text' : 'password';
+      updatePasswordEye(button, input.type === 'text');
+    });
+    input.form.addEventListener('reset', hide);
+    new MutationObserver(() => { if (input.form.style.display === 'none') hide(); })
+      .observe(input.form, {attributes:true, attributeFilter:['style']});
+  }
   
   function renderUsers() {
     if(!usersTableBody) return;
@@ -2696,6 +2735,25 @@ document.addEventListener('DOMContentLoaded', () => {
           <button class="btn-delete-user" data-id="${user.id}" style="background:none; border:none; cursor:pointer; color: #ef4444;" title="Delete User"><i data-lucide="trash-2"></i></button>
         </td>
       `;
+      const passwordCell = tr.cells[2];
+      passwordCell.style.whiteSpace = 'nowrap';
+      if (user.password && canViewUserPasswords()) {
+        const masked = '\u2022'.repeat(8);
+        const value = document.createElement('span');
+        value.textContent = masked;
+        passwordCell.replaceChildren(value);
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.style.cssText = 'background:none;border:none;cursor:pointer;color:#475569;margin-left:8px;vertical-align:middle;padding:4px;';
+        updatePasswordEye(button, false);
+        button.addEventListener('click', () => {
+          if (!canViewUserPasswords()) return;
+          const visible = button.getAttribute('aria-pressed') !== 'true';
+          value.textContent = visible ? user.password : masked;
+          updatePasswordEye(button, visible);
+        });
+        passwordCell.appendChild(button);
+      }
       usersTableBody.appendChild(tr);
     });
     lucide.createIcons();
