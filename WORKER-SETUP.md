@@ -53,9 +53,17 @@ latest code and run `npm.cmd run worker:install` again to refresh the startup ta
 
 ## Add a Tata location from Settings
 
-After installing the updated worker once, run `npm.cmd run worker:access` on the
-worker PC. This displays a private setup code. Keep it private and copy it into
-Settings > Dealership Locations; do not post it in chat or screenshots.
+After installing the updated worker once, run
+`npm.cmd run worker:access -- --open` on the worker PC. Sign in as admin in the
+browser that opens. Settings opens and fills the private setup code automatically.
+It stays only in that tab's session, bound to the admin username, and is cleared
+on logout. A closed tab/new browser needs pairing again. Ordinary Fetch does not
+require this setup code.
+
+The code travels in a URL fragment (never sent in HTTP requests) and is removed
+from the address/history immediately. Do not share the pairing link. Running
+`npm.cmd run worker:access` without `-- --open` still displays the code for private
+copying; do not post it in chat or screenshots.
 
 Enter the location name, Tata username and password, then click **Test & Save**.
 The browser verifies the worker identity using the setup code and encrypts the

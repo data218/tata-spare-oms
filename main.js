@@ -7,11 +7,13 @@ import { processInventoryData, parseTataDate, isLubePart, quantityTotals, summar
 import { watchFetchJob } from './src/fetch-progress.js';
 import { renderFetchStatus, fetchRequestUnits } from './src/fetch-display.js';
 import { submitLocationSetup } from './src/location-setup-client.js';
+import {captureWorkerSetupLink,workerSetupCode,rememberWorkerSetup,clearWorkerSetup,shouldOpenWorkerSetup,finishOpeningWorkerSetup} from './src/worker-pairing.js';
 import './movement_entry.js';
 import './management_dashboard.js';
 import { supabase } from './supabase.js';
 import { initClaims } from './claims.js';
 import { escapeHtml, escapeJsAttr } from './escape.js';
+captureWorkerSetupLink();
 
 // Initialize Lucide Icons
 lucide.createIcons();
@@ -1155,6 +1157,9 @@ if (loginFormElement) {
 }
 
 logoutBtn.addEventListener('click', async () => {
+  clearWorkerSetup();
+  const setupCode=document.getElementById('loc-setup-code');
+  if (setupCode) setupCode.value='';
   sessionStorage.removeItem('currentUser');
   sessionStorage.removeItem('tataUser');
   window.location.href = 'index.html';
@@ -1415,6 +1420,25 @@ if (credForm) {
 
 const addLocForm = document.getElementById('add-location-form');
 
+function restoreWorkerSetup() {
+  let user;
+  try {user=JSON.parse(sessionStorage.getItem('currentUser'));}catch{}
+  const code=workerSetupCode(user);
+  const input=document.getElementById('loc-setup-code');
+  if (input && code) input.value=code;
+  if (!code || !input || !shouldOpenWorkerSetup()) return;
+  document.querySelector('[data-target="view-settings"]')?.click();
+  const header=addLocForm.closest('.settings-card').querySelector('.settings-header');
+  header.nextElementSibling.style.display='block';
+  const chevron=header.querySelector('.chevron');
+  if(chevron)chevron.style.transform='rotate(180deg)';
+  addLocForm.scrollIntoView({block:'center'});
+  document.getElementById('loc-name').focus();
+  finishOpeningWorkerSetup();
+}
+if(document.readyState==='complete')restoreWorkerSetup();
+else window.addEventListener('load',restoreWorkerSetup,{once:true});
+
 document.getElementById('toggle-location-password')?.addEventListener('click', event => {
   const input=document.getElementById('loc-password'),button=event.currentTarget;
   const visible=input.type==='password';
@@ -1448,6 +1472,7 @@ if (addLocForm) {
     
     try {
       const result=await submitLocationSetup(supabase,{location:locName,username:username.trim(),password},setupCode,message=>{status.textContent=message;});
+      rememberWorkerSetup(user,setupCode);
       passwordInput.value='';
       passwordInput.type='password';
       const eye=document.getElementById('toggle-location-password');

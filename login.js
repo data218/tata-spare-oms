@@ -1,3 +1,6 @@
+import {captureWorkerSetupLink,workerSetupCode} from './src/worker-pairing.js';
+captureWorkerSetupLink();
+
 function randomPassword(len = 14) {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
   const arr = new Uint32Array(len);
@@ -183,6 +186,7 @@ if (loginFormEl) {
       let user = users.find(u => (u.username.toLowerCase() === userId.toLowerCase() || u.id.toString() === userId) && u.password === pwd);
 
       if (user) {
+        workerSetupCode(user);
         sessionStorage.setItem('currentUser', JSON.stringify(user));
         sessionStorage.setItem('tataUser', user.username);
         window.location.href = 'dashboard.html';

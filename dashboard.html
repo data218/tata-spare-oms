@@ -1627,7 +1627,7 @@
                 </p>
                 <details style="font-size:0.85rem;color:var(--text-secondary);">
                   <summary style="cursor:pointer;">Where do I get the worker setup code?</summary>
-                  <p>On the worker PC, run <code>npm.cmd run worker:access</code> in the project folder. Copy the private code into this form. Keep it private; it authorizes changes to Tata credentials. The worker must be updated and running.</p>
+                  <p>On the worker PC, run <code>npm.cmd run worker:access -- --open</code> in the project folder. Sign in as admin in the browser that opens; this field will fill automatically. The code stays in that tab until logout. Without <code>-- --open</code>, the command displays the code for private copying. The worker must be updated and running.</p>
                 </details>
               </div>
             </div><div class="settings-card" style="background: var(--card-bg); border-radius: 8px; padding: 14px; border: 1px solid var(--border-color); max-width: 500px; margin-bottom: 20px;">
