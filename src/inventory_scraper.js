@@ -2,6 +2,7 @@ import { readInventoryDepartment, validateInventoryDepartments } from './invento
 import { parseNumber } from './inventory-math.js';
 import { launchBrowser } from './puppeteer-runtime.js';
 import { clickSessionWarningAction } from './siebel-session.js';
+import { inventoryReportReady, clickInventoryViewLink, clickInventoryControl, clickMisSparesScreen, clickInventoryTab, startInventoryExport } from './siebel-inventory.js';
 import * as dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
@@ -352,52 +353,33 @@ let botUser = location.username;
   return false;
 }
 
-        // Retries a click until the element appears. The Siebel Site Map builds
-        // its category tree asynchronously and, on the slower serverless CPU, the
-        // one-shot click lands before the tree is rendered.
-        async function retryClick(textArr, isExact = false, index = 0, tries = 12) {
-            for (let i = 0; i < tries; i++) {
-                const ok = await robustClickText(textArr, isExact, index);
-                if (ok) return true;
-                await new Promise(r => setTimeout(r, 2000));
-            }
-            return false;
-        }
-
         // 0. Navigate to the MIS Spares inventory export. This is the same report
         // the old Site Map flow reached ("MIS - Spares" > "Spares Inventory"). The
         // menu entry is hidden for a few days around month-end close, but the view
         // itself is still served, and the Site Map markup exposes its direct
         // GotoView URL - so open it by view name and keep the click-through below
         // only as a fallback.
-        const MIS_SPARES_VIEW = 'TM Spares Parts Inventory Export View - MIS Spares New';
+        const MIS_SPARES_VIEW = 'TM Spares Parts Inventory Export View - MIS Spares';
 
-        const gotoView = (viewName) => page.evaluate((v) => {
-            const url = `/siebel/app/workshop/enu?SWENeedContext=false&SWECmd=GotoView&SWEC=19&SWEBID=-1&SRN=&SWETS=&SWEKeepContext=0&SWEView=${v}&SWEScrnCap=Part Browser`;
-            try {
-                window.SiebelApp.S_App.GotoView('', '', url, '_sweclient._swecontent._sweview');
-                return true;
-            } catch (e) {
-                const a = Array.from(document.querySelectorAll('a'))
-                    .find(x => (x.getAttribute('onclick') || '').includes(v));
-                if (a) { a.click(); return true; }
-                return false;
-            }
-        }, encodeURIComponent(viewName).replace(/%20/g, '+'));
+        const gotoView = async (viewName) => {
+            // Use the server's exact view URL. A successful GotoView JS call
+            // does not prove Siebel actually switched away from the prior view.
+            const url = new URL('/siebel/app/workshop/enu', page.url());
+            url.searchParams.set('SWECmd', 'GotoView');
+            url.searchParams.set('SWEView', viewName);
+            await page.goto(url.href, {waitUntil:'domcontentloaded', timeout:90000});
+        };
 
         const inventoryViewLoaded = async () => {
-            if (page.url().includes('Auto+Home+Page+View')) return false;
             for (const frame of page.frames()) {
-                try {
-                    const ok = await frame.evaluate(() => {
-                        const t = document.body.innerText || '';
-                        // The Spares Inventory list applet is identified by its column
-                        // headers. "Spare Part Browser" is NOT present on this
-                        // deployment, so rely on the table headers instead.
-                        return (/Part\s*#/.test(t) && /Description/.test(t)) || /Spare Part Browser/.test(t);
-                    });
-                    if (ok) return true;
-                } catch (e) {}
+                if (await frame.evaluate(inventoryReportReady).catch(() => false)) return true;
+            }
+            return false;
+        };
+        const inventoryAction = async action => {
+            for (const frame of page.frames()) {
+                if (!await frame.evaluate(inventoryReportReady).catch(() => false)) continue;
+                if (await frame.evaluate(clickInventoryControl, action).catch(() => false)) return true;
             }
             return false;
         };
@@ -434,24 +416,19 @@ let botUser = location.username;
             await new Promise(r => setTimeout(r, 2000));
             await page.screenshot({ path: scratch('debug_site_map.png') });
 
-            // 2. Click on MIS - Spares (in the Site Map - Category)
-            console.log('Clicking MIS - Spares in Site Map (Category)...');
-            const misCat = await retryClick(['MIS - Spares', 'MIS Spares'], false, 0, 12);
-            notify(`Site Map 'MIS - Spares' category click: ${misCat ? 'OK' : 'FAILED'}`);
-            await new Promise(r => setTimeout(r, 5000));
-
-            // 2.5 Click on MIS - Spares AGAIN (in the Site Map - Link)
-            console.log('Clicking MIS - Spares in Site Map (Link)...');
-            let misLink = await retryClick(['MIS - Spares', 'MIS Spares'], false, 1, 6); // 1 = Second visible match
-            if (!misLink) misLink = await retryClick(['MIS - Spares', 'MIS Spares'], false, 0, 6);
-            notify(`Site Map 'MIS - Spares' link click: ${misLink ? 'OK' : 'FAILED'}`);
-            await new Promise(r => setTimeout(r, 10000));
-
-            // 3.5 Click on Spares Inventory (sub-tab)
-            console.log('Clicking Spares Inventory tab...');
-            const invTab = await retryClick(['Spares Inventory'], false, 0, 12);
-            notify(`'Spares Inventory' tab click: ${invTab ? 'OK' : 'FAILED'}`);
-            await new Promise(r => setTimeout(r, 5000));
+            // Site Map has several MIS/Part Browser links. Select the exact
+            // inventory view action, never a positional text match or an invoice tab.
+            let inventoryLink = false;
+            for (let attempt = 0; attempt < 12 && !inventoryLink; attempt++) {
+                inventoryLink = await page.evaluate(clickInventoryViewLink).catch(() => false);
+                if (!inventoryLink && await page.evaluate(clickMisSparesScreen).catch(() => false)) {
+                    await new Promise(r => setTimeout(r, 5000));
+                    inventoryLink = await page.evaluate(clickInventoryTab).catch(() => false);
+                }
+                if (!inventoryLink) await new Promise(r => setTimeout(r, 2000));
+            }
+            notify(`Exact MIS inventory link: ${inventoryLink ? 'opened' : 'not available'}`);
+            await new Promise(r => setTimeout(r, 8000));
             await page.screenshot({ path: scratch('debug_after_spares_inventory_tab.png') });
 
             reachedInventoryView = await inventoryViewLoaded();
@@ -516,13 +493,10 @@ let botUser = location.username;
 
         notify('Waiting for the data table to load...');
         
-        console.log('Clicking Go to execute default query just in case it is empty...');
-        for(let i = 0; i < 15; i++) {
-            const foundGo = await robustClickText(['Go']);
-            if (foundGo) break;
-            await new Promise(r => setTimeout(r, 2000));
-        }
-        
+        if (!await inventoryViewLoaded()) throw new Error('WRONG_REPORT: Tata left the inventory report before export. Existing stock was kept.');
+        await inventoryAction('Go');
+        await new Promise(r => setTimeout(r, 2000));
+
         console.log('Setting up download behavior...');
         const downloadPath = downloadDir;
         if (!fs.existsSync(downloadPath)) {
@@ -551,7 +525,7 @@ let botUser = location.username;
         // "Export" toolbar menu, so "Download to Excel" only exists after it is
         // opened. Clicking it when already visible is harmless.
         console.log('Attempting to open the Export menu...');
-        await robustClickText(['Export', 'Export...', 'Export Report'], true);
+        await inventoryAction('Export');
         await new Promise(r => setTimeout(r, 2000));
         
         console.log('Extracting ALL text from all frames...');
@@ -587,12 +561,8 @@ let botUser = location.username;
         for (let i = 0; i < 6; i++) {
             notify(`Clicking Download to Excel... (Attempt ${i+1})`);
             
-            // Try clicking the first 3 visible matches of "Download to Excel" just in case there are multiple applets
-            for (let matchIndex = 0; matchIndex < 3; matchIndex++) {
-                const clicked = await robustClickText(['Download to Excel', 'Download To Excel', 'Download excel'], true, matchIndex);
-                if (clicked) foundDownload = true;
-            }
-            
+            foundDownload = await inventoryAction('Download to Excel');
+
             if (foundDownload) break;
             await new Promise(r => setTimeout(r, 5000));
         }
@@ -627,6 +597,10 @@ let botUser = location.username;
             }
         }
         
+        if (!foundDownload) {
+            throw new Error('INVENTORY_EXPORT_UNAVAILABLE: No inventory Download to Excel control was available. Receipt and consumption exports were not clicked; existing inventory was kept.');
+        }
+
         notify('Waiting for file to download (handling popups if any)...');
         let downloadedFile = null;
         const timeout = 900000; // 15 minutes (large exports take a while to build)
@@ -696,23 +670,24 @@ let botUser = location.username;
                 throw new Error(`NO_EXPORT: The Tata app did not return an export file for ${location.location_name} within 5 minutes. The app is not working or the session/login failed - use Settings > Manual Upload to add today's data.`);
             }
 
-            // 1. The export dialog needs exactly ONE "Next" click to start building
-            //    the file — it does not page the report. Click it once, then stop
-            //    and just wait for the download to finish (the checks below are the
-            //    "check download" step). Clicking "Next" in a loop used to spin
-            //    forever: Siebel's own toolbar always shows disabled "Next Record" /
-            //    "Next Record Set" / "Next Task Step" / "Next >" controls, which
-            //    robustClickText kept matching ("Match 5/5").
+            // The Export dialog appears asynchronously. A missing Next on the
+            // first poll is not a completed wizard: wait for the exact Export:Next
+            // control and request all query rows/columns before clicking it once.
             if (!inProgress && nextClicks < 1) {
-                try {
-                    const clicked = await robustClickText(['Next', 'NEXT', 'next', 'Next >', '>>'], false);
+                let clicked = false;
+                for (const exportPage of await browser.pages()) {
+                    for (const frame of exportPage.frames()) {
+                        if (await frame.evaluate(startInventoryExport).catch(() => false)) {clicked = true;break;}
+                    }
+                    if (clicked) break;
+                }
+                if (clicked) {
                     nextClicks++;
-                    notify(clicked
-                        ? 'Clicked "Next" once on the export dialog - waiting for the download...'
-                        : 'No "Next" found on the export dialog - waiting for the download...');
-                    await new Promise(r => setTimeout(r, 2000));
-                } catch (e) { nextClicks++; }
-                wizardDone = true; // a single click is all the dialog needs
+                    wizardDone = true;
+                    notify('Export started: all query rows and all columns. Waiting for the download...');
+                } else if (!found.length && Date.now() - start > 60000) {
+                    throw new Error('EXPORT_DIALOG_TIMEOUT: Tata did not open a usable inventory export dialog within 60 seconds. Existing stock was kept.');
+                }
             }
 
             // 2. Accept only once the wizard is done (or the file has been stable a
@@ -789,7 +764,7 @@ let botUser = location.username;
         if (downloadedFile) {
             console.log('Download successful! We can parse the file now.');
             
-            console.log('Old data already cleared. Proceeding to parse.');
+            console.log('Existing stock is retained until the downloaded report is parsed and uploaded.');
 
             console.log('Reading and parsing downloaded file...');
             const results = [];
@@ -921,7 +896,7 @@ let botUser = location.username;
 
     } catch (error) {
         console.error(`An error occurred during scraping for ${location.location_name}:`, error);
-        if (error && error.optionUnavailable) {
+        if (error && error.optionUnavailable && isMonthClosingWindow()) {
             // The report menu itself was not available (e.g. month-end close).
             notify(`Skipped ${location.location_name}: the MIS Spares option was not available.`);
         } else {
