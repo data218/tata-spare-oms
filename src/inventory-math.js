@@ -26,8 +26,15 @@ export function parseTataDate(value) {
   const date = new Date(year, month - 1, day, hour, Number(minute), Number(second));
   return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day ? date : null;
 }
+let configuredLocations = [];
+export function setConfiguredLocations(names = []) {
+  configuredLocations = [...new Set(names.map(name=>String(name || '').trim().toUpperCase()).filter(Boolean))]
+    .map(name=>({name,compact:name.replace(/\s+/g,'')})).sort((a,b)=>b.compact.length-a.compact.length);
+}
 export function normalizeLocation(value) {
   const text = String(value || '').toUpperCase().replace(/\s+/g, '');
+  const configured = configuredLocations.find(location=>location.compact===text);
+  if (configured) return configured.name;
   for (const [location, aliases] of Object.entries({CHANNIRAMA:['CHANNIRAMA','CHHANIRAMA'],SUPWAL:['SUPWAL','SMAMSAMBA'],KATHUA:['KATHUA','SMAMKATHUA'],NARWAL:['NARWAL','NARVAL','JAMMU'],REASI:['REASI'],LAMBHERI:['LAMBHERI'],POONCH:['POONCH']})) {
     if (aliases.some(alias => text.includes(alias))) return location;
   }
@@ -66,7 +73,7 @@ export function stockDepartment(indicator) {
   if (compact.includes('BODYSHOP') || compact === 'BS') return 'bodyshop';
   if (compact.includes('WPACS')) return 'wpacs';
   if (compact.includes('WORKSHOP') || compact === 'WS') return 'workshop';
-  if (compact.startsWith('TMPCPARTS') && /JAMMU|CHANNIRAMA|SMAMSAMBA|KATHUA|SUPWAL|NARWAL|NARVAL|LAMBHERI|POONCH|REASI/.test(compact)) return 'workshop';
+  if (compact.startsWith('TMPCPARTS') && /SWAPVT|JAMMU|CHANNIRAMA|SMAMSAMBA|KATHUA|SUPWAL|NARWAL|NARVAL|LAMBHERI|POONCH|REASI/.test(compact)) return 'workshop';
   return 'unassigned';
 }
 export function quantityTotals(parts, field = 'currentStock') {

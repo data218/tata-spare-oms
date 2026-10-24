@@ -29,6 +29,7 @@ import { fetchInventoryData }    from './src/inventory_scraper.js';
 import { supabase }              from './src/server-config.js';
 import { isCancelled, sameRun, mergeWorkerJob, compareJob } from './src/fetch-job.js';
 import { randomUUID } from 'node:crypto';
+import { createLocationSetupWorker } from './src/location-setup-worker.js';
 
 // ── Single-instance guard ────────────────────────────────────────────────────
 // run-worker.cmd restarts this process in a loop. If the PC ever ends up with
@@ -54,6 +55,9 @@ try {
   console.error('single-instance lock failed:', e.message);
 }
 process.on('exit', () => { try { fs.unlinkSync(LOCK_FILE); } catch { /* ignore */ } });
+
+const locationSetup = createLocationSetupWorker(supabase, credentials =>
+  fetchInventoryData(null, credentials.location_name, AbortSignal.timeout(5 * 60 * 1000), {connectionTest:true,credentials}));
 
 const JOB_KEY        = 'fetch_job';
 const MAX_LOG_CHARS  = 40_000;
@@ -156,6 +160,8 @@ async function tick() {
   if (busy) return;
   busy = true;
   try {
+    try { await locationSetup.poll(); }
+    catch { console.error(clock(), 'Location setup unavailable; existing fetch tasks will continue.'); }
     await processQueue();
   } catch (e) {
     console.error(clock(), '⚠ Worker loop error:', e.message);

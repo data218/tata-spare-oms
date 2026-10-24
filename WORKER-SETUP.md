@@ -50,3 +50,27 @@ that can reach Tata; the website alone is currently a queue, not the scraper hos
 
 Before updating a running installation, let active Fetch tasks finish. Pull the
 latest code and run `npm.cmd run worker:install` again to refresh the startup task.
+
+## Add a Tata location from Settings
+
+After installing the updated worker once, run `npm.cmd run worker:access` on the
+worker PC. This displays a private setup code. Keep it private and copy it into
+Settings > Dealership Locations; do not post it in chat or screenshots.
+
+Enter the location name, Tata username and password, then click **Test & Save**.
+The browser verifies the worker identity using the setup code and encrypts the
+request before writing it to Supabase. The worker authorizes and tests the login
+and inventory report access. Only a successful test creates/updates the location.
+Testing does not download stock or change inventory/consumption records.
+
+New passwords are encrypted in `tata_locations.password`. The private decryption
+key and setup code stay in `%USERPROFILE%\.tata-oms-worker\identity.json`, outside
+the checkout. Only the worker can read those passwords back. Existing legacy
+credentials/environment configuration continue to work. Credentials saved through
+Settings take precedence over older environment credentials for the same location.
+
+Keep the identity folder private and back it up securely: a replacement worker
+needs the same identity to decrypt saved credentials. If it is lost, locations
+must be tested/saved again with their Tata passwords. Do not delete the identity
+when updating the Git checkout. The setup code grants credential-management
+access independently of the browser's existing local user accounts.

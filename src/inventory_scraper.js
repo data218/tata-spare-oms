@@ -3,6 +3,7 @@ import { parseNumber } from './inventory-math.js';
 import { launchBrowser } from './puppeteer-runtime.js';
 import { clickSessionWarningAction } from './siebel-session.js';
 import { inventoryReportReady, clickInventoryViewLink, clickInventoryControl, clickMisSparesScreen, clickInventoryTab, startInventoryExport } from './siebel-inventory.js';
+import { resolveLocationPassword, SECRET_PREFIX } from './location-secrets.js';
 import * as dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
@@ -45,7 +46,17 @@ async function persistInventoryAlert(alert) {
     }
 }
 
-async function fetchInventoryData(onProgress = null, targetLocation = 'ALL', signal) {
+export function mergeInventoryLocations(databaseRows, environmentRows = []) {
+    const locations = new Map(databaseRows.map(row => [String(row.location_name || '').trim().toUpperCase(), {...row,location_name:String(row.location_name || '').trim().toUpperCase()}]));
+    for (const row of environmentRows) {
+        const name = String(row.location_name || '').trim().toUpperCase();
+        // A verified dashboard update supersedes old environment credentials.
+        if (!String(locations.get(name)?.password || '').startsWith(SECRET_PREFIX)) locations.set(name,{...row,location_name:name});
+    }
+    return [...locations.values()].filter(row => row.location_name);
+}
+
+async function fetchInventoryData(onProgress = null, targetLocation = 'ALL', signal, options = {}) {
     signal?.throwIfAborted();
     let summaryMessages = [];
     let anyRowsParsed = false;
@@ -55,18 +66,23 @@ async function fetchInventoryData(onProgress = null, targetLocation = 'ALL', sig
         console.log(msg);
         if (onProgress) onProgress(msg);
     };
-    // Locations + credentials come from TATA_LOCATIONS_JSON when set. This is
-    // the recommended setup because it keeps the Siebel location passwords out
-    // of the anon-readable tata_locations table (only the browser needs location
-    // NAMES, which can stay in Supabase). Falls back to the database otherwise.
+    // Merge existing environment credentials with registered locations. New
+    // verified dashboard credentials are encrypted for this worker; plaintext
+    // legacy rows remain supported for existing installations.
     // Format: TATA_LOCATIONS_JSON='[{"location_name":"NARWAL","username":"..","password":".."}]'
     let locations;
+    if (options.connectionTest) {
+        locations = [options.credentials];
+    } else {
+    const {data:databaseRows,error:locationError} = await supabase.from('tata_locations').select('*');
+    if (locationError) throw new Error('Could not read configured locations.');
+    let environmentRows = [];
     if (process.env.TATA_LOCATIONS_JSON) {
         notify('Using location credentials from TATA_LOCATIONS_JSON (server-side).');
         try {
             const parsed = JSON.parse(process.env.TATA_LOCATIONS_JSON);
             if (!Array.isArray(parsed)) throw new Error('expected a JSON array');
-            locations = parsed.map(l => ({
+            environmentRows = parsed.map(l => ({
                 location_name: String(l.location_name || '').toUpperCase().trim(),
                 username: l.username,
                 password: l.password
@@ -76,11 +92,8 @@ async function fetchInventoryData(onProgress = null, targetLocation = 'ALL', sig
         }
     } else {
         notify('Fetching locations from Supabase...');
-        const { data, error: locError } = await supabase.from('tata_locations').select('*');
-        if (locError) {
-            throw new Error('Failed to fetch locations: ' + locError.message);
-        }
-        locations = data || [];
+    }
+    locations = mergeInventoryLocations(databaseRows || [],environmentRows);
     }
     
     if (targetLocation && targetLocation !== 'ALL') {
@@ -154,7 +167,7 @@ async function fetchInventoryData(onProgress = null, targetLocation = 'ALL', sig
         fs.writeFileSync(scratch('page.html'), html);
         console.log('Saved page.html for inspection');
 let botUser = location.username;
-        let botPass = location.password;
+        let botPass = resolveLocationPassword(location);
 
         if (!botUser || !botPass) {
             throw new Error(`Tata Siebel login credentials missing for ${location.location_name}. Add username/password in tata_locations table.`);
@@ -443,6 +456,10 @@ let botUser = location.username;
             skipErr.optionUnavailable = true;
             throw skipErr;
         }
+
+        // Test setup uses the same login/navigation, then exits through logout.
+        // It never downloads a report or changes stock/consumption tables.
+        if (options.connectionTest) return {connected:true,location:location.location_name};
 
         // 4. Wait for report/applet to load
         notify('Waiting for Inventory applet to load...');
@@ -895,6 +912,7 @@ let botUser = location.username;
         }
 
     } catch (error) {
+        if (options.connectionTest) throw new Error('Tata connection test failed. Check login and inventory report access.');
         console.error(`An error occurred during scraping for ${location.location_name}:`, error);
         if (error && error.optionUnavailable && isMonthClosingWindow()) {
             // The report menu itself was not available (e.g. month-end close).

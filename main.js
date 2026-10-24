@@ -3,9 +3,10 @@ import { readInventoryDepartment, validateInventoryDepartments } from './src/inv
 import { renderQuantityKpi, renderDepartmentValue } from './src/dashboard-display.js';
 import { readDashboardTable } from './src/dashboard-data.js';
 import { parseNumber } from './src/inventory-math.js';
-import { processInventoryData, parseTataDate, isLubePart, quantityTotals, summarizeInventory, toBaseQuantity, normalizeLocation, reorderMetrics } from './src/inventory-math.js';
+import { processInventoryData, parseTataDate, isLubePart, quantityTotals, summarizeInventory, toBaseQuantity, normalizeLocation, reorderMetrics, setConfiguredLocations } from './src/inventory-math.js';
 import { watchFetchJob } from './src/fetch-progress.js';
 import { renderFetchStatus, fetchRequestUnits } from './src/fetch-display.js';
+import { submitLocationSetup } from './src/location-setup-client.js';
 import './movement_entry.js';
 import './management_dashboard.js';
 import { supabase } from './supabase.js';
@@ -1265,6 +1266,7 @@ async function loadLocations() {
   try {
     const { data, error } = await supabase.from('tata_locations').select('id, location_name, username');
     if (error) throw error;
+    setConfiguredLocations((data || []).map(location=>location.location_name));
     
     locList.innerHTML = '';
     if (data.length === 0) {
@@ -1413,26 +1415,57 @@ if (credForm) {
 
 const addLocForm = document.getElementById('add-location-form');
 
+document.getElementById('toggle-location-password')?.addEventListener('click', event => {
+  const input=document.getElementById('loc-password'),button=event.currentTarget;
+  const visible=input.type==='password';
+  input.type=visible?'text':'password';
+  button.setAttribute('aria-pressed',String(visible));
+  button.setAttribute('aria-label',visible?'Hide Tata password':'Show Tata password');
+  button.innerHTML=`<i data-lucide="${visible?'eye-off':'eye'}" style="width:18px;height:18px;"></i>`;
+  lucide.createIcons();
+});
+
 if (addLocForm) {
   addLocForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = addLocForm.querySelector('button[type="submit"]');
+    const status=document.getElementById('location-setup-status');
+    let user;
+    try { user=JSON.parse(sessionStorage.getItem('currentUser')); } catch {}
+    if (!['Admin','Super Admin'].includes(user?.role)) {
+      status.textContent='Only an administrator can set up a location.';
+      return;
+    }
     btn.disabled = true;
+    btn.textContent='Testing...';
     
     const locName = document.getElementById('loc-name').value.trim().toUpperCase();
     const username = document.getElementById('loc-username').value;
+    const passwordInput=document.getElementById('loc-password');
+    const password=passwordInput.value;
+    const setupCode=document.getElementById('loc-setup-code').value.trim();
+    status.style.color='var(--text-secondary)';
     
     try {
-      // Only the location name/username are stored here. The Siebel password is
-      // configured server-side (TATA_LOCATIONS_JSON) and never written to the DB.
-      await supabase.from('tata_locations').insert({ location_name: locName, username, password: '' });
-      addLocForm.reset();
-      loadLocations();
+      const result=await submitLocationSetup(supabase,{location:locName,username:username.trim(),password},setupCode,message=>{status.textContent=message;});
+      passwordInput.value='';
+      passwordInput.type='password';
+      const eye=document.getElementById('toggle-location-password');
+      eye.setAttribute('aria-pressed','false');
+      eye.setAttribute('aria-label','Show Tata password');
+      eye.innerHTML='<i data-lucide="eye" style="width:18px;height:18px;"></i>';
+      status.style.color='#059669';
+      document.getElementById('loc-name').value=result.location;
+      status.textContent=`${result.location}: connected to Tata and saved. You can now select it under Fetch Inventory.`;
+      await loadLocations();
+      await populateLocationSelect();
+      lucide.createIcons();
     } catch (err) {
-      console.error('Error saving location:', err);
-      alert('Error saving location');
+      status.style.color='#ef4444';
+      status.textContent=err.message || 'Location setup failed. Nothing was saved.';
     }
     btn.disabled = false;
+    btn.textContent='Test & Save';
   });
 }
 
@@ -1672,6 +1705,9 @@ function filterByDateRange(data, dateField, range) {
 
 async function fetchInventoryData() {
   try {
+    const {data:locationRows,error:locationError}=await supabase.from('tata_locations').select('location_name');
+    if (locationError) throw locationError;
+    setConfiguredLocations((locationRows || []).map(location=>location.location_name));
     const sessionStr = sessionStorage.getItem('currentUser');
     let currentUser = {};
     try {

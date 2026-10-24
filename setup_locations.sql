@@ -15,9 +15,10 @@ GRANT ALL ON TABLE "tata_locations" TO anon;
 GRANT ALL ON TABLE "tata_locations" TO authenticated;
 GRANT ALL ON TABLE "tata_locations" TO service_role;
 
--- Example row only. Real Siebel usernames/passwords should be provided to the bot
--- through the TATA_LOCATIONS_JSON environment variable, NOT stored here (this
--- table is readable by anyone with the public anon key).
+-- New dashboard setup writes worker-sealed-v1 encrypted credentials here only
+-- after a worker-authorized Tata connection test. The private key stays on the
+-- worker PC. Never insert plaintext passwords from the browser into this table;
+-- it is readable with the public anon key. Environment credentials remain supported.
 -- INSERT INTO "tata_locations" ("location_name", "username", "password")
 -- VALUES ('NARWAL', '', '');
 

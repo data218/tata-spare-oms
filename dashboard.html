@@ -1598,23 +1598,37 @@
                   <!-- Dynamically populated -->
                 </div>
                 
-                <h4 style="margin: 15px 0 10px 0;">Add New Location</h4>
-                <form id="add-location-form" style="display: flex; gap: 10px; align-items: flex-end;">
+                <h4 style="margin: 15px 0 10px 0;">Add or Update Location</h4>
+                <form id="add-location-form" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end;">
                   <div style="flex: 1;">
                     <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.85rem;">Location Name (e.g. SUPWAL)</label>
-                    <input type="text" id="loc-name" style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px;" required="">
+                    <input type="text" id="loc-name" maxlength="80" style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px;" required="">
                   </div>
                   <div style="flex: 1;">
                     <label style="display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.85rem;">Username</label>
-                    <input type="text" id="loc-username" style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px;" required="">
+                    <input type="text" id="loc-username" maxlength="120" autocomplete="off" style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px;" required="">
                   </div>
-                  <button type="submit" style="background: #3b82f6; color: white; border: none; padding: 9px 12px; border-radius: 4px; cursor: pointer;">
-                    <i data-lucide="plus"></i>
-                  </button>
+                  <div style="flex:1;min-width:180px;">
+                    <label for="loc-password" style="display:block;margin-bottom:5px;font-weight:500;font-size:0.85rem;">Tata Password</label>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                      <input type="password" id="loc-password" maxlength="512" autocomplete="new-password" required style="width:100%;padding:8px;border:1px solid var(--border-color);border-radius:4px;">
+                      <button type="button" id="toggle-location-password" aria-label="Show Tata password" aria-pressed="false" style="background:none;border:none;cursor:pointer;padding:4px;"><i data-lucide="eye" style="width:18px;height:18px;"></i></button>
+                    </div>
+                  </div>
+                  <div style="flex:1;min-width:180px;">
+                    <label for="loc-setup-code" style="display:block;margin-bottom:5px;font-weight:500;font-size:0.85rem;">Worker Setup Code</label>
+                    <input type="password" id="loc-setup-code" autocomplete="off" required style="width:100%;padding:8px;border:1px solid var(--border-color);border-radius:4px;">
+                  </div>
+                  <button type="submit" style="background:#3b82f6;color:white;border:none;padding:9px 12px;border-radius:4px;cursor:pointer;">Test &amp; Save</button>
                 </form>
+                <p id="location-setup-status" role="status" aria-live="polite" style="font-size:0.85rem;margin-top:10px;"></p>
                 <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 10px;">
-                  Passwords are configured on the server (environment variable <code>TATA_LOCATIONS_JSON</code>) and are never stored in the database.
+                  The background worker verifies the Tata login and inventory report before saving. New passwords are encrypted and cannot be read back here.
                 </p>
+                <details style="font-size:0.85rem;color:var(--text-secondary);">
+                  <summary style="cursor:pointer;">Where do I get the worker setup code?</summary>
+                  <p>On the worker PC, run <code>npm.cmd run worker:access</code> in the project folder. Copy the private code into this form. Keep it private; it authorizes changes to Tata credentials. The worker must be updated and running.</p>
+                </details>
               </div>
             </div><div class="settings-card" style="background: var(--card-bg); border-radius: 8px; padding: 14px; border: 1px solid var(--border-color); max-width: 500px; margin-bottom: 20px;">
               <div class="settings-header" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
