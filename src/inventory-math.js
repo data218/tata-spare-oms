@@ -129,7 +129,9 @@ export function processInventoryData({inventory = [], consumption = [], priceLis
   for (const row of movementLogs) {
     const part = make(row.part_id, row.location), date = parseTataDate(row.date);
     if (!part.snapshotAt) part.snapshotAt = locationSnapshots.get(part.location) || null;
-    if (!date || !part.snapshotAt || date <= part.snapshotAt) {part.unreconciledMovements++;continue;}
+    // Without a location export, the manual ledger is the recorded balance.
+    // Once an export exists, only later entries adjust its stock baseline.
+    if (!date || date > now || (part.snapshotAt && date <= part.snapshotAt)) {part.unreconciledMovements++;continue;}
     // Manual entry forms store the entered amount in the same canonical unit as the displayed stock.
     const qty = parseNumber(row.qty) * (row.movement_type === 'IN' ? 1 : -1);
     part.currentStock += qty; part.subStock.unassigned += qty;

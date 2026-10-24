@@ -19,6 +19,20 @@ test('order quantities support millilitres/grams and round pieces up',()=>{asser
 test('oil filters and seals keep their EA unit and are not lubricant',()=>{const p=processInventoryData({priceList:[{part_number:'FILTER',description:'Engine Oil Filter',uom:'EA',ndp:200,category:'Warehouse'}],inventory:[row('FILTER',3,{description:'Engine Oil Filter',product_category:'Spare Part'})]},now)[0];assert.equal(p.productCategory,'SPARE PART');assert.equal(p.uom,'EA');assert.equal(p.currentStock,3);assert.equal(p.stockValue,600);});
 test('new manual receipt applies to a consumption-only part after its location snapshot',()=>{const parts=data([row('BOLT',1)],[{part_no:'OIL',division:'NARWAL',sold_qty:1000,date:'2026-10-19'}],[{part_id:'OIL',location:'NARWAL',movement_type:'IN',qty:2,date:'2026-10-21T00:00:00Z'}]);const oil=parts.find(p=>p.partId==='OIL');assert.equal(oil.currentStock,2);assert.equal(oil.stockValue,2*oil.ndpPrice);});
 
+test('manual receipts and issues form recorded stock for a location with no inventory export',()=>{
+  const logs=[{part_id:'BOLT',location:'REASI',movement_type:'IN',qty:3,date:'2026-10-20T08:00:00Z'},{part_id:'BOLT',location:'REASI',movement_type:'OUT',qty:1,date:'2026-10-20T09:00:00Z'}];
+  const parts=data([row('BOLT',10)],[],logs),reasi=parts.find(p=>p.location==='REASI');
+  assert.equal(reasi.currentStock,2);assert.equal(reasi.available,2);assert.equal(reasi.stockValue,40);assert.equal(reasi.snapshotAt,null);
+  assert.equal(parts.find(p=>p.location==='NARWAL').currentStock,10);
+  const uploaded=data([row('BOLT',2,{division:'REASI',fetched_at:'2026-10-20T10:00:00Z'})],[],logs)[0];
+  assert.equal(uploaded.currentStock,2);assert.equal(uploaded.stockValue,40);
+});
+
+test('manual litres without an export retain canonical quantities and future entries are excluded',()=>{
+  const [part]=data([],[],[{part_id:'OIL',location:'REASI',movement_type:'IN',qty:2,date:'2026-10-20'},{part_id:'OIL',location:'REASI',movement_type:'IN',qty:100,date:'2026-12-01'}]);
+  assert.equal(part.currentStock,2);assert.equal(part.stockValue,2*priceList[0].ndp);
+});
+
 test('department values distinguish Workshop, Bodyshop and WPACS store paths',()=>{
   const [p]=data([row('BOLT',3,{inventory_indicator:'TMPC-PARTS-N2-JK-3008420-SwaPvt-Jammu'}),row('BOLT',2,{inventory_indicator:'TMPC-PARTS-N2-JK-3008420-SwaPvt-Bodyshop'}),row('BOLT',1,{inventory_indicator:'TMPC-PARTS-N2-JK-3008420-SwaPvt-WPACS-Jammu'})]);
   assert.equal(p.currentStock,6);assert.deepEqual(p.subStock,{workshop:3,bodyshop:2,wpacs:1,unassigned:0});assert.equal(summarizeInventory([p]).missingDepartments,0);
