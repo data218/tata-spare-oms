@@ -67,6 +67,8 @@ export function openMetricDetails(id, titleText, definition, details = []) {
 export function renderDepartmentValue(element, value, parts) {
   if (!element) return;
   const complete = parts.every(p => Math.abs(p.subStock?.unassigned || 0) < 1e-9);
-  element.textContent = complete ? '₹' + value.toLocaleString('en-IN', {maximumFractionDigits:0}) : '';
-  element.title = complete ? '' : 'Department data is incomplete. Re-import inventory with Inventory Location or Inventory Indicator.';
+  // An unassigned receipt at one location must not hide classified stock at
+  // every other location. These cards show the mapped department subtotal.
+  element.textContent = '₹' + value.toLocaleString('en-IN', {maximumFractionDigits:0});
+  element.title = complete ? '' : 'Mapped stock only. Stock without a department is excluded; see Data notes.';
 }

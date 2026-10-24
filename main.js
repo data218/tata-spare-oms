@@ -2132,7 +2132,7 @@ function showCalculationQuality(parts) {
   if (quality.missingPrices) warnings.push(`${quality.missingPrices} stocked part/location groups have no NDP`);
   if (quality.unknownUnits) warnings.push(`${quality.unknownUnits} stocked groups have no price-list unit`);
   if (quality.descriptionMismatches) warnings.push(`${quality.descriptionMismatches} part/location descriptions differ from the price list`);
-  if (quality.missingDepartments) warnings.push(`${quality.missingDepartments} stocked groups have incomplete department data; Workshop, Bodyshop and WPACS amounts are withheld until the department column is restored`);
+  if (quality.missingDepartments) warnings.push(`${quality.missingDepartments} stocked groups include stock without a department; this stock is included in Stock Value but excluded from Workshop, Bodyshop and WPACS subtotals`);
   if (quality.unknownAge) warnings.push(`${quality.unknownAge} stocked groups have unknown receipt age`);
   if (quality.unreconciledMovements) warnings.push(`${quality.unreconciledMovements} older/manual adjustments need reconciliation with the stock snapshot`);
   banner.querySelector('div').textContent = warnings.length ? `Data needs review: ${warnings.join('; ')}. Values include priced stock only. Refresh/re-import source exports after the numeric-import fix; earlier comma-separated quantities may have been truncated.` : '';
